@@ -1,0 +1,22 @@
+name: HR System Static Checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run check
+      - run: npm run check:production
+      - run: npm run check:sanitization
+      - run: npm run check:attendance-identity
+      - run: npm run check:runtime-diagnostics
+      - run: npm run check:release-security
+      - run: npm run check:release-artifact

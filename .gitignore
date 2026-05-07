@@ -1,0 +1,36 @@
+node_modules/
+exports/
+.git.zip
+scratch/
+.env
+.env.*
+!.env.example
+# Ignore local environment secrets and credentials
+.env.local
+PRIVATE_SECRETS/
+docs/OPS_GATE_TEMP_CODE.txt
+!shared/js/supabase-config.example.js
+# shared/js/supabase-config.js is public runtime config required by GitHub Pages.
+# Never place service_role or private keys in it.
+server.*.log
+supabase/VAPID_SECRETS_TO_SET.env
+.DS_Store
+public/generated-reports/*
+!public/generated-reports/.gitkeep
+public/uploads/avatars/*
+!public/uploads/avatars/.gitkeep
+supabase/.temp/
+shared/data/authorized-employees.json
+docs/templates/authorized-employees-import.json
+
+# Build and distribution
+dist/
+build/
+dist_public_pages/
+*.zip
+*.log
+*.tar.gz
+
+# OS files
+Thumbs.db
+Desktop.ini

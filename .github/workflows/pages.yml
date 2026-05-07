@@ -1,0 +1,46 @@
+name: Deploy GitHub Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run check
+      - run: npm run check:release-security
+      - run: npm run check:release-artifact
+      - name: Prepare public pages artifact
+        run: |
+          mkdir -p dist_public_pages
+          cp -R index.html admin-login.html health.html admin employee executive operations-gate shared sw.js sw-admin.js sw-employee.js sw-executive.js _headers vercel.json dist_public_pages/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist_public_pages
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,21 @@
+project_id = "yemradvxmwadlldnxtpz"
+
+[functions.admin-create-user]
+verify_jwt = false
+
+[functions.admin-update-user]
+verify_jwt = false
+
+[functions.resolve-login-identifier]
+verify_jwt = false
+
+[functions.passkey-register]
+verify_jwt = false
+
+
+
+[functions.send-attendance-reminders]
+verify_jwt = false
+
+[functions.send-push-notifications]
+verify_jwt = false

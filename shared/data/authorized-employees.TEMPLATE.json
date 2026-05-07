@@ -1,0 +1,19 @@
+{
+  "sourceFile": "بيانات الموظفين.xlsx",
+  "version": "TEMPLATE — fill with real data locally only",
+  "loginPolicy": "Do NOT use phone number as password. Use generated secure passwords only.",
+  "employees": [
+    {
+      "order": 1,
+      "employeeCode": "AHS-XXX",
+      "fullName": "اسم الموظف",
+      "phone": "PHONE_PLACEHOLDER",
+      "initialPassword": "USE_GENERATED_SECURE_PASSWORD",
+      "jobTitle": "المسمى الوظيفي",
+      "roleId": "role-employee",
+      "departmentId": "d-DEPT",
+      "photoUrl": "employee-avatars/FILENAME.png",
+      "email": "emp.demo@ahla.local"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex,nofollow" />
+  <meta name="theme-color" content="#050A1A" />
+  <title>مركز فحص وتشغيل أحلى شباب HR</title>
+  <link rel="icon" href="shared/images/favicon-64.png" />
+  <link rel="stylesheet" href="shared/css/styles.css?v=v31-production-hardening-089" />
+  <link rel="stylesheet" href="shared/css/neon-admin-theme.css?v=v31-production-hardening-089" />
+  <style>
+    body{min-height:100vh;margin:0;padding:24px;background:radial-gradient(circle at 20% 0%,rgba(37,99,235,.22),transparent 32%),#050b16;color:#eef5ff;font-family:Cairo,Tahoma,Arial,sans-serif}.health-shell{max-width:1120px;margin:auto;display:grid;gap:18px}.health-hero{border:1px solid rgba(56,199,244,.32);background:linear-gradient(135deg,rgba(8,19,35,.94),rgba(12,20,42,.88));border-radius:28px;padding:24px;box-shadow:0 24px 80px rgba(0,0,0,.35);display:grid;gap:16px}.health-title{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.score{width:108px;height:108px;border-radius:999px;display:grid;place-items:center;border:1px solid rgba(56,199,244,.42);background:rgba(255,255,255,.05)}.score strong{font-size:30px}.health-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}.health-card{grid-column:span 6;border:1px solid rgba(255,255,255,.1);background:rgba(8,19,35,.82);border-radius:22px;padding:18px}.health-card.full{grid-column:span 12}.check-row{display:grid;grid-template-columns:1.3fr auto 2fr;gap:12px;align-items:center;border-top:1px solid rgba(255,255,255,.08);padding:12px 0}.check-row:first-child{border-top:0}.pill-status{display:inline-flex;align-items:center;justify-content:center;min-width:82px;border-radius:999px;padding:6px 10px;font-weight:800}.pill-status.ok{background:rgba(34,197,94,.14);color:#86efac;border:1px solid rgba(34,197,94,.3)}.pill-status.warn{background:rgba(245,158,11,.13);color:#fbbf24;border:1px solid rgba(245,158,11,.3)}.pill-status.bad{background:rgba(251,113,133,.14);color:#fb7185;border:1px solid rgba(251,113,133,.32)}.muted{color:#9aa8bd}.toolbar{display:flex;gap:10px;flex-wrap:wrap}.button{cursor:pointer}.log-box{white-space:pre-wrap;direction:ltr;text-align:left;background:#071120;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:14px;max-height:300px;overflow:auto}.small-note{font-size:13px;color:#9aa8bd}.health-toast{position:fixed;left:18px;bottom:18px;z-index:99;max-width:min(420px,calc(100vw - 36px));padding:12px 14px;border-radius:16px;border:1px solid rgba(56,199,244,.34);background:rgba(7,17,32,.96);box-shadow:0 18px 50px rgba(0,0,0,.35);color:#eef5ff;font-weight:800;opacity:0;transform:translateY(10px);transition:.22s}.health-toast.show{opacity:1;transform:translateY(0)}.health-toast.bad{border-color:rgba(251,113,133,.45);color:#fecdd3}@media(max-width:800px){body{padding:14px}.health-card{grid-column:span 12}.check-row{grid-template-columns:1fr}.score{width:88px;height:88px}.score strong{font-size:24px}}
+  </style>
+</head>
+<body>
+  <main class="health-shell">
+    <section class="health-hero">
+      <div class="health-title"><div><h1>مركز فحص وتشغيل أحلى شباب HR</h1><p class="muted">يفحص الإعدادات، Supabase، PWA، الإشعارات، الموقع، الكاش، وService Worker بعد النشر.</p></div><div class="score"><div><strong id="score">--%</strong><br><span class="muted">الجاهزية</span></div></div></div>
+      <div class="toolbar"><button class="button primary" type="button" id="run-checks">إعادة الفحص الآن</button><button class="button ghost" type="button" id="test-notification">اختبار إشعار محلي</button><button class="button ghost" type="button" id="download-report">تحميل تقرير JSON</button><button class="button danger" type="button" id="clear-cache">تنظيف الكاش وإعادة التحميل</button><a class="button ghost" href="employee/">فتح تطبيق الموظف</a><a class="button ghost" href="operations-gate/?target=admin">بوابة الإدارة</a></div>
+      <span class="small-note">لا تعرض هذه الصفحة أي مفاتيح سرية. المفتاح الظاهر داخل المتصفح يجب أن يكون public/anon فقط.</span>
+    </section>
+    <section class="health-grid"><article class="health-card full"><h2>نتائج الفحص</h2><div id="results" class="muted">جاري الفحص...</div></article><article class="health-card"><h2>مشاكل مانعة</h2><div id="blockers" class="muted">--</div></article><article class="health-card"><h2>تحذيرات</h2><div id="warnings" class="muted">--</div></article><article class="health-card full"><h2>Raw report</h2><div id="raw" class="log-box">--</div></article></section>
+  </main>
+  <script src="shared/js/supabase-config.js?v=v31-production-hardening-089"></script>
+  <script type="module">
+    import { runRuntimeDiagnostics, clearRuntimeCaches, testLocalNotification, downloadDiagnosticsReport } from './shared/js/runtime-diagnostics.js?v=v31-production-hardening-089';
+    let lastReport = null; const $ = (id) => document.getElementById(id);
+    function notify(message, level = 'ok') { const el = document.createElement('div'); el.className = `health-toast ${level === 'bad' ? 'bad' : ''}`; el.textContent = message; document.body.appendChild(el); requestAnimationFrame(() => el.classList.add('show')); setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 240); }, 3800); }
+    function label(level){ return level === 'ok' ? 'سليم' : level === 'bad' ? 'خطأ' : 'تحذير'; }
+    function renderList(target, rows){ target.innerHTML = rows.length ? rows.map((item) => `<div class="check-row"><strong>${item.label}</strong><span class="pill-status ${item.level}">${label(item.level)}</span><span>${item.detail || '-'}</span></div>`).join('') : '<div class="empty-state">لا توجد عناصر.</div>'; }
+    async function run(){ $('results').textContent = 'جاري الفحص...'; lastReport = await runRuntimeDiagnostics({ includeNetwork: true }); $('score').textContent = `${lastReport.score}%`; renderList($('results'), lastReport.results); renderList($('blockers'), lastReport.blockers); renderList($('warnings'), lastReport.warnings); $('raw').textContent = JSON.stringify(lastReport, null, 2); }
+    $('run-checks').addEventListener('click', run);
+    $('download-report').addEventListener('click', async () => downloadDiagnosticsReport(lastReport || await runRuntimeDiagnostics({ includeNetwork: true })));
+    $('clear-cache').addEventListener('click', async () => { if (confirm('سيتم حذف كاش التطبيق وإعادة تحميل الصفحة. هل تريد المتابعة؟')) await clearRuntimeCaches({ reload: true }); });
+    $('test-notification').addEventListener('click', async () => { try { await testLocalNotification(); notify('تم إرسال اختبار الإشعار.'); } catch (error) { notify(error.message || 'تعذر اختبار الإشعار.', 'bad'); } });
+    run();
+  </script>
+</body>
+</html>

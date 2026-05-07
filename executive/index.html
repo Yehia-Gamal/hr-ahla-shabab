@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex,nofollow" />
+  <meta name="theme-color" content="#050A1A" />
+  <link rel="manifest" href="../shared/pwa/manifest-executive.json" />
+  <link rel="icon" href="../shared/images/favicon-64.png" />
+  <link rel="stylesheet" href="../shared/css/styles.css?v=v31-production-hardening-089" />
+  <title>المتابعة التنفيذية — أحلى شباب</title>
+    <script>
+      (function guardOperationsGate(){
+        try {
+          var unlockedUntil = Number(sessionStorage.getItem('hr.opsGatewayUnlockedUntil') || 0);
+          var unlockedTarget = sessionStorage.getItem('hr.opsGatewayUnlockedTarget') || '';
+          var token = sessionStorage.getItem('hr.opsGatewayToken') || '';
+          var targetToken = sessionStorage.getItem('hr.opsGatewayToken.executive') || '';
+          if (unlockedUntil > Date.now() && unlockedTarget === 'executive' && token && targetToken && token === targetToken) return;
+          sessionStorage.removeItem('hr.opsGatewayUnlockedUntil');
+          sessionStorage.removeItem('hr.opsGatewayUnlockedTarget');
+          sessionStorage.removeItem('hr.opsGatewayToken');
+          var next = location.pathname + location.search + location.hash;
+          location.replace('../operations-gate/?target=executive&next=' + encodeURIComponent(next));
+        } catch (error) {
+          location.replace('../operations-gate/?target=executive');
+        }
+      })()
+    </script>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../shared/css/neon-admin-theme.css?v=v31-production-hardening-089" />
+  <script src="../shared/js/v9-hardening.js" defer></script>
+  <link rel="stylesheet" href="../shared/css/v10-private-deploy-theme.css?v=v31-production-hardening-089" />
+</head>
+<body>
+  <div id="app" class="app executive-portal-app"></div>
+  <script src="../shared/js/supabase-config.js?v=v31-production-hardening-089"></script>
+  <script type="module" src="../shared/js/executive-app.js?v=v31-production-hardening-089"></script>
+  <script src="../shared/js/register-sw.js?v=v31-production-hardening-089"></script>
+  <script src="../shared/js/v10-private-deploy-fixes.js?v=v31-production-hardening-089" defer></script>
+</body>
+</html>

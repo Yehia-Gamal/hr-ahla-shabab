@@ -1,0 +1,9 @@
+{
+  "employees": [
+    {
+      "employeeCode": "AHS-XXX",
+      "phone": "PHONE_PLACEHOLDER",
+      "photoUrl": "employee-avatars/FILENAME.png"
+    }
+  ]
+}

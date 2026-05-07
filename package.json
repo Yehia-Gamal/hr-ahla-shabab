@@ -1,0 +1,40 @@
+{
+  "name": "ahla-shabab-hr-supabase",
+  "version": "1.4.6-v31-production-hardening-089",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node tools/check-all-fast.mjs",
+    "check:js": "node tools/check-js.mjs",
+    "supabase:issue-passwords": "node tools/issue-supabase-passwords.mjs",
+    "serve": "npx http-server . -p 4173 -c-1",
+    "test": "node tools/check-all-fast.mjs",
+    "check:html": "node tools/check-html-scripts.mjs",
+    "check:guards": "node tools/check-web-guards.mjs",
+    "check:prepublish": "node tools/check-prepublish-consistency.mjs",
+    "check:all": "node tools/check-all-fast.mjs",
+    "check:production": "node tools/check-production-hardening.mjs",
+    "check:final": "node tools/check-final-lockdown.mjs",
+    "check:sanitization": "node tools/check-final-sanitization.mjs",
+    "check:kpi-policy": "node tools/check-kpi-policy.mjs",
+    "check:kpi-cycle": "node tools/check-kpi-cycle-control.mjs",
+    "check:management-suite": "node tools/check-management-suite.mjs",
+    "check:sql": "node tools/check-sql-runtime.mjs",
+    "check:attendance-identity": "node tools/check-attendance-identity.mjs",
+    "generate:runtime-config": "node tools/generate-runtime-config.mjs",
+    "check:theme": "node tools/check-theme.mjs",
+    "check:live-deploy-readiness": "node tools/check-live-deploy-readiness.mjs",
+    "check:v13-production-polish": "node tools/check-v13-production-polish.mjs",
+    "check:v31": "node tools/check-v31-final.mjs",
+    "build:exports": "node tools/build-v31-exports.mjs",
+    "check:release-security": "node tools/check-release-security.mjs",
+    "build:public": "node tools/build-public-pages-package.mjs",
+    "check:runtime-diagnostics": "node tools/check-runtime-diagnostics.mjs",
+    "check:release-artifact": "node tools/check-release-artifact.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.105.1",
+    "pg": "^8.20.0",
+    "postgres": "^3.4.9"
+  }
+}

@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex,nofollow" />
+  <meta name="theme-color" content="#050A1A" />
+  <link rel="icon" href="../shared/images/favicon-64.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" />
+  <link rel="stylesheet" href="../shared/css/neon-admin-theme.css?v=v31-production-hardening-089" />
+  <link rel="stylesheet" href="../shared/css/v10-private-deploy-theme.css?v=v31-production-hardening-089" />
+  <title>بوابة تشغيل الإدارة والتنفيذي - أحلى شباب</title>
+  <style>
+    :root{color-scheme:dark;--bg:#050b18;--panel:#0b1830;--line:rgba(56,189,248,.24);--cyan:#22d3ee;--blue:#2563eb;--purple:#8b5cf6;--red:#f43f5e;--green:#22c55e;--text:#f8fafc;--muted:#cbd5e1}
+    *{box-sizing:border-box}body{min-height:100vh;margin:0;display:grid;place-items:center;background:radial-gradient(circle at 18% 8%,rgba(34,211,238,.16),transparent 30%),radial-gradient(circle at 82% 22%,rgba(139,92,246,.16),transparent 28%),var(--bg);color:var(--text);font-family:Cairo,Tahoma,Arial,sans-serif;padding:20px;line-height:1.8}.gate{width:min(760px,100%);background:linear-gradient(180deg,rgba(14,34,58,.94),rgba(5,11,24,.98));border:1px solid var(--line);border-radius:30px;padding:28px;box-shadow:0 24px 60px rgba(0,0,0,.38)}.brand{display:flex;align-items:center;gap:16px;margin-bottom:20px}.brand img{width:80px;height:80px;object-fit:contain;filter:drop-shadow(0 0 12px rgba(34,211,238,.28))}.kicker{color:var(--cyan);font-weight:900;font-size:13px}.title{margin:4px 0 6px;font-size:30px;line-height:1.25}.lead{margin:0;color:var(--muted);font-size:15px}.target-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0}.target{border:1px solid rgba(56,189,248,.24);background:rgba(11,24,48,.78);border-radius:22px;padding:18px;text-align:right;color:var(--text);cursor:pointer;transition:.18s ease}.target:hover{border-color:rgba(34,211,238,.52)}.target.is-active{background:linear-gradient(135deg,rgba(34,211,238,.18),rgba(37,99,235,.18));border-color:var(--cyan);box-shadow:0 0 0 4px rgba(34,211,238,.09)}.target strong{display:block;font-size:19px;margin-bottom:6px}.target small{display:block;color:var(--muted);font-size:13px}.fields{display:grid;gap:14px;margin-top:10px}label{display:grid;gap:8px;color:var(--muted);font-weight:800}input{width:100%;border:1px solid rgba(148,163,184,.25);border-radius:18px;background:#071120;color:var(--text);padding:15px 16px;font-size:17px}input:focus{outline:0;border-color:var(--cyan);box-shadow:0 0 0 4px rgba(34,211,238,.12)}.submit{width:100%;border:0;border-radius:18px;padding:16px 20px;background:linear-gradient(135deg,var(--cyan),var(--blue));color:#06111e;font-weight:900;font-size:18px;cursor:pointer}.submit[disabled]{opacity:.55;cursor:not-allowed}.msg{margin-top:16px;border-radius:16px;padding:13px 14px;background:rgba(34,211,238,.1);color:#dff9ff;border:1px solid rgba(34,211,238,.2)}.msg.error{background:rgba(244,63,94,.12);color:#fecdd3;border-color:rgba(244,63,94,.3)}.msg.warn{background:rgba(245,158,11,.12);color:#fde68a;border-color:rgba(245,158,11,.3)}.foot{margin-top:16px;color:var(--muted);font-size:13px}.badge{display:inline-flex;align-items:center;gap:6px;margin-top:8px;border:1px solid rgba(34,197,94,.32);color:#bbf7d0;background:rgba(34,197,94,.11);border-radius:999px;padding:6px 10px;font-weight:800;font-size:12px}@media(max-width:700px){.gate{padding:22px}.brand{justify-content:space-between}.brand img{width:68px;height:68px}.target-grid{grid-template-columns:1fr}.title{font-size:25px}}
+  </style>
+</head>
+<body>
+  <main class="gate" aria-labelledby="gate-title">
+    <div class="brand">
+      <img src="../shared/images/ahla-shabab-logo.png" alt="أحلى شباب" onerror="this.style.display='none'" />
+      <div>
+        <div class="kicker">بوابة تشغيل خاصة</div>
+        <h1 class="title" id="gate-title">اختر وجهتك ثم أدخل الكود والبريد المصرح</h1>
+        <p class="lead">الدخول يتم عبر كود تشغيل مُشفّر بالهاش + بريد أو هاتف مصرح. هذه طبقة تشغيل قبل تسجيل الدخول الحقيقي وصلاحيات Supabase.</p>
+      </div>
+    </div>
+
+    <section class="target-grid" aria-label="اختيار البوابة">
+      <button class="target is-active" type="button" data-target="admin"><strong>بوابة HR / الإدارة</strong><small>الموظفون، الحضور، الطلبات، الإعدادات، Backup.</small></button>
+      <button class="target" type="button" data-target="executive"><strong>بوابة المدير التنفيذي</strong><small>المتابعة التنفيذية، التقارير، المخاطر، القرارات.</small></button>
+    </section>
+
+    <form id="gate-form" class="fields">
+      <label>البريد أو رقم الهاتف المصرح له<input name="identity" type="text" inputmode="email" autocomplete="username" placeholder="name@example.com / 01xxxxxxxxx" required /></label>
+      <label>كود التشغيل<input name="code" type="password" autocomplete="one-time-code" placeholder="كود التشغيل" required /></label>
+      <button class="submit" type="submit">فتح البوابة المختارة</button>
+    </form>
+    <div id="gate-msg" class="msg">تم تقوية البوابة: لا يوجد كود افتراضي مكشوف، ويوجد قفل مؤقت بعد المحاولات الخاطئة.</div>
+    <p class="foot">تذكير: الكود لا يغني عن تسجيل الدخول وصلاحيات المستخدم داخل Supabase. منع الفتح المباشر هنا طبقة حماية إضافية وليست بديلًا عن RLS.</p>
+  </main>
+
+  <script src="../shared/js/supabase-config.js?v=v31-production-hardening-089"></script>
+  <script src="../shared/js/v10-private-deploy-fixes.js?v=v31-production-hardening-089" defer></script>
+  <script>
+    const msg = document.getElementById('gate-msg');
+    const submitBtn = document.querySelector('.submit');
+    let selected = new URLSearchParams(location.search).get('target') === 'executive' ? 'executive' : 'admin';
+
+    function setMessage(text, type = '') {
+      msg.className = `msg ${type}`.trim();
+      msg.textContent = text;
+    }
+    function normalizePhone(value) {
+      let text = String(value || '').trim();
+      const ar = '٠١٢٣٤٥٦٧٨٩';
+      const fa = '۰۱۲۳۴۵۶۷۸۹';
+      text = text.replace(/[٠-٩]/g, d => String(ar.indexOf(d))).replace(/[۰-۹]/g, d => String(fa.indexOf(d)));
+      let digits = text.replace(/\D/g, '');
+      if (!digits) return '';
+      if (digits.startsWith('0020')) digits = digits.slice(2);
+      if (digits.startsWith('20') && digits.length >= 12) digits = '0' + digits.slice(2);
+      if (digits.length === 10 && digits.startsWith('1')) digits = '0' + digits;
+      return digits;
+    }
+    function gatewayConfig(){
+      const cfg = window.HR_SUPABASE_CONFIG || {};
+      const defaults = cfg.adminGateway || {};
+      const g = cfg.gateways || {};
+      return {
+        admin: Object.assign({ allowedEmails: [], allowedPhones: [], allowedIdentifiers: [], target: '../admin/' }, defaults, g.admin || {}),
+        executive: Object.assign({ allowedEmails: [], allowedPhones: [], allowedIdentifiers: [], target: '../executive/' }, defaults, g.executive || {})
+      };
+    }
+    function identityAllowed(input, cfg) {
+      const raw = String(input || '').trim();
+      const email = raw.toLowerCase();
+      const phone = normalizePhone(raw);
+      const allowedEmails = (cfg.allowedEmails || []).map(x => String(x).trim().toLowerCase()).filter(Boolean);
+      const allowedPhones = (cfg.allowedPhones || []).map(normalizePhone).filter(Boolean);
+      const allowedIdentifiers = (cfg.allowedIdentifiers || []).map(x => String(x).trim().toLowerCase()).filter(Boolean);
+      const normalizedIdentifiers = (cfg.allowedIdentifiers || []).map(normalizePhone).filter(Boolean);
+      if (!allowedEmails.length && !allowedPhones.length && !allowedIdentifiers.length) return true;
+      return allowedEmails.includes(email) || allowedPhones.includes(phone) || allowedIdentifiers.includes(email) || normalizedIdentifiers.includes(phone);
+    }
+    function hex(buffer) {
+      return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    async function sha256(value) {
+      const bytes = new TextEncoder().encode(String(value || ''));
+      return hex(await crypto.subtle.digest('SHA-256', bytes));
+    }
+    async function codeAllowed(input, cfg) {
+      const code = String(input || '').trim();
+      const legacy = String(cfg.code || cfg.accessCode || '').trim();
+      if (!code) return false;
+      if (legacy && ['00000000', '12345678', 'password', 'admin'].includes(legacy.toLowerCase())) return false;
+      if (cfg.codeSha256) return (await sha256(code)) === String(cfg.codeSha256).toLowerCase();
+      return Boolean(legacy && code === legacy);
+    }
+    function lockKey(target) { return `hr.ops.gate.lock.${target}`; }
+    function attemptsKey(target) { return `hr.ops.gate.attempts.${target}`; }
+    function lockedUntil(target) { return Number(localStorage.getItem(lockKey(target)) || 0); }
+    function remainingLockText(target) {
+      const remaining = Math.max(0, lockedUntil(target) - Date.now());
+      return Math.ceil(remaining / 60000);
+    }
+    function registerFailure(target, cfg) {
+      const attempts = Number(localStorage.getItem(attemptsKey(target)) || 0) + 1;
+      const maxAttempts = Number(cfg.maxAttempts || 5);
+      localStorage.setItem(attemptsKey(target), String(attempts));
+      if (attempts >= maxAttempts) {
+        const minutes = Number(cfg.lockMinutes || 15);
+        localStorage.setItem(lockKey(target), String(Date.now() + minutes * 60 * 1000));
+        localStorage.removeItem(attemptsKey(target));
+        return { locked: true, minutes };
+      }
+      return { locked: false, attempts, remaining: Math.max(0, maxAttempts - attempts) };
+    }
+    function clearFailure(target) {
+      localStorage.removeItem(lockKey(target));
+      localStorage.removeItem(attemptsKey(target));
+    }
+    function safeNext(target, fallback) {
+      const raw = new URLSearchParams(location.search).get('next') || '';
+      if (!raw) return fallback;
+      try {
+        const url = new URL(raw, location.href);
+        if (url.origin !== location.origin) return fallback;
+        const path = url.pathname.toLowerCase();
+        if (target === 'admin' && !path.includes('/admin/')) return fallback;
+        if (target === 'executive' && !path.includes('/executive/')) return fallback;
+        return url.href;
+      } catch {
+        return fallback;
+      }
+    }
+    function refreshLockUi() {
+      const cfg = gatewayConfig()[selected];
+      document.querySelectorAll('[data-target]').forEach(x => x.classList.toggle('is-active', x.dataset.target === selected));
+      const until = lockedUntil(selected);
+      if (until > Date.now()) {
+        submitBtn.disabled = true;
+        setMessage(`تم قفل هذه البوابة مؤقتًا بعد محاولات خاطئة. حاول بعد حوالي ${remainingLockText(selected)} دقيقة.`, 'error');
+        return;
+      }
+      submitBtn.disabled = false;
+      setMessage(selected === 'executive' ? 'تم اختيار بوابة المدير التنفيذي.' : 'تم اختيار بوابة HR / الإدارة.');
+      if (!cfg.codeSha256 && !cfg.code && !cfg.accessCode) setMessage('لم يتم ضبط كود لهذه البوابة في ملف الإعدادات.', 'warn');
+    }
+    document.querySelectorAll('[data-target]').forEach(btn => btn.addEventListener('click', () => {
+      selected = btn.dataset.target || 'admin';
+      refreshLockUi();
+    }));
+    refreshLockUi();
+    setInterval(refreshLockUi, 30000);
+
+    document.getElementById('gate-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const cfg = gatewayConfig()[selected];
+      if (lockedUntil(selected) > Date.now()) return refreshLockUi();
+      const fd = new FormData(event.currentTarget);
+      const identity = String(fd.get('identity') || '').trim();
+      const code = String(fd.get('code') || '').trim();
+      submitBtn.disabled = true;
+      try {
+        const identityOk = identityAllowed(identity, cfg);
+        const codeOk = await codeAllowed(code, cfg);
+        if (!identityOk || !codeOk) {
+          const failure = registerFailure(selected, cfg);
+          if (failure.locked) setMessage(`تم قفل البوابة ${failure.minutes} دقيقة بعد محاولات خاطئة متكررة.`, 'error');
+          else setMessage(!identityOk ? `هذا البريد أو رقم الهاتف غير مصرح له بهذه البوابة. المحاولات المتبقية: ${failure.remaining}` : `كود التشغيل غير صحيح. المحاولات المتبقية: ${failure.remaining}`, 'error');
+          return;
+        }
+        clearFailure(selected);
+        const minutes = Number(cfg.sessionMinutes || window.HR_SUPABASE_CONFIG?.adminGateway?.sessionMinutes || 240);
+        const until = Date.now() + minutes * 60 * 1000;
+        const token = crypto.randomUUID ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+        sessionStorage.setItem('hr.ops.gate.target', selected);
+        sessionStorage.setItem('hr.opsGatewayUnlockedTarget', selected);
+        sessionStorage.setItem('hr.opsGatewayUnlockedUntil', String(until));
+        sessionStorage.setItem(`hr.opsGatewayToken.${selected}`, token);
+        sessionStorage.setItem('hr.opsGatewayToken', token);
+        sessionStorage.setItem('hr.ops.gate.email', identity.toLowerCase());
+        sessionStorage.setItem('hr.ops.gate.identity', identity);
+        sessionStorage.setItem('hr.ops.gate.ok', String(Date.now()));
+        location.href = safeNext(selected, cfg.target || (selected === 'executive' ? '../executive/' : '../admin/'));
+      } catch (error) {
+        setMessage(error?.message || 'تعذر فتح البوابة. تأكد من المتصفح والإعدادات.', 'error');
+      } finally {
+        if (lockedUntil(selected) <= Date.now()) submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
