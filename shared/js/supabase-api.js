@@ -513,6 +513,31 @@ function employeeNameKey(employee) {
   return String(employee?.fullName || employee?.name || "").trim().replace(/\s+/g, " ");
 }
 
+function employeeRosterKeys(employee = {}) {
+  return [
+    employee.employeeCode,
+    employee.phone,
+    employee.email,
+    employeeNameKey(employee),
+  ].map((value) => String(value || "").trim().toLowerCase()).filter(Boolean);
+}
+
+async function authorizedRosterEmployeeKeySet() {
+  try {
+    const rows = await selectAll("authorized_employee_roster", "*", { limit: 1000 });
+    const keys = new Set();
+    for (const row of rows || []) {
+      for (const value of [row.employee_code, row.phone, row.email, row.full_name]) {
+        const key = String(value || "").trim().toLowerCase();
+        if (key) keys.add(key);
+      }
+    }
+    return keys;
+  } catch {
+    return new Set();
+  }
+}
+
 function orphanDemoEmployee(employee) {
   return !employee?.userId && (/^PHONE_PLACEHOLDER_/i.test(String(employee?.phone || "")) || /^emp\.demo/i.test(String(employee?.email || "")));
 }
@@ -1217,12 +1242,15 @@ export const supabaseEndpoints = {
   },
   employees: async () => {
     const c = await core();
+    const authorizedKeys = await authorizedRosterEmployeeKeySet();
     const data = (await selectAll("employees", "*", { limit: 1000 }))
       .filter((row) => row.is_deleted !== true)
       .sort((a, b) => String(a.full_name || "").localeCompare(String(b.full_name || ""), "ar"));
     const employeesRaw = (data || []).map((row) => enrichEmployee(row, c));
     const linkedNames = new Set(employeesRaw.filter((employee) => employee?.userId).map(employeeNameKey).filter(Boolean));
-    const employees = employeesRaw.filter((employee) => !(orphanDemoEmployee(employee) && linkedNames.has(employeeNameKey(employee))));
+    const employees = employeesRaw
+      .filter((employee) => !authorizedKeys.size || employeeRosterKeys(employee).some((key) => authorizedKeys.has(key)))
+      .filter((employee) => !(orphanDemoEmployee(employee) && linkedNames.has(employeeNameKey(employee))));
     const byId = new Map(employees.map((e) => [e.id, e]));
     employees.forEach((e) => { e.manager = byId.get(e.managerEmployeeId) || null; });
     return employees;
