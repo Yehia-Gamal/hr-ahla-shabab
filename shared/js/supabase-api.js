@@ -1913,7 +1913,7 @@ export const supabaseEndpoints = {
   registerPasskey: async (body = {}) => {
     const client = await sb();
     const { data, error } = await client.functions.invoke("passkey-register", { body });
-    if (error || data?.error) throw new Error(data?.message || data?.error || error?.message || "مفاتيح المرور غير مفعلة بعد.");
+    if (error || data?.error) throw new Error(data?.message || data?.error || error?.message || "تعذر تسجيل بصمة الجهاز. تأكد من فتح الموقع عبر HTTPS ومن تفعيل بصمة/قفل الشاشة على الجهاز.");
     return data;
   },
   offlineQueue: async () => getQueued(),

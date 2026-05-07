@@ -8,13 +8,14 @@ Deno.serve(async (req) => {
   if (Deno.env.get('WEBAUTHN_ENABLED') !== 'true') {
     return json(req, {
       error: 'PASSKEYS_DISABLED',
-      message: 'تم تعطيل تسجيل Passkey مؤقتًا إلى أن يتم تفعيل تحقق WebAuthn الكامل من الخادم. اضبط WEBAUTHN_ENABLED=true فقط بعد تطبيق attestation/challenge verification.'
+      message: 'تسجيل بصمة الجهاز غير مفعل حاليًا. فعّل WEBAUTHN_ENABLED=true من Supabase Secrets.',
     }, 501);
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
   if (!supabaseUrl || !anonKey) return json(req, { error: 'MISSING_SUPABASE_SECRETS' }, 500);
+
   const authHeader = req.headers.get('Authorization') ?? '';
   const client = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
   const { data: authData, error: authError } = await client.auth.getUser();
@@ -64,6 +65,7 @@ Deno.serve(async (req) => {
     status: 'DEVICE_TRUSTED',
     browser_supported: true,
   }, { onConflict: 'user_id,credential_id' }).select('*').single();
+
   if (error) return json(req, { error: error.message }, 400);
   await client.from('profiles').update({ passkey_enabled: true }).eq('id', authData.user.id);
   return json(req, { ok: true, credential: data });
