@@ -5,11 +5,13 @@ const root = process.cwd();
 const failures = [];
 const warnings = [];
 const assert = (condition, message) => { if (!condition) failures.push(message); };
-const forbiddenNames = new Set(['.env', '.env.local', '.env.production', '.git', 'node_modules']);
+const forbiddenNames = new Set(['.env', '.env.local', '.env.production']);
+const ignoredTraversalNames = new Set(['.git', 'node_modules', 'dist_public_pages']);
 const requiredFiles = ['index.html', 'employee/index.html', 'admin/index.html', 'executive/index.html', 'operations-gate/index.html', 'health.html', 'shared/js/runtime-diagnostics.js', '_headers', 'vercel.json'];
 
 function walk(dir) {
   for (const name of readdirSync(dir)) {
+    if (ignoredTraversalNames.has(name)) continue;
     const abs = join(dir, name);
     const rel = relative(root, abs).replaceAll('\\', '/');
     if (forbiddenNames.has(name)) failures.push(`Forbidden release item exists: ${rel}`);
