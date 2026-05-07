@@ -3,6 +3,7 @@ import { endpoints, unwrap } from "./api.js?v=v31-production-hardening-089";
 const app = document.querySelector("#app");
 const EMPLOYEE_PORTAL = "../employee/index.html#home";
 const ADMIN_PORTAL = "../operations-gate/?next=../admin/";
+const DEFAULT_LIVE_LOCATION_REASON = "متابعة تنفيذية مباشرة";
 
 const state = {
   route: location.hash.replace("#", "") || "home",
@@ -218,7 +219,7 @@ function resolveAvatarUrl(value) {
 function avatar(person = {}, size = "") {
   const src = resolveAvatarUrl(person?.photoUrl || person?.avatarUrl || person?.employee?.photoUrl || person?.employee?.avatarUrl || bundledEmployeePhoto(person));
   const label = initials(person?.fullName || person?.name || person?.employee?.fullName || person?.employee?.name);
-  if (src) return `<img class="avatar ${size}" src="${escapeHtml(src)}" alt="${escapeHtml(person.fullName || person.name || person?.employee?.fullName || "")}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling&&this.nextElementSibling.classList.remove('hidden')" /><span class="avatar fallback ${size} hidden">${escapeHtml(label)}</span>`;
+  if (src) return `<img class="avatar ${size}" src="${escapeHtml(src)}" alt="${escapeHtml(person.fullName || person.name || person?.employee?.fullName || "")}" loading="lazy" decoding="async" fetchpriority="low" onerror="this.style.display='none';this.nextElementSibling&&this.nextElementSibling.classList.remove('hidden')" /><span class="avatar fallback ${size} hidden">${escapeHtml(label)}</span>`;
   return `<span class="avatar fallback ${size}">${escapeHtml(label)}</span>`;
 }
 
@@ -747,13 +748,11 @@ function bindEmployeeCardActions() {
   app.querySelectorAll("[data-view-employee]").forEach((button) => button.addEventListener("click", () => setRoute("employee", { id: button.dataset.viewEmployee })));
   app.querySelectorAll("[data-request-live]").forEach((button) => button.addEventListener("click", async () => {
     if (button.disabled) return;
-    const reason = await askText({ title: "طلب الموقع المباشر", message: "اكتب سبب طلب الموقع حتى يظهر للموظف بوضوح.", defaultValue: "متابعة تنفيذية مباشرة", confirmLabel: "إرسال الطلب" });
-    if (reason === null) return;
     const originalText = button.textContent;
     button.disabled = true;
     button.textContent = "جاري الإرسال...";
     try {
-      await endpoints.requestLiveLocation(button.dataset.requestLive, { reason });
+      await endpoints.requestLiveLocation(button.dataset.requestLive, { reason: DEFAULT_LIVE_LOCATION_REASON });
       state.dataCache = null;
       setMessage("تم إنشاء طلب الموقع، وقد لا يصل الإشعار الخارجي إذا كان غير مفعل.", "");
       if (routeKey() === "employee") await renderEmployeeDetail(button.dataset.requestLive);

@@ -3,6 +3,7 @@ import { enableWebPushSubscription } from "./push.js?v=v31-production-hardening-
 import { runRuntimeDiagnostics, clearRuntimeCaches } from "./runtime-diagnostics.js?v=v31-production-hardening-089";
 
 const app = document.querySelector("#app");
+const DEFAULT_LIVE_LOCATION_REASON = "متابعة تنفيذية مباشرة";
 
 const state = {
   route: location.hash.replace("#", "") || "dashboard",
@@ -525,7 +526,7 @@ function resolveAvatarUrl(value) {
 function avatar(person, size = "") {
   const src = resolveAvatarUrl(person?.photoUrl || person?.avatarUrl || person?.employee?.photoUrl || person?.employee?.avatarUrl || bundledEmployeePhoto(person));
   const label = initials(person?.fullName || person?.name || person?.employee?.fullName || person?.employee?.name);
-  if (src) return `<img class="avatar ${size}" src="${escapeHtml(src)}" alt="${escapeHtml(person.fullName || person.name || person?.employee?.fullName || "")}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling&&this.nextElementSibling.classList.remove('hidden')" /><span class="avatar fallback ${size} hidden">${escapeHtml(label)}</span>`;
+  if (src) return `<img class="avatar ${size}" src="${escapeHtml(src)}" alt="${escapeHtml(person.fullName || person.name || person?.employee?.fullName || "")}" loading="lazy" decoding="async" fetchpriority="low" onerror="this.style.display='none';this.nextElementSibling&&this.nextElementSibling.classList.remove('hidden')" /><span class="avatar fallback ${size} hidden">${escapeHtml(label)}</span>`;
   return `<span class="avatar fallback ${size}">${escapeHtml(label)}</span>`;
 }
 
@@ -3322,9 +3323,7 @@ async function renderExecutiveMobile() {
       </section>
     `, "المتابعة التنفيذية", "تفاصيل موظف من شاشة المدير التنفيذي.");
     app.querySelector("[data-request-live]")?.addEventListener("click", async (event) => {
-      const reason = await askText({ title: "طلب الموقع المباشر", message: "اكتب سبب طلب الموقع حتى يظهر للموظف بوضوح.", defaultValue: "متابعة تنفيذية مباشرة", confirmLabel: "إرسال الطلب", required: true });
-      if (!reason) return;
-      try { await endpoints.requestLiveLocation(event.currentTarget.dataset.requestLive, { reason }); setMessage("تم إنشاء طلب الموقع، وقد لا يصل الإشعار الخارجي إذا كان غير مفعل.", ""); location.hash = `executive-mobile?employeeId=${encodeURIComponent(event.currentTarget.dataset.requestLive)}`; render(); } catch (error) { setMessage("", error.message || "تعذر طلب الموقع."); render(); }
+      try { await endpoints.requestLiveLocation(event.currentTarget.dataset.requestLive, { reason: DEFAULT_LIVE_LOCATION_REASON }); setMessage("تم إنشاء طلب الموقع، وقد لا يصل الإشعار الخارجي إذا كان غير مفعل.", ""); location.hash = `executive-mobile?employeeId=${encodeURIComponent(event.currentTarget.dataset.requestLive)}`; render(); } catch (error) { setMessage("", error.message || "تعذر طلب الموقع."); render(); }
     });
     return;
   }
@@ -3364,13 +3363,11 @@ async function renderExecutiveMobile() {
   app.querySelectorAll("[data-view-exec]").forEach((button) => button.addEventListener("click", () => { location.hash = `executive-mobile?employeeId=${encodeURIComponent(button.dataset.viewExec)}`; }));
   app.querySelectorAll("[data-request-live]").forEach((button) => button.addEventListener("click", async () => {
     if (button.disabled) return;
-    const reason = await askText({ title: "طلب الموقع المباشر", message: "اكتب سبب طلب الموقع حتى يظهر للموظف بوضوح.", defaultValue: "متابعة تنفيذية مباشرة", confirmLabel: "إرسال الطلب", required: true });
-    if (!reason) return;
     const originalText = button.textContent;
     button.disabled = true;
     button.textContent = "جاري الإرسال...";
     try {
-      await endpoints.requestLiveLocation(button.dataset.requestLive, { reason });
+      await endpoints.requestLiveLocation(button.dataset.requestLive, { reason: DEFAULT_LIVE_LOCATION_REASON });
       setMessage("تم إنشاء طلب الموقع، وقد لا يصل الإشعار الخارجي إذا كان غير مفعل.", "");
       renderExecutiveMobile();
     } catch (error) {

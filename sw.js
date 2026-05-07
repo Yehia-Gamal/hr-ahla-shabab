@@ -1,4 +1,4 @@
-const CACHE_NAME = "hr-attendance-v31-production-hardening-089";
+const CACHE_NAME = "hr-attendance-v31-production-hardening-089-direct-location";
 const DEFAULT_OPEN_URL = "./employee/index.html#notifications";
 const ASSETS = [
   "./health.html",
