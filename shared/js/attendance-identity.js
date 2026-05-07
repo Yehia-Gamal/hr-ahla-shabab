@@ -3,7 +3,8 @@
 // 1) employee passkey, 2) a stable browser/device fingerprint, 3) a live selfie, and 4) a risk score.
 
 const SHARED_DEVICE_WINDOW_MS = 30 * 60 * 1000;
-const SELFIE_MAX_PX = 720;
+const SELFIE_WIDTH = 720;
+const SELFIE_HEIGHT = 960;
 const SELFIE_QUALITY = 0.78;
 
 function base64UrlToBuffer(value = "") {
@@ -100,7 +101,7 @@ export async function requestPunchCameraStream() {
   }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 720 } },
+      video: { facingMode: "user", width: { ideal: 720 }, height: { ideal: 960 }, aspectRatio: { ideal: 0.75 } },
       audio: false,
     });
     return { ok: true, stream };
@@ -115,14 +116,38 @@ export async function requestPunchCameraStream() {
 
 async function blobFromVideo(video) {
   const sourceWidth = video.videoWidth || 720;
-  const sourceHeight = video.videoHeight || 720;
-  const scale = Math.min(1, SELFIE_MAX_PX / Math.max(sourceWidth, sourceHeight));
+  const sourceHeight = video.videoHeight || 960;
+  const targetRatio = SELFIE_WIDTH / SELFIE_HEIGHT;
+  const sourceRatio = sourceWidth / sourceHeight;
+  let sx = 0;
+  let sy = 0;
+  let sw = sourceWidth;
+  let sh = sourceHeight;
+  if (sourceRatio > targetRatio) {
+    sw = Math.round(sourceHeight * targetRatio);
+    sx = Math.round((sourceWidth - sw) / 2);
+  } else if (sourceRatio < targetRatio) {
+    sh = Math.round(sourceWidth / targetRatio);
+    sy = Math.round((sourceHeight - sh) / 2);
+  }
   const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(sourceWidth * scale));
-  canvas.height = Math.max(1, Math.round(sourceHeight * scale));
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  canvas.width = SELFIE_WIDTH;
+  canvas.height = SELFIE_HEIGHT;
+  const ctx = canvas.getContext("2d", { alpha: false });
+  ctx.fillStyle = "#0b1220";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
   return await new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), "image/jpeg", SELFIE_QUALITY));
+}
+
+async function waitForVideoReady(video) {
+  if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth && video.videoHeight) return;
+  await new Promise((resolve) => {
+    const done = () => resolve();
+    video.addEventListener("loadedmetadata", done, { once: true });
+    video.addEventListener("loadeddata", done, { once: true });
+    setTimeout(done, 1600);
+  });
 }
 
 export async function capturePunchSelfie({ endpoints = null, employeeId = "", employeeName = "الموظف", stream: providedStream = null } = {}) {
@@ -136,7 +161,7 @@ export async function capturePunchSelfie({ endpoints = null, employeeId = "", em
       <div class="identity-selfie-panel" role="dialog" aria-modal="true" aria-label="سيلفي البصمة">
         <h2>تأكيد هوية ${employeeName}</h2>
         <p>التقط صورة سيلفي واضحة الآن. ستُستخدم للمراجعة ومنع تسجيل موظف عن موظف آخر.</p>
-        <video autoplay playsinline muted></video>
+        <video class="identity-selfie-video" autoplay playsinline muted></video>
         <div class="identity-selfie-actions">
           <button class="button primary" type="button" data-selfie-capture>التقاط السيلفي</button>
           <button class="button ghost" type="button" data-selfie-cancel>إلغاء</button>
@@ -145,12 +170,15 @@ export async function capturePunchSelfie({ endpoints = null, employeeId = "", em
     document.body.appendChild(overlay);
     const video = overlay.querySelector("video");
     video.srcObject = stream;
+    video.style.transform = "none";
+    video.play?.().catch(() => {});
     overlay.querySelector("[data-selfie-cancel]").addEventListener("click", () => {
       stopStream(stream);
       overlay.remove();
       resolve({ ok: false, reason: "SELFIE_CANCELLED", message: "تم إلغاء السيلفي." });
     });
     overlay.querySelector("[data-selfie-capture]").addEventListener("click", async () => {
+      await waitForVideoReady(video);
       const blob = await blobFromVideo(video);
       stopStream(stream);
       overlay.remove();

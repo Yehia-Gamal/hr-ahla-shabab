@@ -1,6 +1,6 @@
 import { endpoints, unwrap } from "./api.js?v=v31-production-hardening-089";
 import { enableWebPushSubscription } from "./push.js?v=v31-production-hardening-089";
-import { getDeviceFingerprintHash, requestEmployeePasskey, filterEmployeePasskeys, calculateAttendanceRisk, rememberDevicePunch, capturePunchSelfie } from "./attendance-identity.js?v=v31-production-hardening-089";
+import { getDeviceFingerprintHash, requestEmployeePasskey, filterEmployeePasskeys, calculateAttendanceRisk, rememberDevicePunch, capturePunchSelfie } from "./attendance-identity.js?v=v31-production-hardening-089-login-selfie";
 import { ensureAttendancePolicyAcknowledged, ensureTrustedDeviceApproval, requestBranchQrChallenge, analyzeLocationTrust, mergeRiskSignals, submitFallbackAttendanceRequest } from "./attendance-v3-security.js?v=v31-production-hardening-089";
 import { evaluateAttendanceV4Controls, mergeV4RiskSignals, createFormalFallbackRequest } from "./attendance-v4-ops.js?v=v31-production-hardening-089";
 
@@ -9,6 +9,7 @@ document.body.classList.add("employee-portal");
 
 const app = document.querySelector("#app");
 const FLASH_KEY = "hr.employee.flash";
+const EMPLOYEE_TAB_SESSION_KEY = "hr.employee.authenticatedThisTab";
 const IDLE_MS = 30 * 60 * 1000;
 let idleTimer = null;
 const state = {
@@ -16,7 +17,7 @@ const state = {
   user: null,
   message: "",
   error: "",
-  loginIdentifier: localStorage.getItem("hr.login.lastIdentifier") || "",
+  loginIdentifier: "",
   loginPassword: "",
   lastLoginFailed: false,
   recoveryMode: location.hash.includes("type=recovery") || location.search.includes("type=recovery"),
@@ -227,6 +228,7 @@ function resetIdleTimer() {
   idleTimer = window.setTimeout(async () => {
     if (!state.user) return;
     await endpoints.logout().catch(() => {});
+    sessionStorage.removeItem(EMPLOYEE_TAB_SESSION_KEY);
     localStorage.removeItem("hr-attendance.local-db.v7");
     sessionStorage.removeItem("hr.core");
     sessionStorage.removeItem("hr.core.exp");
@@ -971,6 +973,7 @@ function shell(content, title = "تطبيق الموظف", subtitle = "") {
     if (!ok) return;
     stopNotificationPolling();
     await endpoints.logout();
+    sessionStorage.removeItem(EMPLOYEE_TAB_SESSION_KEY);
     localStorage.removeItem("hr-attendance.local-db.v7");
     sessionStorage.removeItem("hr.core");
     sessionStorage.removeItem("hr.core.exp");
@@ -1022,7 +1025,7 @@ async function renderLogin() {
   const passwordValue = state.loginPassword || "";
   app.innerHTML = `
     <div class="employee-login-screen">
-      <form class="employee-login-card refined-login-card" id="employee-login-form" novalidate>
+      <form class="employee-login-card refined-login-card" id="employee-login-form" autocomplete="off" novalidate>
         <div class="login-brand-row">
           <img src="../shared/images/ahla-shabab-logo.png" alt="" onerror="this.style.display='none'" />
           <div><strong>أحلى شباب</strong><span>تطبيق الموظفين</span></div>
@@ -1033,7 +1036,7 @@ async function renderLogin() {
         ${state.error ? `<div class="message error">${escapeHtml(state.error)}</div>` : ""}
         ${state.message ? `<div class="message">${escapeHtml(state.message)}</div>` : ""}
         ${state.lastLoginFailed ? `<div class="message warning compact">تعذر تسجيل الدخول. تأكد من الرقم وكلمة المرور ثم أعد المحاولة.</div>` : ""}
-        <label>رقم الهاتف<input name="identifier" value="${escapeHtml(identifierValue)}" autocomplete="username" inputmode="tel" placeholder="01xxxxxxxxx" required /></label>
+        <label>رقم الهاتف<input name="identifier" value="${escapeHtml(identifierValue)}" autocomplete="off" inputmode="tel" placeholder="01xxxxxxxxx" required /></label>
         <label>كلمة المرور<input name="password" type="password" value="${escapeHtml(passwordValue)}" autocomplete="current-password" placeholder="أدخل كلمة المرور" /></label>
         <button class="button primary full" type="submit">دخول التطبيق</button>
         <button class="button ghost full compact-ghost" type="button" data-forgot-password>نسيت كلمة السر؟</button>
@@ -1052,8 +1055,8 @@ async function renderLogin() {
     try {
       state.loginIdentifier = values.identifier || "";
       state.loginPassword = values.password || values.identifier || "";
-      if (state.loginIdentifier) localStorage.setItem("hr.login.lastIdentifier", state.loginIdentifier);
       state.user = unwrap(await endpoints.login(state.loginIdentifier, state.loginPassword));
+      sessionStorage.setItem(EMPLOYEE_TAB_SESSION_KEY, "1");
       state.loginPassword = "";
       state.lastLoginFailed = false;
       setMessage("تم تسجيل الدخول بنجاح.", "");
@@ -2110,6 +2113,12 @@ async function renderProfile() {
 async function render() {
   try {
     consumeFlashMessage();
+    if (!state.user && !state.recoveryMode && sessionStorage.getItem(EMPLOYEE_TAB_SESSION_KEY) !== "1") {
+      await endpoints.logout().catch(() => {});
+      sessionStorage.removeItem("hr.core");
+      sessionStorage.removeItem("hr.core.exp");
+      return renderLogin();
+    }
     if (!state.user) state.user = await endpoints.me().then(unwrap).catch(() => null);
     if (!state.user) return renderLogin();
     startNotificationPolling();

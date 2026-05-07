@@ -1,6 +1,6 @@
 // Service Worker registration is portal-scoped so employee devices do not cache admin UI.
-const HR_SW_CACHE_NAME = "hr-attendance-v31-production-hardening-089-direct-location";
-const HR_SW_VERSION = "v31-production-hardening-089";
+const HR_SW_CACHE_NAME = "hr-attendance-v31-production-hardening-089-login-selfie";
+const HR_SW_VERSION = "v31-production-hardening-089-login-selfie";
 
 function portalServiceWorkerConfig() {
   const path = location.pathname.toLowerCase();

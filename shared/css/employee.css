@@ -1384,6 +1384,8 @@ body.employee-portal .skeleton.short { width: 44%; }
 }
 .identity-selfie-panel {
   width: min(420px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
   border: 1px solid rgba(56,199,244,.32);
   border-radius: 24px;
   background: #0d1729;
@@ -1396,11 +1398,13 @@ body.employee-portal .skeleton.short { width: 44%; }
 .identity-selfie-panel p { margin: 0 0 14px; color: #9fb4d1; line-height: 1.7; }
 .identity-selfie-panel video {
   width: 100%;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: 3 / 4;
   object-fit: cover;
+  object-position: center center;
   border-radius: 20px;
   background: #030712;
   border: 1px solid rgba(148,163,184,.24);
+  transform: none;
 }
 .identity-selfie-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
 @media (max-width: 460px) { .identity-selfie-actions { grid-template-columns: 1fr; } }
