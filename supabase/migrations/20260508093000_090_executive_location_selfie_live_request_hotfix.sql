@@ -7,7 +7,7 @@ where employee_code = 'AHS-001'
 
 update public.employees
 set phone = '01004045849',
-    email = 'emp.010040455849@ahla.local',
+    email = 'emp.01004045849@ahla.local',
     user_id = 'dbf42941-5b94-4388-89cd-71df1606da3a',
     is_deleted = false,
     status = 'ACTIVE',
