@@ -1097,7 +1097,12 @@ async function renderLogin() {
         ${state.message ? `<div class="message">${escapeHtml(state.message)}</div>` : ""}
         ${state.lastLoginFailed ? `<div class="message warning compact">تعذر تسجيل الدخول. تأكد من الرقم وكلمة المرور ثم أعد المحاولة.</div>` : ""}
         <label>رقم الهاتف<input name="identifier" value="${escapeHtml(identifierValue)}" autocomplete="off" inputmode="tel" placeholder="01xxxxxxxxx" required /></label>
-        <label>كلمة المرور<input name="password" type="password" value="${escapeHtml(passwordValue)}" autocomplete="current-password" placeholder="أدخل كلمة المرور" /></label>
+        <label>كلمة المرور
+          <span class="login-password-field">
+            <input name="password" type="password" value="${escapeHtml(passwordValue)}" autocomplete="current-password" placeholder="أدخل كلمة المرور" />
+            <button class="password-toggle" type="button" aria-label="إظهار كلمة المرور" aria-pressed="false" data-toggle-password>عرض</button>
+          </span>
+        </label>
         <button class="button primary full" type="submit">دخول التطبيق</button>
         <button class="button ghost full compact-ghost" type="button" data-forgot-password>نسيت كلمة السر؟</button>
       </form>
@@ -1146,6 +1151,16 @@ async function renderLogin() {
       setMessage("", error.message || "تعذر إرسال رابط إعادة التعيين.");
       renderLogin();
     }
+  });
+  const passwordInput = form.querySelector('[name="password"]');
+  const togglePassword = app.querySelector("[data-toggle-password]");
+  togglePassword?.addEventListener("click", () => {
+    const visible = passwordInput?.type === "text";
+    if (passwordInput) passwordInput.type = visible ? "password" : "text";
+    togglePassword.setAttribute("aria-pressed", String(!visible));
+    togglePassword.setAttribute("aria-label", visible ? "إظهار كلمة المرور" : "إخفاء كلمة المرور");
+    togglePassword.textContent = visible ? "عرض" : "إخفاء";
+    passwordInput?.focus?.();
   });
 }
 
