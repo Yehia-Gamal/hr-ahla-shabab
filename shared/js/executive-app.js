@@ -439,13 +439,26 @@ function renderLogin() {
         ${state.error ? `<div class="message error">${escapeHtml(state.error)}</div>` : ""}
         ${state.lastLoginFailed ? `<div class="message warning compact">تحقق من البريد/الهاتف وكلمة المرور. لن يتم مسح البيانات المكتوبة.</div>` : ""}
         <label>البريد أو رقم الهاتف أو الاسم<input name="identifier" value="${escapeHtml(identifierValue)}" autocomplete="username" required /></label>
-        <label>كلمة المرور<input name="password" type="password" value="${escapeHtml(passwordValue)}" autocomplete="current-password" required /></label>
+        <label>كلمة المرور
+          <span class="login-password-field">
+            <input name="password" type="password" value="${escapeHtml(passwordValue)}" autocomplete="current-password" required />
+            <button class="password-toggle" type="button" data-toggle-password aria-pressed="false">إظهار</button>
+          </span>
+        </label>
         <button class="button primary full" type="submit">فتح المتابعة التنفيذية</button>
         <button class="button ghost full" type="button" data-employee-login>الذهاب لتطبيق الموظف</button>
       </form>
     </div>
   `;
   const form = app.querySelector("#login-form");
+  const passwordInput = form.querySelector('input[name="password"]');
+  const togglePassword = form.querySelector("[data-toggle-password]");
+  togglePassword?.addEventListener("click", () => {
+    const isHidden = passwordInput?.type === "password";
+    if (passwordInput) passwordInput.type = isHidden ? "text" : "password";
+    togglePassword.textContent = isHidden ? "إخفاء" : "إظهار";
+    togglePassword.setAttribute("aria-pressed", String(isHidden));
+  });
   form.addEventListener("input", () => {
     const values = readForm(form);
     state.loginIdentifier = values.identifier || "";

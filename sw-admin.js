@@ -1,5 +1,5 @@
 // Versioned cache name; bump when updating deployment.packageVersion or cacheVersion
-const CACHE_NAME = "hr-attendance-v31-production-hardening-089-exec-gps-live";
+const CACHE_NAME = "hr-attendance-v31-production-hardening-089-login-vh";
 const DEFAULT_OPEN_URL = "./admin/index.html";
 const ASSETS = [
   "./health.html",

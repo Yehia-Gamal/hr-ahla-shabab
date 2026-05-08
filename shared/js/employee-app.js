@@ -1,6 +1,6 @@
 import { endpoints, unwrap } from "./api.js?v=v31-production-hardening-089";
 import { enableWebPushSubscription } from "./push.js?v=v31-production-hardening-089";
-import { getDeviceFingerprintHash, requestEmployeePasskey, filterEmployeePasskeys, calculateAttendanceRisk, rememberDevicePunch, capturePunchSelfie } from "./attendance-identity.js?v=v31-production-hardening-089-exec-gps-live";
+import { getDeviceFingerprintHash, requestEmployeePasskey, filterEmployeePasskeys, calculateAttendanceRisk, rememberDevicePunch, capturePunchSelfie } from "./attendance-identity.js?v=v31-production-hardening-089-login-vh";
 import { ensureAttendancePolicyAcknowledged, ensureTrustedDeviceApproval, requestBranchQrChallenge, analyzeLocationTrust, mergeRiskSignals, submitFallbackAttendanceRequest } from "./attendance-v3-security.js?v=v31-production-hardening-089";
 import { evaluateAttendanceV4Controls, mergeV4RiskSignals, createFormalFallbackRequest } from "./attendance-v4-ops.js?v=v31-production-hardening-089";
 
@@ -420,23 +420,19 @@ function showLiveLocationUrgentAlert(item = {}) {
   overlay.setAttribute("aria-modal", "true");
   overlay.innerHTML = `
     <div class="confirm-modal live-location-alert-modal">
-      <div class="panel-head">
-        <div>
-          <div class="panel-kicker">تنبيه عاجل من الإدارة</div>
-          <h2>طلب مشاركة موقعك الحالي</h2>
-          <p>${escapeHtml(item.requestedByName || "الإدارة")} يطلب إرسال موقعك المباشر الآن.</p>
-        </div>
+      <div class="live-location-alert-icon" aria-hidden="true">📍</div>
+      <div class="live-location-alert-copy">
+        <div class="panel-kicker">طلب موقع مباشر</div>
+        <h2>مشاركة موقعك الحالي</h2>
+        <p>${escapeHtml(item.requestedByName || "الإدارة")} يطلب تأكيد موقعك الآن. يمكنك الإرسال فورًا أو التأجيل 5 دقائق.</p>
       </div>
-      <div class="message warning compact">${escapeHtml(item.reason || "متابعة تنفيذية مباشرة")}</div>
-      <div class="form-actions">
-        <button class="button ghost" type="button" data-dismiss-live-alert>إغلاق مؤقت</button>
+      <div class="live-location-alert-actions">
         <button class="button ghost" type="button" data-postpone-live-location>تأجيل 5د</button>
         <button class="button primary" type="button" data-open-live-location>فتح وإرسال الموقع</button>
       </div>
     </div>
   `;
   const cleanup = () => { overlay.remove(); activeLiveLocationAlertId = ""; };
-  overlay.querySelector("[data-dismiss-live-alert]")?.addEventListener("click", cleanup);
   overlay.querySelector("[data-postpone-live-location]")?.addEventListener("click", async () => {
     try {
       await endpoints.respondLiveLocationRequest(item.id, { status: "POSTPONED", reason: "طلب الموظف تأجيل إرسال الموقع 5 دقائق", postponeMinutes: 5 });

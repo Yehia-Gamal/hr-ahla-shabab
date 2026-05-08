@@ -1,4 +1,4 @@
-const CACHE_NAME = "hr-attendance-v31-production-hardening-089-exec-gps-live";
+const CACHE_NAME = "hr-attendance-v31-production-hardening-089-login-vh";
 const DEFAULT_OPEN_URL = "./employee/index.html#notifications";
 const ASSETS = [
   "./health.html",

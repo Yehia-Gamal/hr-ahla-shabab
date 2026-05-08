@@ -1133,9 +1133,13 @@ tbody tr:hover { background: rgba(56, 199, 244, .04); }
 
 .login-screen {
   min-height: 100vh;
+  min-height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  overflow: hidden;
   display: grid;
   place-items: center;
-  padding: 20px;
+  padding: clamp(10px, 2.5vw, 20px);
   background:
     radial-gradient(circle at 30% 15%, rgba(56, 199, 244, .14), transparent 32%),
     linear-gradient(135deg, var(--bg-deep), var(--bg-2));
@@ -1143,7 +1147,10 @@ tbody tr:hover { background: rgba(56, 199, 244, .04); }
 
 .login-panel {
   width: min(100%, 430px);
-  padding: 28px;
+  max-height: calc(100vh - 20px);
+  max-height: calc(100dvh - 20px);
+  overflow: auto;
+  padding: clamp(18px, 3vw, 28px);
   border-radius: var(--radius-xl);
   background: rgba(13, 23, 41, .96);
 }
@@ -1168,6 +1175,59 @@ tbody tr:hover { background: rgba(56, 199, 244, .04); }
 .login-panel p {
   margin: 0 0 16px;
   color: var(--muted);
+}
+
+.login-password-field {
+  position: relative;
+  display: block;
+}
+
+.login-password-field input {
+  padding-inline-end: 82px;
+}
+
+.login-panel .password-toggle,
+.gate .password-toggle {
+  position: absolute;
+  inset-inline-end: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  min-height: 32px;
+  border: 1px solid rgba(56, 199, 244, .34);
+  border-radius: 999px;
+  padding: 0 12px;
+  background: rgba(8, 18, 34, .92);
+  color: var(--text-strong, #e5f3ff);
+  font: inherit;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.login-panel .password-toggle[aria-pressed="true"],
+.gate .password-toggle[aria-pressed="true"] {
+  background: rgba(34, 211, 238, .16);
+  color: var(--brand, #22d3ee);
+}
+
+@media (max-height: 720px) {
+  .login-mark {
+    width: 52px;
+    height: 52px;
+    margin-bottom: 10px;
+  }
+
+  .login-panel {
+    display: grid;
+    gap: 10px;
+  }
+
+  .login-panel p,
+  .login-help-note {
+    font-size: 13px;
+    line-height: 1.55;
+  }
 }
 
 /* Large tablets and small laptops */
@@ -3570,22 +3630,29 @@ th {
 
 .executive-login-screen {
   min-height: 100vh;
+  min-height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  overflow: hidden;
   display: grid;
   place-items: center;
   background: radial-gradient(circle at top right, rgba(56, 199, 244, 0.1), transparent), var(--bg-deep);
-  padding: 20px;
+  padding: clamp(10px, 2.5vw, 20px);
 }
 
 .executive-login-panel {
   width: 100%;
   max-width: 440px;
-  padding: clamp(24px, 5vw, 48px);
+  max-height: calc(100vh - 20px);
+  max-height: calc(100dvh - 20px);
+  overflow: auto;
+  padding: clamp(18px, 4vw, 36px);
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: 32px;
   box-shadow: var(--shadow);
   display: grid;
-  gap: 20px;
+  gap: clamp(12px, 2.2vh, 20px);
 }
 
 .login-mark {
