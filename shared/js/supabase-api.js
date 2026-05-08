@@ -2308,13 +2308,14 @@ export const supabaseEndpoints = {
     return toCamel(data);
   },
   executiveMobile: async () => {
-    const [employees, attendance, leaves, missions, liveRequests, liveResponses] = await Promise.all([
+    const [employees, attendance, leaves, missions, liveRequests, liveResponses, employeeLocations] = await Promise.all([
       supabaseEndpoints.employees(),
       maybeTableRows("attendance_events", "event_at", false).then(toCamel),
       supabaseEndpoints.leaves().catch(() => []),
       supabaseEndpoints.missions().catch(() => []),
       maybeTableRows("live_location_requests", "created_at", false).then(toCamel),
       maybeTableRows("live_location_responses", "responded_at", false).then(toCamel),
+      maybeTableRows("employee_locations", "created_at", false).then(toCamel),
     ]);
     const day = now().slice(0, 10);
     const todayFor = (employee) => {
@@ -2323,8 +2324,10 @@ export const supabaseEndpoints = {
       const checkOut = [...events].reverse().find((event) => event.type === "CHECK_OUT");
       const leave = leaves.find((row) => row.employeeId === employee.id && row.status === "APPROVED" && String(row.startDate || "").slice(0,10) <= day && String(row.endDate || row.startDate || "").slice(0,10) >= day);
       const mission = missions.find((row) => row.employeeId === employee.id && ["APPROVED", "IN_PROGRESS"].includes(row.status) && String(row.plannedStart || row.startDate || "").slice(0,10) <= day && String(row.plannedEnd || row.endDate || row.plannedStart || "").slice(0,10) >= day);
-      const latestLocation = [...liveResponses.filter((row) => row.employeeId === employee.id && row.status === "APPROVED")].sort((a,b) => new Date(b.capturedAt || b.respondedAt || 0) - new Date(a.capturedAt || a.respondedAt || 0))[0] || null;
-      const pendingLiveRequest = [...liveRequests.filter((row) => row.employeeId === employee.id && row.status === "PENDING")].sort((a,b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0] || null;
+      const latestLiveLocation = [...liveResponses.filter((row) => row.employeeId === employee.id && row.status === "APPROVED")].sort((a,b) => new Date(b.capturedAt || b.respondedAt || 0) - new Date(a.capturedAt || a.respondedAt || 0))[0] || null;
+      const latestStoredLocation = [...employeeLocations.filter((row) => row.employeeId === employee.id)].sort((a,b) => new Date(b.capturedAt || b.createdAt || 0) - new Date(a.capturedAt || a.createdAt || 0))[0] || null;
+      const latestLocation = latestStoredLocation || latestLiveLocation || null;
+      const pendingLiveRequest = [...liveRequests.filter((row) => row.employeeId === employee.id && row.status === "PENDING" && (!row.expiresAt || new Date(row.expiresAt) > new Date()))].sort((a,b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0] || null;
       let status = "ABSENT";
       if (leave) status = "ON_LEAVE"; else if (mission && !checkIn) status = "ON_MISSION"; else if (checkIn && checkOut) status = "CHECKED_OUT"; else if (checkIn) status = String(checkIn.status || "PRESENT").includes("LATE") ? "LATE" : "PRESENT";
       return { day, status, checkInAt: checkIn?.eventAt || checkIn?.createdAt || "", checkOutAt: checkOut?.eventAt || checkOut?.createdAt || "", checkIn, checkOut, leave, mission, latestLocation, pendingLiveRequest, events };
@@ -2351,6 +2354,8 @@ export const supabaseEndpoints = {
     const user = await currentUser().catch(() => null);
     const targetEmployee = await resolveDeliverableEmployee(employeeId);
     const targetEmployeeId = targetEmployee.id;
+    await client.from("live_location_requests").update({ status: "EXPIRED", responded_at: now(), response_note: "انتهت مهلة الطلب تلقائيًا", updated_at: now() }).eq("employee_id", targetEmployeeId).eq("status", "PENDING").lt("expires_at", now()).catch(() => null);
+    await client.from("live_location_requests").update({ status: "SUPERSEDED", responded_at: now(), response_note: "تم إغلاق الطلب بسبب إرسال طلب أحدث", updated_at: now() }).eq("employee_id", targetEmployeeId).eq("status", "PENDING").catch(() => null);
     const payload = { employee_id: targetEmployeeId, requested_by_user_id: user?.id || null, requested_by_employee_id: user?.employeeId || null, requested_by_name: user?.fullName || user?.name || "الإدارة", reason: body.reason || "متابعة تنفيذية مباشرة", status: "PENDING", precision: body.precision || "HIGH", expires_at: body.expiresAt || new Date(Date.now() + 15 * 60000).toISOString(), created_at: now() };
     const { data, error } = await client.from("live_location_requests").insert(payload).select("*").single();
     fail(error, "تعذر إنشاء طلب الموقع المباشر. تأكد من تشغيل ملف SQL النهائي RUN_IN_SUPABASE_SQL_EDITOR.sql.");
@@ -2393,6 +2398,7 @@ export const supabaseEndpoints = {
     const user = await currentUser();
     const employeeId = user?.employeeId || user?.employee?.id || "";
     if (!employeeId) return [];
+    await client.from("live_location_requests").update({ status: "EXPIRED", responded_at: now(), response_note: "انتهت مهلة الطلب تلقائيًا", updated_at: now() }).eq("employee_id", employeeId).eq("status", "PENDING").lt("expires_at", now()).catch(() => null);
     const { data, error } = await client.from("live_location_requests").select("*").or(`employee_id.eq.${employeeId},requested_by_employee_id.eq.${employeeId}`).order("created_at", { ascending: false }).limit(100);
     fail(error, "تعذر قراءة طلبات الموقع المباشر.");
     return toCamel(data || []);
@@ -2401,15 +2407,26 @@ export const supabaseEndpoints = {
     const client = await sb();
     const user = await currentUser();
     const employeeId = user?.employeeId || user?.employee?.id;
-    const approved = body.status !== "REJECTED" && body.action !== "reject";
-    const update = { status: approved ? "APPROVED" : "REJECTED", responded_at: now(), response_note: body.note || body.reason || "" };
-    const { data: request, error } = await client.from("live_location_requests").update(update).eq("id", id).eq("employee_id", employeeId).select("*").maybeSingle();
+    const requestedStatus = String(body.status || "").toUpperCase();
+    const postponed = requestedStatus === "POSTPONED" || body.action === "postpone";
+    const rejected = requestedStatus === "REJECTED" || body.action === "reject";
+    const approved = !rejected && !postponed;
+    const minutes = Number(body.postponeMinutes || 5);
+    const responseNote = body.note || body.reason || (postponed ? `طلب الموظف تأجيل إرسال الموقع ${minutes} دقائق` : "");
+    const update = { status: postponed ? "POSTPONED" : (approved ? "APPROVED" : "REJECTED"), responded_at: now(), response_note: responseNote, updated_at: now() };
+    const { data: request, error } = await client.from("live_location_requests").update(update).eq("id", id).eq("employee_id", employeeId).eq("status", "PENDING").select("*").maybeSingle();
     fail(error, "تعذر حفظ رد الموقع المباشر.");
     if (!request) throw new Error("طلب الموقع غير موجود أو لا يخص هذا الحساب.");
-    const responsePayload = { request_id: id, employee_id: employeeId, requested_by_user_id: request.requested_by_user_id, status: update.status, latitude: approved ? Number(body.latitude) : null, longitude: approved ? Number(body.longitude) : null, accuracy_meters: approved ? Number(body.accuracyMeters || body.accuracy || 0) : null, captured_at: body.capturedAt || now(), responded_at: now(), note: update.response_note };
+    const responsePayload = { request_id: id, employee_id: employeeId, requested_by_user_id: request.requested_by_user_id, status: update.status, latitude: approved ? Number(body.latitude) : null, longitude: approved ? Number(body.longitude) : null, accuracy_meters: approved ? Number(body.accuracyMeters || body.accuracy || 0) : null, captured_at: body.capturedAt || now(), responded_at: now(), note: approved ? (body.addressLabel || body.locationLabel || update.response_note || "") : update.response_note };
     const { data: response, error: rError } = await client.from("live_location_responses").insert(responsePayload).select("*").single();
     fail(rError, "تم تحديث الطلب لكن تعذر حفظ الاستجابة.");
-    if (approved && responsePayload.latitude && responsePayload.longitude) await ignoreSupabaseError(client.from("employee_locations").insert({ employee_id: employeeId, latitude: responsePayload.latitude, longitude: responsePayload.longitude, accuracy_meters: responsePayload.accuracy_meters, source: "live_location_request", status: "LIVE_SHARED", captured_at: responsePayload.captured_at }));
+    const employeeName = user?.fullName || user?.employee?.fullName || "الموظف";
+    if (approved && responsePayload.latitude && responsePayload.longitude) await ignoreSupabaseError(client.from("employee_locations").insert({ employee_id: employeeId, latitude: responsePayload.latitude, longitude: responsePayload.longitude, accuracy_meters: responsePayload.accuracy_meters, source: "live_location_request", status: "LIVE_SHARED", captured_at: responsePayload.captured_at, address_label: body.addressLabel || body.locationLabel || "", location_status: body.geofenceStatus || body.locationStatus || "", distance_from_branch: body.distanceFromBranchMeters ?? body.distanceFromBranch ?? null }));
+    if (request.requested_by_user_id) {
+      const title = approved ? "تم إرسال الموقع المباشر" : postponed ? "تم تأجيل طلب الموقع" : "تم رفض طلب الموقع";
+      const note = approved ? `${employeeName} أرسل موقعه الحالي${body.addressLabel ? `: ${body.addressLabel}` : ""}` : postponed ? `${employeeName} طلب تأجيل إرسال الموقع ${minutes} دقائق.` : `${employeeName} رفض إرسال الموقع.`;
+      await client.rpc("safe_create_notification", { p_user_id: request.requested_by_user_id, p_employee_id: request.requested_by_employee_id || null, p_title: title, p_body: note, p_type: "LIVE_LOCATION_RESPONSE", p_route: "employees", p_data: { route: "employees", type: "LIVE_LOCATION_RESPONSE", employeeId, requestId: id, status: update.status } }).catch(() => null);
+    }
     await audit("live_location.respond", "live_location_request", id, { request, response }).catch(() => null);
     return { request: toCamel(request), response: toCamel(response) };
   },
@@ -2838,7 +2855,8 @@ export const supabaseEndpoints = {
       "078_precise_ahla_manil_location.sql",
       "079_v26_notification_reliability.sql",
       "080_live_location_alert_reliability.sql",
-      "089_codex_full_deploy_alignment.sql"
+      "089_codex_full_deploy_alignment.sql",
+      "090_executive_location_selfie_live_request_hotfix.sql"
     ];
     const applied = await maybeTableRows("database_migration_status", "applied_at", false).then(toCamel);
     const normalizeMigrationName = (name = "") => String(name).replace(/\.sql$/i, "");

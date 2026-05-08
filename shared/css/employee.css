@@ -1404,12 +1404,77 @@ body.employee-portal .skeleton.short { width: 44%; }
   border-radius: 20px;
   background: #030712;
   border: 1px solid rgba(148,163,184,.24);
-  transform: none;
+  transform: scaleX(-1);
 }
 .identity-selfie-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
 @media (max-width: 460px) { .identity-selfie-actions { grid-template-columns: 1fr; } }
 .identity-risk-flags { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
 .identity-risk-flags span { border:1px solid rgba(251,191,36,.35); color:#fde68a; background:rgba(251,191,36,.10); border-radius:999px; padding:4px 8px; font-size:12px; }
+
+.gps-real-map {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+.gps-real-map iframe {
+  width: 100%;
+  min-height: 220px;
+  border: 1px solid rgba(56, 199, 244, .28);
+  border-radius: 18px;
+  background: #071120;
+}
+.gps-geofence-diagram {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.gps-geofence-ring {
+  width: min(190px, 62vw);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2px solid rgba(34, 197, 94, .72);
+  position: relative;
+  display: grid;
+  place-items: center;
+  color: #b9f6d3;
+  background: radial-gradient(circle, rgba(34,197,94,.16), rgba(34,197,94,.05) 52%, transparent 54%);
+}
+.gps-geofence-ring::before {
+  content: "";
+  position: absolute;
+  inset: 50%;
+  width: 10px;
+  height: 10px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #38c7f4;
+  box-shadow: 0 0 16px rgba(56,199,244,.65);
+}
+.gps-geofence-ring span {
+  font-weight: 900;
+  font-size: 13px;
+  transform: translateY(-28px);
+}
+.gps-geofence-ring i {
+  position: absolute;
+  left: var(--marker-offset, 0%);
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 8px rgba(34,197,94,.16), 0 0 18px rgba(34,197,94,.5);
+}
+.gps-geofence-diagram.outside .gps-geofence-ring {
+  border-color: rgba(244, 63, 94, .72);
+  background: radial-gradient(circle, rgba(34,197,94,.10), rgba(244,63,94,.05) 58%, transparent 60%);
+}
+.gps-geofence-diagram.outside .gps-geofence-ring i {
+  background: #f43f5e;
+  box-shadow: 0 0 0 8px rgba(244,63,94,.16), 0 0 18px rgba(244,63,94,.5);
+}
 
 /* Attendance Identity Guard V3 */
 .identity-policy-overlay {

@@ -1,6 +1,6 @@
 import { endpoints, unwrap } from "./api.js?v=v31-production-hardening-089";
 import { enableWebPushSubscription } from "./push.js?v=v31-production-hardening-089";
-import { getDeviceFingerprintHash, requestEmployeePasskey, filterEmployeePasskeys, calculateAttendanceRisk, rememberDevicePunch, capturePunchSelfie } from "./attendance-identity.js?v=v31-production-hardening-089-login-selfie";
+import { getDeviceFingerprintHash, requestEmployeePasskey, filterEmployeePasskeys, calculateAttendanceRisk, rememberDevicePunch, capturePunchSelfie } from "./attendance-identity.js?v=v31-production-hardening-089-exec-gps-live";
 import { ensureAttendancePolicyAcknowledged, ensureTrustedDeviceApproval, requestBranchQrChallenge, analyzeLocationTrust, mergeRiskSignals, submitFallbackAttendanceRequest } from "./attendance-v3-security.js?v=v31-production-hardening-089";
 import { evaluateAttendanceV4Controls, mergeV4RiskSignals, createFormalFallbackRequest } from "./attendance-v4-ops.js?v=v31-production-hardening-089";
 
@@ -378,8 +378,10 @@ function saveSeenLiveLocationRequestIds(ids) {
 
 function pendingLiveLocationRequest(rows = []) {
   const employeeId = state.user?.employeeId || state.user?.employee?.id || "";
+  const nowMs = Date.now();
   return rows
     .filter((item) => String(item.status || "").toUpperCase() === "PENDING")
+    .filter((item) => !item.expiresAt || new Date(item.expiresAt).getTime() > nowMs)
     .filter((item) => !employeeId || !item.employeeId || item.employeeId === employeeId)
     .sort((a, b) => new Date(b.createdAt || b.requestedAt || 0) - new Date(a.createdAt || a.requestedAt || 0))[0] || null;
 }
@@ -428,12 +430,24 @@ function showLiveLocationUrgentAlert(item = {}) {
       <div class="message warning compact">${escapeHtml(item.reason || "متابعة تنفيذية مباشرة")}</div>
       <div class="form-actions">
         <button class="button ghost" type="button" data-dismiss-live-alert>إغلاق مؤقت</button>
+        <button class="button ghost" type="button" data-postpone-live-location>تأجيل 5د</button>
         <button class="button primary" type="button" data-open-live-location>فتح وإرسال الموقع</button>
       </div>
     </div>
   `;
   const cleanup = () => { overlay.remove(); activeLiveLocationAlertId = ""; };
   overlay.querySelector("[data-dismiss-live-alert]")?.addEventListener("click", cleanup);
+  overlay.querySelector("[data-postpone-live-location]")?.addEventListener("click", async () => {
+    try {
+      await endpoints.respondLiveLocationRequest(item.id, { status: "POSTPONED", reason: "طلب الموظف تأجيل إرسال الموقع 5 دقائق", postponeMinutes: 5 });
+      setMessage("تم إبلاغ الإدارة بتأجيل إرسال الموقع 5 دقائق.", "");
+    } catch (error) {
+      setMessage("", error.message || "تعذر حفظ التأجيل.");
+    } finally {
+      cleanup();
+      if (routeKey() === "location") renderLocation();
+    }
+  });
   overlay.querySelector("[data-open-live-location]")?.addEventListener("click", () => {
     cleanup();
     location.hash = "location";
@@ -659,6 +673,8 @@ function statusLabel(value = "") {
     PENDING: "قيد المراجعة",
     APPROVED: "مقبول",
     REJECTED: "مرفوض",
+    POSTPONED: "مؤجل 5 دقائق",
+    EXPIRED: "منتهي",
     REJECTED_CONFIRMED: "رفض نهائي",
     MANUAL_APPROVED: "اعتماد يدوي",
     UNREAD: "جديد",
@@ -799,17 +815,61 @@ function localGeofenceEvaluation(location = {}) {
   if (!target || !Number.isFinite(Number(location.latitude)) || !Number.isFinite(Number(location.longitude))) return {};
   const distance = distanceMetersBetween(location, target);
   const accuracy = Number(location.accuracyMeters ?? location.accuracy ?? 0);
-  const effectiveRadius = Number(target.radiusMeters || 300) + Number(target.safetyBufferMeters || 0) + Math.min(Math.max(accuracy || 0, 0), Math.max(Number(target.maxAccuracyMeters || 180), 300));
-  const insideHard = distance != null && distance <= Number(target.radiusMeters || 300);
-  const insideSoft = distance != null && distance <= effectiveRadius;
+  const radius = Number(target.radiusMeters || 300);
+  const reviewRadius = radius + Math.max(Number(target.safetyBufferMeters || 0), Math.min(Math.max(accuracy || 0, 0), Number(target.maxAccuracyMeters || 90)));
+  const insideHard = distance != null && distance <= radius;
+  const insideReview = distance != null && distance > radius && distance <= reviewRadius;
   return {
     distanceFromBranchMeters: distance,
     localDistanceFromBranchMeters: distance,
-    localRadiusMeters: target.radiusMeters,
-    localEffectiveRadiusMeters: effectiveRadius,
+    localRadiusMeters: radius,
+    localEffectiveRadiusMeters: reviewRadius,
     localInsideBranch: insideHard,
-    localInsideSoft: insideSoft,
+    localInsideSoft: insideReview,
   };
+}
+
+function formatMeters(value) {
+  const meters = Number(value || 0);
+  if (!Number.isFinite(meters) || meters <= 0) return "";
+  if (meters >= 1000) return `${(meters / 1000).toFixed(meters >= 10000 ? 0 : 1)} كم`;
+  return `${Math.round(meters)} م`;
+}
+
+function mapUrlForLocation(record = {}) {
+  const latitude = Number(record.latitude);
+  const longitude = Number(record.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return "";
+  return `https://www.google.com/maps?q=${encodeURIComponent(`${latitude},${longitude}`)}`;
+}
+
+function osmEmbedUrl(record = {}) {
+  const latitude = Number(record.latitude);
+  const longitude = Number(record.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return "";
+  const delta = 0.006;
+  const bbox = [longitude - delta, latitude - delta, longitude + delta, latitude + delta].join(",");
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${encodeURIComponent(`${latitude},${longitude}`)}`;
+}
+
+function geofenceMapPreview(record = {}) {
+  const target = configuredBranchTarget();
+  const distance = Number(record.distanceFromBranchMeters ?? record.distanceFromBranch ?? record.distanceMeters ?? 0);
+  const radius = Number(record.localRadiusMeters || target?.radiusMeters || 300);
+  const outside = !record.insideBranch && !String(record.geofenceStatus || record.locationStatus || "").toLowerCase().includes("inside");
+  const ratio = radius > 0 && distance > 0 ? Math.min(1, distance / radius) : 0;
+  const markerOffset = outside ? 96 : Math.max(8, Math.round(ratio * 82));
+  const markerClass = outside ? "outside" : "inside";
+  const embedUrl = osmEmbedUrl(record);
+  const mapsUrl = mapUrlForLocation(record);
+  return `<div class="gps-real-map">
+    <div class="gps-geofence-diagram ${markerClass}" style="--marker-offset:${markerOffset}%">
+      <div class="gps-geofence-ring"><span>دائرة 300 متر</span><i></i></div>
+      <small>${outside ? `أنت خارج النطاق: ${escapeHtml(formatMeters(distance))}` : "أنت داخل دائرة المجمع"}</small>
+    </div>
+    ${embedUrl ? `<iframe title="خريطة الموقع الفعلي" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${escapeHtml(embedUrl)}"></iframe>` : ""}
+    ${mapsUrl ? `<a class="button ghost small" target="_blank" rel="noopener" href="${escapeHtml(mapsUrl)}">فتح الخريطة الحقيقية</a>` : ""}
+  </div>`;
 }
 
 function renderRequestList(requests = []) {
@@ -845,8 +905,8 @@ function locationStatusBadge(record = {}) {
   const uncertain = status.includes("uncertain") || status.includes("low_accuracy") || status.includes("unavailable") || status.includes("unknown") || record.locationUncertain;
   const outside = status.includes("outside") || status.includes("out_of_range") || status.includes("geofence_miss");
   const acceptedAttendance = ["check_in", "check_out", "present", "late", "checked_out", "manual_approved"].includes(attendanceStatus);
-  if (inside) return `<span class="pill success">داخل المجمع</span>`;
   if (uncertain) return `<span class="pill warning">الموقع غير مؤكد</span>`;
+  if (inside) return `<span class="pill success">داخل المجمع</span>`;
   if (outside) return `<span class="pill danger">خارج المجمع</span>`;
   if (acceptedAttendance && !record.requiresReview) return `<span class="pill success">تم التسجيل</span>`;
   return `<span class="pill warning">بحاجة للتحقق</span>`;
@@ -855,11 +915,11 @@ function locationStatusBadge(record = {}) {
 function readableLocationBlock(record = {}, { compact = false } = {}) {
   const label = locationLabelFromRecord(record);
   const accuracy = Number(record.accuracy || record.gpsAccuracy || 0);
-  const distance = Number(record.distanceFromBranch || record.distanceMeters || 0);
+  const distance = Number(record.distanceFromBranchMeters ?? record.distanceFromBranch ?? record.distanceMeters ?? 0);
   const hasDistance = Number.isFinite(distance) && distance > 0;
   return `<div class="readable-location ${compact ? "compact" : ""}">
     <div>${locationStatusBadge(record)}<strong>${escapeHtml(label)}</strong><small>${escapeHtml(label.includes(BRANCH_DISPLAY_NAME) ? BRANCH_DISPLAY_AREA : "الموقع الفعلي المسجل")}</small></div>
-    <div class="location-meta-row">${accuracy ? `<span>الدقة ±${Math.round(accuracy)} م</span>` : ""}${hasDistance ? `<span>يبعد تقريبًا ${Math.round(distance)} م</span>` : ""}</div>
+    <div class="location-meta-row">${accuracy ? `<span>الدقة ±${Math.round(accuracy)} م</span>` : ""}${hasDistance ? `<span>يبعد عن المجمع ${escapeHtml(formatMeters(distance))}</span>` : ""}</div>
   </div>`;
 }
 
@@ -1155,14 +1215,13 @@ async function getVerifiedBrowserLocation(employeeId = "", options = {}) {
   const status = String(evaluation.geofenceStatus || raw.geofenceStatus || "").toLowerCase();
   const accuracy = Number(raw.accuracyMeters || raw.accuracy || evaluation.accuracyMeters || 0);
   const weak = Boolean(accuracy && accuracy > policy.maxAcceptableAccuracy);
-  const serverInside = status.includes("inside") || evaluation.allowed === true || evaluation.canRecord === true;
   const serverOutside = status.includes("outside") || status.includes("geofence_miss");
   const localInsideHard = local.localInsideBranch === true;
-  const localInsideSoft = local.localInsideSoft === true;
-  const uncertain = weak || status.includes("low_accuracy") || status.includes("unavailable") || status.includes("unknown") || (serverOutside && localInsideSoft && policy.uncertainReviewOnly);
-  const inside = serverInside || localInsideHard || (localInsideSoft && !serverOutside && !weak);
+  const localInsideReview = local.localInsideSoft === true;
+  const uncertain = (weak && localInsideReview) || status.includes("low_accuracy") || status.includes("unavailable") || status.includes("unknown") || (serverOutside && localInsideReview && policy.uncertainReviewOnly);
+  const inside = localInsideHard;
   const finalStatus = inside
-    ? (weak ? "inside_branch_low_accuracy" : "inside_branch")
+    ? (weak ? "inside_branch_low_accuracy_review" : "inside_branch")
     : (uncertain ? "location_uncertain" : (evaluation.geofenceStatus || "outside_branch"));
   const merged = {
     ...raw,
@@ -1172,8 +1231,8 @@ async function getVerifiedBrowserLocation(employeeId = "", options = {}) {
     insideBranch: Boolean(inside),
     locationUncertain: Boolean(uncertain && !inside),
     geofenceStatus: finalStatus,
-    canRecord: Boolean(inside),
-    allowed: Boolean(inside),
+    canRecord: Boolean(inside && !weak),
+    allowed: Boolean(inside && !weak),
     requiresReview: Boolean((uncertain && !inside) || evaluation.requiresReview),
   };
   if (merged.insideBranch) merged.addressLabel = `${branchName()} — ${branchArea()}`;
@@ -1346,7 +1405,7 @@ async function renderPunch() {
           <div class="branch-circle">📍</div>
           <div><strong>${branchName()}</strong><small>${branchArea()}</small></div>
         </div>
-        <div id="gps-map-preview" class="gps-map-preview"><div class="geo-circle"><span>نطاق المجمع</span><i></i></div><small>اضغط اختبار الموقع لعرض حالتك داخل/خارج المجمع.</small></div>
+        <div id="gps-map-preview" class="gps-map-preview"><div class="gps-geofence-diagram"><div class="gps-geofence-ring"><span>دائرة 300 متر</span><i></i></div><small>اضغط اختبار الموقع لعرض مكانك الحقيقي داخل/خارج النطاق.</small></div></div>
         ${attendanceNoteField()}
         <div class="employee-actions-stack punch-actions-clear">
           <button class="button primary full" data-punch-type="${suggestedType}">${primaryLabel}</button>
@@ -1366,11 +1425,11 @@ async function renderPunch() {
       resultBox?.classList.remove("hidden", "danger-box");
       if (resultBox) resultBox.textContent = "جاري اختبار الموقع بدقة عالية...";
       const current = await getVerifiedBrowserLocation(employeeId);
-      const normalized = { ...current, status: current.geofenceStatus || (current.insideBranch ? "inside_branch" : (current.locationUncertain ? "location_uncertain" : "outside_branch")), addressLabel: current.insideBranch ? `${branchName()} — ${branchArea()}` : (current.addressLabel || (current.locationUncertain ? "الموقع غير مؤكد" : "موقع خارج المجمع")) };
+      const normalized = { ...current, status: current.geofenceStatus || (current.canRecord ? "inside_branch" : (current.locationUncertain ? "location_uncertain" : "outside_branch")), addressLabel: current.canRecord ? `${branchName()} — ${branchArea()}` : (current.addressLabel || (current.locationUncertain ? "الموقع غير مؤكد" : "موقع خارج المجمع")) };
       sessionStorage.setItem("hr.employee.lastGpsTest", JSON.stringify({ ...normalized, testedAt: new Date().toISOString() }));
       const preview = app.querySelector("#gps-map-preview");
-      if (preview) preview.innerHTML = `${readableLocationBlock(normalized)}<a class="button ghost small" target="_blank" rel="noopener" href="https://maps.google.com/?q=${encodeURIComponent(`${current.latitude},${current.longitude}`)}">فتح الخريطة</a>`;
-      if (resultBox) resultBox.textContent = current.insideBranch ? "أنت داخل نطاق مجمع أحلى شباب." : (current.locationUncertain ? "الموقع غير مؤكد؛ لن نحكم أنك خارج المجمع، وسيُرسل للمراجعة مع الدقة والمسافة." : "أنت خارج المجمع، سيتم تسجيل المكان الفعلي والملاحظة عند البصمة.");
+      if (preview) preview.innerHTML = `${readableLocationBlock(normalized)}${geofenceMapPreview(normalized)}`;
+      if (resultBox) resultBox.textContent = current.canRecord ? "أنت داخل دائرة 300 متر الخاصة بمجمع أحلى شباب." : (current.locationUncertain ? "الموقع قريب أو دقته غير كافية؛ سيظهر للمراجعة مع المسافة والدقة." : `أنت خارج دائرة 300 متر. المسافة التقريبية: ${formatMeters(current.distanceFromBranchMeters)}.`);
     } catch (error) {
       resultBox?.classList.remove("hidden");
       resultBox?.classList.add("danger-box");
@@ -1396,13 +1455,13 @@ async function renderPunch() {
       if (!current.latitude || !current.longitude || current.locationPermission === "denied") throw new Error("لم يتم استلام إحداثيات GPS. فعّل الموقع من المتصفح واضغط اختبار الموقع أولاً.");
       const qr = isQrDisabled() ? { valid: true, status: "DISABLED", riskFlags: [], requiresReview: false } : await requestBranchQrChallenge({ endpoints, branchId: address.branch?.id || address.branchId || "main" }).catch(() => ({ status: "NOT_PROVIDED" }));
       const trustedDevice = await ensureTrustedDeviceApproval({ endpoints, employee, device: { ...device, deviceFingerprintHash: device.deviceFingerprintHash || preFingerprint }, selfieUrl: selfie.selfieUrl || selfie.url || "", location: current }).catch(() => ({ status: "PENDING_REVIEW", requiresReview: true, riskFlags: ["DEVICE_APPROVAL_CHECK_FAILED"] }));
-      const status = current.insideBranch ? "inside_branch" : (current.locationUncertain ? "location_uncertain" : "outside_branch");
+      const status = current.canRecord ? "inside_branch" : (current.locationUncertain ? "location_uncertain" : "outside_branch");
       const locationTrust = analyzeLocationTrust(current, { branch: address.branch || address, geofenceStatus: current.geofenceStatus || status });
       const risk = mergeRiskSignals(calculateAttendanceRisk({ employeeId, location: current, device, selfie, evaluation: { ...(trustedDevice || {}), geofenceStatus: status } }), locationTrust, qr, trustedDevice);
       const v4 = await evaluateAttendanceV4Controls({ endpoints, employee, device: { ...device, deviceFingerprintHash: device.deviceFingerprintHash || preFingerprint }, location: current, risk }).catch(() => ({}));
       const merged = mergeV4RiskSignals ? mergeV4RiskSignals(risk, v4) : risk;
       const faceDisabled = isFaceSelfieDisabled();
-      const insideBranch = status === "inside_branch" || String(current.geofenceStatus || "").includes("inside_branch");
+      const insideBranch = status === "inside_branch" && current.canRecord === true;
       const finalRiskFlags = Array.from(new Set(merged.riskFlags || risk.riskFlags || []))
         .filter((flag) => !(faceDisabled && ["MISSING_SELFIE", "FACE_SELFIE_TEMP_DISABLED", "SELFIE_CAPTURE_FAILED"].includes(String(flag))));
       const directRecord = insideBranch && device.ok !== false && current.locationPermission === "granted";
@@ -1410,7 +1469,7 @@ async function renderPunch() {
       const finalRiskScore = directRecord ? 0 : Number(merged.riskScore ?? risk.riskScore ?? 0);
       const finalRiskLevel = directRecord ? "LOW" : (merged.riskLevel || risk.riskLevel || "MEDIUM");
       const notes = app.querySelector("#punch-notes")?.value || "";
-      const body = { ...current, type: type === "out" ? "CHECK_OUT" : "CHECK_IN", eventType: type, employeeId, notes, status, locationStatus: status, addressLabel: current.insideBranch ? `${branchName()} — ${branchArea()}` : (current.addressLabel || current.locationLabel || (current.locationUncertain ? "الموقع غير مؤكد — مراجعة" : "خارج نطاق المجمع")), verificationStatus: "verified", biometricMethod: isQrDisabled() ? "passkey+gps" : "passkey+gps+qr", passkeyCredentialId: device.passkeyCredentialId, trustedDeviceId: device.trustedDeviceId, deviceFingerprintHash: device.deviceFingerprintHash || preFingerprint, browserInstallId: policyAck.browserInstallId || "", selfieUrl: selfie.selfieUrl || selfie.url || "", branchQrStatus: qr.status, branchQrChallengeId: qr.challengeId || "", antiSpoofingFlags: locationTrust.flags || [], riskScore: finalRiskScore, riskLevel: finalRiskLevel, riskFlags: finalRiskFlags, requiresReview: finalRequiresReview };
+      const body = { ...current, type: type === "out" ? "CHECK_OUT" : "CHECK_IN", eventType: type, employeeId, notes, status, locationStatus: status, addressLabel: current.canRecord ? `${branchName()} — ${branchArea()}` : (current.addressLabel || current.locationLabel || (current.locationUncertain ? "الموقع غير مؤكد — مراجعة" : "خارج نطاق المجمع")), verificationStatus: "verified", biometricMethod: isQrDisabled() ? "passkey+gps" : "passkey+gps+qr", passkeyCredentialId: device.passkeyCredentialId, trustedDeviceId: device.trustedDeviceId, deviceFingerprintHash: device.deviceFingerprintHash || preFingerprint, browserInstallId: policyAck.browserInstallId || "", selfieUrl: selfie.selfieUrl || selfie.url || "", branchQrStatus: qr.status, branchQrChallengeId: qr.challengeId || "", antiSpoofingFlags: locationTrust.flags || [], riskScore: finalRiskScore, riskLevel: finalRiskLevel, riskFlags: finalRiskFlags, requiresReview: finalRequiresReview };
       if (!device.ok || !selfie.ok || current.locationPermission === "denied") await createFormalFallbackRequest?.({ endpoints, reason: "IDENTITY_COMPONENT_FAILED", body }).catch(() => submitFallbackAttendanceRequest({ endpoints, reason: "IDENTITY_COMPONENT_FAILED", body }).catch(() => null));
       await endpoints.recordAttendance(body);
       rememberDevicePunch(body.deviceFingerprintHash, employeeId);
@@ -1439,7 +1498,7 @@ async function renderLocation() {
   const pending = liveRequests.filter((item) => item.status === "PENDING").slice(0, 5);
   shell(`
     <section class="employee-grid">
-      ${pending.length ? `<article class="employee-card full urgent-card"><div class="panel-kicker">إجراء مطلوب</div><h2>طلبات موقع مباشر من الإدارة</h2><p>شارك موقعك الحالي فقط عند موافقتك. يتم تسجيل الطلب والرد في سجل النظام.</p><div class="employee-list">${pending.map((item) => `<div class="employee-list-item"><div><strong>${escapeHtml(item.requestedByName || "الإدارة")}</strong><span>${escapeHtml(item.reason || "طلب موقع مباشر")}</span><small>ينتهي: ${escapeHtml(date(item.expiresAt))}</small></div><div class="list-item-side"><button class="button primary" data-live-send="${escapeHtml(item.id)}">إرسال موقعي</button><button class="button ghost" data-live-reject="${escapeHtml(item.id)}">رفض</button></div></div>`).join("")}</div></article>` : ""}
+      ${pending.length ? `<article class="employee-card full urgent-card"><div class="panel-kicker">إجراء مطلوب</div><h2>طلبات موقع مباشر من الإدارة</h2><p>شارك موقعك الحالي أو أجّل الطلب 5 دقائق. كل اختيار يغلق الطلب الحالي حتى لا يظل معلقًا.</p><div class="employee-list">${pending.map((item) => `<div class="employee-list-item"><div><strong>${escapeHtml(item.requestedByName || "الإدارة")}</strong><span>${escapeHtml(item.reason || "طلب موقع مباشر")}</span><small>ينتهي: ${escapeHtml(date(item.expiresAt))}</small></div><div class="list-item-side"><button class="button primary" data-live-send="${escapeHtml(item.id)}">إرسال موقعي</button><button class="button ghost" data-live-postpone="${escapeHtml(item.id)}">تأجيل 5د</button><button class="button ghost" data-live-reject="${escapeHtml(item.id)}">رفض</button></div></div>`).join("")}</div></article>` : ""}
       <article class="employee-card full">
         <div class="panel-kicker">موقع مباشر</div>
         <h2>إرسال موقعي الحالي</h2>
@@ -1471,6 +1530,16 @@ async function renderLocation() {
   };
   app.querySelectorAll("[data-live-send]").forEach((button) => button.addEventListener("click", async () => {
     try { await sendLive(button.dataset.liveSend); setMessage("تم إرسال موقعك المباشر للإدارة.", ""); renderLocation(); } catch (error) { setMessage("", friendlyError(error, "تعذر إرسال الموقع.")); renderLocation(); }
+  }));
+  app.querySelectorAll("[data-live-postpone]").forEach((button) => button.addEventListener("click", async () => {
+    try {
+      await endpoints.respondLiveLocationRequest(button.dataset.livePostpone, { status: "POSTPONED", reason: "طلب الموظف تأجيل إرسال الموقع 5 دقائق", postponeMinutes: 5 });
+      setMessage("تم إبلاغ الإدارة بتأجيل إرسال الموقع 5 دقائق، وتم إغلاق الطلب الحالي.", "");
+      renderLocation();
+    } catch (error) {
+      setMessage("", error.message || "تعذر حفظ التأجيل.");
+      renderLocation();
+    }
   }));
   app.querySelectorAll("[data-live-reject]").forEach((button) => button.addEventListener("click", async () => {
     const reason = await askText({ title: "رفض إرسال الموقع", message: "اكتب سبب رفض إرسال الموقع حتى يظهر للإدارة.", defaultValue: "غير متاح الآن", confirmLabel: "إرسال الرفض" });

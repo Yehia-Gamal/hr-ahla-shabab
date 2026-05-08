@@ -136,6 +136,8 @@ async function blobFromVideo(video) {
   const ctx = canvas.getContext("2d", { alpha: false });
   ctx.fillStyle = "#0b1220";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.translate(canvas.width, 0);
+  ctx.scale(-1, 1);
   ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
   return await new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), "image/jpeg", SELFIE_QUALITY));
 }
@@ -170,7 +172,7 @@ export async function capturePunchSelfie({ endpoints = null, employeeId = "", em
     document.body.appendChild(overlay);
     const video = overlay.querySelector("video");
     video.srcObject = stream;
-    video.style.transform = "none";
+    video.style.transform = "scaleX(-1)";
     video.play?.().catch(() => {});
     overlay.querySelector("[data-selfie-cancel]").addEventListener("click", () => {
       stopStream(stream);
