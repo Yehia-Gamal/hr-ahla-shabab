@@ -886,11 +886,10 @@ async function renderLogin() {
   app.innerHTML = `
     <div class="login-screen">
       <form class="login-panel" id="login-form" data-password-policy="none" novalidate>
-        <div class="login-mark">HR</div>
-        <h1>تسجيل الدخول</h1>
-        <p>اكتب بريدك وكلمة المرور. عند حدوث خطأ لن يتم مسح البيانات التي أدخلتها.</p>
+        <div class="login-logo-mark"><img src="../shared/images/ahla-shabab-logo.png" alt="" onerror="this.style.display='none'" /></div>
+        <h1>بوابة الإدارة</h1>
         ${state.error ? `<div class="message error">${escapeHtml(state.error)}</div>` : ""}
-        ${state.lastLoginFailed ? `<div class="message warning compact">لو نسيت كلمة المرور اضغط على "نسيت كلمة السر" وسيتم إرسال رابط إعادة تعيين إلى بريدك.</div>` : ""}
+        ${state.lastLoginFailed ? `<div class="message warning compact">تعذر تسجيل الدخول. تأكد من البيانات ثم أعد المحاولة.</div>` : ""}
         <label>البريد أو الاسم<input name="identifier" value="${escapeHtml(identifierValue)}" autocomplete="username" required /></label>
         <label>كلمة المرور
           <span class="login-password-field">
@@ -899,8 +898,6 @@ async function renderLogin() {
           </span>
         </label>
         <button class="button primary full" type="submit">دخول</button>
-        <button class="button ghost full forgot-password-btn" type="button" data-forgot-password>نسيت كلمة السر؟ أرسل رابط إعادة التعيين</button>
-        <div class="login-help-note">لن يتم مسح رقم الهاتف/البريد أو كلمة المرور المكتوبة عند فشل الدخول.</div>
       </form>
     </div>
   `;
@@ -936,26 +933,6 @@ async function renderLogin() {
       await endpoints.adminAccessLog?.({ action: "admin.login.failed", result: "FAILED", metadata: { identifier: state.loginIdentifier } }).catch(() => null);
       state.lastLoginFailed = true;
       setMessage("", error.message || "تعذر تسجيل الدخول.");
-      renderLogin();
-    }
-  });
-  app.querySelector("[data-forgot-password]").addEventListener("click", async () => {
-    const values = readForm(form);
-    state.loginIdentifier = values.identifier || state.loginIdentifier || "";
-    state.loginPassword = values.password || state.loginPassword || "";
-    if (!state.loginIdentifier) {
-      setMessage("", "اكتب البريد أولًا ثم اضغط نسيت كلمة السر.");
-      renderLogin();
-      return;
-    }
-    try {
-      await endpoints.forgotPassword(state.loginIdentifier);
-      state.lastLoginFailed = false;
-      setMessage("تم إرسال رابط إعادة تعيين كلمة المرور إلى البريد المسجل، راجع Inbox أو Spam.", "");
-      renderLogin();
-    } catch (error) {
-      state.lastLoginFailed = true;
-      setMessage("", error.message || "تعذر إرسال رابط إعادة التعيين.");
       renderLogin();
     }
   });

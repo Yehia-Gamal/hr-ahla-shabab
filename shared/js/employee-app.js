@@ -1,6 +1,6 @@
 import { endpoints, unwrap } from "./api.js?v=v31-production-hardening-089";
 import { enableWebPushSubscription } from "./push.js?v=v31-production-hardening-089";
-import { getDeviceFingerprintHash, requestEmployeePasskey, filterEmployeePasskeys, calculateAttendanceRisk, rememberDevicePunch, capturePunchSelfie } from "./attendance-identity.js?v=v31-production-hardening-089-friday-reminder";
+import { getDeviceFingerprintHash, requestEmployeePasskey, filterEmployeePasskeys, calculateAttendanceRisk, rememberDevicePunch, capturePunchSelfie } from "./attendance-identity.js?v=v31-production-hardening-089-simple-login";
 import { ensureAttendancePolicyAcknowledged, ensureTrustedDeviceApproval, requestBranchQrChallenge, analyzeLocationTrust, mergeRiskSignals, submitFallbackAttendanceRequest } from "./attendance-v3-security.js?v=v31-production-hardening-089";
 import { evaluateAttendanceV4Controls, mergeV4RiskSignals, createFormalFallbackRequest } from "./attendance-v4-ops.js?v=v31-production-hardening-089";
 
@@ -1191,11 +1191,8 @@ async function renderLogin() {
       <form class="employee-login-card refined-login-card" id="employee-login-form" autocomplete="off" novalidate>
         <div class="login-brand-row">
           <img src="../shared/images/ahla-shabab-logo.png" alt="" onerror="this.style.display='none'" />
-          <div><strong>أحلى شباب</strong><span>تطبيق الموظفين</span></div>
+          <div><strong>أحلى شباب</strong><span>بوابة الدخول</span></div>
         </div>
-        <h1>دخول الموظفين</h1>
-        <div class="employee-login-intro"><span class="login-highlight">الدخول برقم الهاتف</span><span class="login-separator"></span><span class="login-highlight">كلمة المرور المؤقتة = رقم الهاتف</span></div>
-        <div class="login-features"><span class="login-feature">دخول بالهاتف</span><span class="login-feature">GPS + البصمة</span><span class="login-feature">إشعارات داخلية</span></div>
         ${state.error ? `<div class="message error">${escapeHtml(state.error)}</div>` : ""}
         ${state.message ? `<div class="message">${escapeHtml(state.message)}</div>` : ""}
         ${state.lastLoginFailed ? `<div class="message warning compact">تعذر تسجيل الدخول. تأكد من الرقم وكلمة المرور ثم أعد المحاولة.</div>` : ""}
@@ -1207,7 +1204,6 @@ async function renderLogin() {
           </span>
         </label>
         <button class="button primary full" type="submit">دخول التطبيق</button>
-        <button class="button ghost full compact-ghost" type="button" data-forgot-password>نسيت كلمة السر؟</button>
       </form>
     </div>
   `;
@@ -1233,25 +1229,6 @@ async function renderLogin() {
     } catch (error) {
       state.lastLoginFailed = true;
       setMessage("", error.message || "تعذر تسجيل الدخول.");
-      renderLogin();
-    }
-  });
-  app.querySelector("[data-forgot-password]")?.addEventListener("click", async () => {
-    const values = readForm(form);
-    state.loginIdentifier = values.identifier || state.loginIdentifier || "";
-    state.loginPassword = values.password || state.loginPassword || "";
-    if (!state.loginIdentifier) {
-      setMessage("", "اكتب رقم الهاتف أولًا.");
-      return renderLogin();
-    }
-    try {
-      await endpoints.forgotPassword(state.loginIdentifier);
-      state.lastLoginFailed = false;
-      setMessage("تم إرسال طلب إعادة تعيين كلمة المرور.", "");
-      renderLogin();
-    } catch (error) {
-      state.lastLoginFailed = true;
-      setMessage("", error.message || "تعذر إرسال رابط إعادة التعيين.");
       renderLogin();
     }
   });

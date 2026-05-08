@@ -433,9 +433,8 @@ function renderLogin() {
   app.innerHTML = `
     <div class="login-screen executive-login-screen">
       <form class="login-panel executive-login-panel" id="login-form" novalidate>
-        <div class="login-mark">EX</div>
-        <h1>دخول المتابعة التنفيذية</h1>
-        <p>هذه واجهة مختصرة للمدير التنفيذي: مؤشرات، متابعة موظفين، وطلب موقع مباشر فقط.</p>
+        <div class="login-logo-mark"><img src="../shared/images/ahla-shabab-logo.png" alt="" onerror="this.style.display='none'" /></div>
+        <h1>بوابة المدير التنفيذي</h1>
         ${state.error ? `<div class="message error">${escapeHtml(state.error)}</div>` : ""}
         ${state.lastLoginFailed ? `<div class="message warning compact">تحقق من البريد/الهاتف وكلمة المرور. لن يتم مسح البيانات المكتوبة.</div>` : ""}
         <label>البريد أو رقم الهاتف أو الاسم<input name="identifier" value="${escapeHtml(identifierValue)}" autocomplete="username" required /></label>
@@ -446,7 +445,6 @@ function renderLogin() {
           </span>
         </label>
         <button class="button primary full" type="submit">فتح المتابعة التنفيذية</button>
-        <button class="button ghost full" type="button" data-employee-login>الذهاب لتطبيق الموظف</button>
       </form>
     </div>
   `;
@@ -488,7 +486,6 @@ function renderLogin() {
       renderLogin();
     }
   });
-  app.querySelector("[data-employee-login]")?.addEventListener("click", () => { window.location.href = EMPLOYEE_PORTAL; });
 }
 
 async function renderHome() {
