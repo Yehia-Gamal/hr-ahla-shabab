@@ -27,8 +27,8 @@ function cairoDate() {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 }
 
-function cairoWeekday() {
-  return new Intl.DateTimeFormat('en-US', { timeZone: 'Africa/Cairo', weekday: 'short' }).format(new Date());
+function cairoWeekday(date = cairoDate()) {
+  return new Intl.DateTimeFormat('en-US', { timeZone: 'Africa/Cairo', weekday: 'short' }).format(new Date(`${date}T12:00:00+02:00`));
 }
 
 function subscriptionFromRow(row: PushRow) {
@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
   const today = String(body.date || cairoDate()).slice(0, 10);
   const sendPush = asBool(body.sendPush, true);
   const skipFriday = asBool(body.skipFriday, true);
-  if (skipFriday && cairoWeekday() === 'Fri') return json(req, { ok: true, skipped: true, reason: 'FRIDAY_OFF', date: today, created: 0, pushed: 0 });
+  if (skipFriday && cairoWeekday(today) === 'Fri') return json(req, { ok: true, skipped: true, reason: 'FRIDAY_OFF', date: today, created: 0, pushed: 0 });
 
   const from = `${today}T00:00:00+02:00`;
   const to = `${today}T23:59:59+02:00`;
@@ -148,8 +148,8 @@ Deno.serve(async (req) => {
     if (!subError) {
       webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
       const payload = JSON.stringify({
-        title: 'تذكير البصمة',
-        body: 'الساعة 9:30 صباحًا: لم تُسجل بصمة حضور اليوم بعد. افتح التطبيق وسجل حضورك عند الوصول.',
+        title: 'تذكير بصمة الحضور',
+        body: 'الساعة 10:00 صباحًا: لم تُسجل بصمة حضور اليوم بعد. افتح التطبيق وسجل حضورك عند الوصول.',
         tag: `missing-punch-${today}`,
         data: { route: 'punch', type: 'MISSING_PUNCH', date: today },
       });
@@ -173,8 +173,8 @@ Deno.serve(async (req) => {
   }
 
   await adminClient.from('smart_alert_events').insert({
-    rule_code: 'MISSING_PUNCH_0930',
-    title: 'تشغيل تذكير بصمة 9:30',
+    rule_code: 'MISSING_PUNCH_1000_FLOATING',
+    title: 'تشغيل تذكير بصمة 10:00',
     body: `تم إنشاء ${created} إشعار وإرسال ${pushed} Push.`,
     severity: 'WARNING',
     status: 'SENT',

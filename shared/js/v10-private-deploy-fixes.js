@@ -3,8 +3,8 @@
   cfg.attendance = Object.assign({
     qrRequired:false,
     reminderInPageHour:10,
-    reminderPushHour:9,
-    reminderPushMinute:30,
+    reminderPushHour:10,
+    reminderPushMinute:0,
     gpsSamples:18,
     gpsSampleWindowMs:30000,
     gpsTargetAccuracyMeters:15,

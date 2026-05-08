@@ -8054,7 +8054,7 @@ create table if not exists public.smart_alert_events (
 
 insert into public.smart_alert_rules(code,title,description,target_role,severity,schedule_hint)
 values
-('MISSING_PUNCH_0930','تذكير بصمة 9:30','تنبيه للموظفين الذين لم يسجلوا حضورهم حتى 9:30','employee','WARNING','daily 09:30'),
+('MISSING_PUNCH_1000_FLOATING','تذكير بصمة 10:00','تنبيه عائم + Push للموظفين الذين لم يسجلوا حضورهم حتى 10:00، مع اعتبار الجمعة إجازة','employee','WARNING','daily 10:00'),
 ('HIGH_RISK_ATTENDANCE','بصمة عالية الخطورة','تصعيد بصمات الحضور ذات درجة خطر عالية','hr','CRITICAL','realtime'),
 ('PENDING_MANAGER_APPROVAL','موافقات مدير معلقة','تنبيه المدير بطلبات فريقه المعلقة','direct_manager','WARNING','hourly')
 on conflict (code) do update set title=excluded.title, description=excluded.description, target_role=excluded.target_role, severity=excluded.severity, schedule_hint=excluded.schedule_hint;
@@ -8405,7 +8405,7 @@ commit;
 -- SOURCE: supabase/sql/patches/075_qr_disabled_and_attendance_reminder_runner.sql
 -- =========================================================
 
--- Patch 075: Disable branch QR operationally + prepare real 09:30 attendance reminders
+-- Patch 075: Disable branch QR operationally + prepare real 10:00 floating/push attendance reminders
 -- Safe/idempotent patch. It keeps old QR tables/columns for compatibility but turns QR off.
 
 begin;
@@ -8429,8 +8429,8 @@ begin
     insert into public.system_settings(key, value, description)
     values
       ('attendance.qr_required', 'false'::jsonb, 'QR disabled by Patch 075; attendance uses passkey + GPS + selfie.'),
-      ('attendance.reminder_push_time', '"09:30"'::jsonb, 'Daily missing-punch push reminder target time, Africa/Cairo.'),
-      ('attendance.reminder_page_time', '"10:00"'::jsonb, 'In-page reminder target time, Africa/Cairo.'),
+      ('attendance.reminder_push_time', '"10:00"'::jsonb, 'Daily missing-punch push reminder target time, Africa/Cairo; Friday is weekly holiday.'),
+      ('attendance.reminder_page_time', '"10:00"'::jsonb, 'Floating in-app reminder target time, Africa/Cairo; no fixed reminder card.'),
       ('attendance.gps_policy', '{"samples":12,"sampleWindowMs":22000,"targetAccuracyMeters":25,"maxAcceptableAccuracyMeters":180,"safetyBufferMeters":220,"uncertainReviewOnly":true}'::jsonb, 'GPS policy: avoid catastrophic outside judgement when GPS is uncertain.')
     on conflict (key) do update
       set value = excluded.value,
@@ -8450,6 +8450,11 @@ declare
   v_created integer := 0;
   v_target integer := 0;
 begin
+  if extract(isodow from p_for_date) = 5 then
+    return query select 0, 0;
+    return;
+  end if;
+
   with active_employees as (
     select e.id, e.user_id
     from public.employees e
@@ -8461,6 +8466,7 @@ begin
     where ae.employee_id is not null
       and ((ae.event_at at time zone 'Africa/Cairo')::date = p_for_date
            or (ae.created_at at time zone 'Africa/Cairo')::date = p_for_date)
+      and lower(coalesce(ae.type, '')) in ('check_in','in','present')
   ), existing as (
     select distinct n.employee_id
     from public.notifications n
@@ -8487,7 +8493,7 @@ begin
 
   if to_regclass('public.smart_alert_events') is not null then
     insert into public.smart_alert_events(rule_code, title, body, severity, status, payload, sent_at)
-    values ('MISSING_PUNCH_0930', 'تشغيل تذكير بصمة 9:30',
+    values ('MISSING_PUNCH_1000_FLOATING', 'تشغيل تذكير بصمة 10:00',
             'تم إنشاء ' || v_created || ' إشعار داخلي. إرسال Push يتم عبر Edge Function send-attendance-reminders.',
             'WARNING', 'SENT', jsonb_build_object('date', p_for_date, 'created', v_created, 'targets', v_target), now());
   end if;

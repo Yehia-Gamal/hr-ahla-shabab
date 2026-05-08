@@ -708,6 +708,24 @@ body.employee-portal .profile-chip {
   font-weight: 900;
 }
 
+body.employee-portal .hero-chip.success {
+  border-color: rgba(73, 211, 154, .34);
+  background: rgba(73, 211, 154, .12);
+  color: #bbf7d0;
+}
+
+body.employee-portal .hero-chip.warning {
+  border-color: rgba(245, 158, 11, .34);
+  background: rgba(245, 158, 11, .12);
+  color: #fde68a;
+}
+
+body.employee-portal .hero-chip.holiday {
+  border-color: rgba(73, 211, 154, .38);
+  background: linear-gradient(135deg, rgba(73, 211, 154, .18), rgba(56, 199, 244, .12));
+  color: #d9fff0;
+}
+
 body.employee-portal .employee-login-card .login-feature {
   min-height: 28px;
   font-size: 11px;
@@ -1782,6 +1800,117 @@ body.employee-portal .device-inline-status span { color: rgba(203, 213, 225, .84
 body.employee-portal .device-inline-status.ok { border-color: rgba(34, 197, 94, .30); background: rgba(22, 163, 74, .08); }
 body.employee-portal .device-inline-status.warn { border-color: rgba(245, 158, 11, .35); background: rgba(245, 158, 11, .10); }
 body.employee-portal .device-security-card { border-color: rgba(56, 199, 244, .28) !important; }
+
+body.employee-portal .holiday-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  border-color: rgba(73, 211, 154, .34) !important;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(73, 211, 154, .18), transparent 36%),
+    linear-gradient(135deg, rgba(10, 34, 32, .94), rgba(7, 16, 31, .96)) !important;
+}
+
+body.employee-portal .holiday-card h2,
+body.employee-portal .holiday-card p {
+  margin: 0;
+}
+
+body.employee-portal .holiday-card p {
+  color: rgba(226, 232, 240, .84);
+  line-height: 1.7;
+}
+
+body.employee-portal .holiday-icon {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  border: 1px solid rgba(73, 211, 154, .34);
+  background: rgba(73, 211, 154, .12);
+  color: #bbf7d0;
+  font-size: 28px;
+  box-shadow: 0 16px 38px rgba(73, 211, 154, .10);
+}
+
+body.employee-portal .holiday-card .employee-actions-row {
+  grid-column: 1 / -1;
+}
+
+body.employee-portal .attendance-floating-reminder {
+  position: fixed;
+  inset-inline: 12px;
+  bottom: calc(92px + env(safe-area-inset-bottom));
+  z-index: 120;
+  max-width: 520px;
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid rgba(56, 199, 244, .34);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(56, 199, 244, .20), transparent 38%),
+    rgba(7, 16, 31, .98);
+  box-shadow: 0 22px 54px rgba(2, 8, 23, .58);
+  transform: translateY(18px);
+  opacity: 0;
+  transition: transform .2s ease, opacity .2s ease;
+}
+
+body.employee-portal .attendance-floating-reminder.is-visible {
+  transform: none;
+  opacity: 1;
+}
+
+body.employee-portal .attendance-floating-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 17px;
+  background: linear-gradient(135deg, rgba(56, 199, 244, .22), rgba(47, 128, 237, .18));
+  border: 1px solid rgba(56, 199, 244, .30);
+  font-size: 24px;
+}
+
+body.employee-portal .attendance-floating-copy {
+  display: grid;
+  gap: 3px;
+}
+
+body.employee-portal .attendance-floating-copy strong {
+  color: #f8fbff;
+  font-weight: 900;
+}
+
+body.employee-portal .attendance-floating-copy span {
+  color: rgba(226, 232, 240, .82);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+body.employee-portal .attendance-floating-actions {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1.2fr .8fr;
+  gap: 8px;
+}
+
+body.employee-portal .attendance-floating-actions .button {
+  min-height: 44px;
+  border-radius: 14px;
+}
+
+@media (max-width: 420px) {
+  body.employee-portal .holiday-card { grid-template-columns: 1fr; text-align: center; justify-items: center; }
+  body.employee-portal .attendance-floating-reminder { bottom: calc(82px + env(safe-area-inset-bottom)); }
+  body.employee-portal .attendance-floating-actions { grid-template-columns: 1fr; }
+}
 
 body.employee-portal .live-location-alert-backdrop {
   align-items: center;

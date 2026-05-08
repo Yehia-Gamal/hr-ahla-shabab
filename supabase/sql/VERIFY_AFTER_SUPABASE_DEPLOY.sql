@@ -128,3 +128,11 @@ select
   ) then 'OK' else 'MISSING' end as status,
   'v31-production-hardening-089 / 089_codex_full_deploy_alignment applied' as details;
 
+select
+  'attendance:friday_10_reminder' as check_name,
+  case when exists (
+    select 1 from public.smart_alert_rules
+    where code = 'MISSING_PUNCH_1000_FLOATING'
+      and schedule_hint = 'daily 10:00'
+  ) then 'OK' else 'MISSING' end as status,
+  'missing-punch reminder is floating/push at 10:00 and Friday is handled as weekly holiday' as details;

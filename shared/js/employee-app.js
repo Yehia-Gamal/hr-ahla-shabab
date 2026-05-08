@@ -1,6 +1,6 @@
 import { endpoints, unwrap } from "./api.js?v=v31-production-hardening-089";
 import { enableWebPushSubscription } from "./push.js?v=v31-production-hardening-089";
-import { getDeviceFingerprintHash, requestEmployeePasskey, filterEmployeePasskeys, calculateAttendanceRisk, rememberDevicePunch, capturePunchSelfie } from "./attendance-identity.js?v=v31-production-hardening-089-login-vh";
+import { getDeviceFingerprintHash, requestEmployeePasskey, filterEmployeePasskeys, calculateAttendanceRisk, rememberDevicePunch, capturePunchSelfie } from "./attendance-identity.js?v=v31-production-hardening-089-friday-reminder";
 import { ensureAttendancePolicyAcknowledged, ensureTrustedDeviceApproval, requestBranchQrChallenge, analyzeLocationTrust, mergeRiskSignals, submitFallbackAttendanceRequest } from "./attendance-v3-security.js?v=v31-production-hardening-089";
 import { evaluateAttendanceV4Controls, mergeV4RiskSignals, createFormalFallbackRequest } from "./attendance-v4-ops.js?v=v31-production-hardening-089";
 
@@ -10,8 +10,11 @@ document.body.classList.add("employee-portal");
 const app = document.querySelector("#app");
 const FLASH_KEY = "hr.employee.flash";
 const EMPLOYEE_TAB_SESSION_KEY = "hr.employee.authenticatedThisTab";
+const ATTENDANCE_FLOATING_SEEN_KEY = "hr.employee.attendanceFloatingReminderSeen";
+const ATTENDANCE_BROWSER_SEEN_KEY = "hr.employee.attendanceBrowserReminderSeen";
 const IDLE_MS = 30 * 60 * 1000;
 let idleTimer = null;
+let attendanceReminderTimer = null;
 const state = {
   route: location.hash.replace("#", "") || "home",
   user: null,
@@ -197,6 +200,81 @@ function showToast(message = "", type = "info") {
     toast.classList.remove("is-visible");
     window.setTimeout(() => toast.remove(), 240);
   }, 5000);
+}
+
+function isFriday(dateValue = new Date()) {
+  return new Date(dateValue).getDay() === 5;
+}
+
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function dailySeen(key) {
+  try { return localStorage.getItem(key) === todayKey(); } catch { return false; }
+}
+
+function markDailySeen(key) {
+  try { localStorage.setItem(key, todayKey()); } catch {}
+}
+
+function hasCheckInToday(events = []) {
+  return (events || []).some((event) => {
+    const parts = [event.type, event.eventType, event.status].map((value) => String(value || "").trim().toLowerCase());
+    return parts.some((value) => value === "check_in" || value === "in" || value === "present" || value.includes("حضور"));
+  });
+}
+
+function showAttendanceFloatingReminder() {
+  if (dailySeen(ATTENDANCE_FLOATING_SEEN_KEY) || document.querySelector("[data-attendance-floating-reminder]")) return;
+  markDailySeen(ATTENDANCE_FLOATING_SEEN_KEY);
+  const toast = document.createElement("div");
+  toast.className = "attendance-floating-reminder";
+  toast.dataset.attendanceFloatingReminder = "1";
+  toast.setAttribute("role", "status");
+  toast.innerHTML = `
+    <div class="attendance-floating-icon" aria-hidden="true">👁</div>
+    <div class="attendance-floating-copy">
+      <strong>تذكير بصمة الحضور</strong>
+      <span>لم يتم تسجيل حضور اليوم حتى الآن. سجّل البصمة عند الوصول.</span>
+    </div>
+    <div class="attendance-floating-actions">
+      <button class="button primary" type="button" data-floating-punch>تسجيل الآن</button>
+      <button class="button ghost" type="button" data-floating-dismiss>لاحقًا</button>
+    </div>
+  `;
+  toast.querySelector("[data-floating-punch]")?.addEventListener("click", () => {
+    toast.remove();
+    location.hash = "punch";
+  });
+  toast.querySelector("[data-floating-dismiss]")?.addEventListener("click", () => toast.remove());
+  document.body.appendChild(toast);
+  window.setTimeout(() => toast.classList.add("is-visible"), 20);
+}
+
+async function showAttendanceBrowserNotification() {
+  if (dailySeen(ATTENDANCE_BROWSER_SEEN_KEY)) return;
+  if (!("Notification" in window) || Notification.permission !== "granted" || !("serviceWorker" in navigator)) return;
+  markDailySeen(ATTENDANCE_BROWSER_SEEN_KEY);
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    await registration.showNotification("تذكير بصمة الحضور", {
+      body: "لم يتم تسجيل حضور اليوم حتى الآن. افتح تطبيق أحلى شباب وسجّل البصمة عند الوصول.",
+      icon: "../shared/images/icon-192.png",
+      badge: "../shared/images/favicon-64.png",
+      tag: `attendance-reminder-${todayKey()}`,
+      requireInteraction: false,
+      renotify: true,
+      silent: false,
+      timestamp: Date.now(),
+      vibrate: [180, 80, 260],
+      actions: [
+        { action: "open-punch", title: "تسجيل البصمة" },
+        { action: "open-app", title: "فتح التطبيق" },
+      ],
+      data: { route: "punch", type: "ATTENDANCE_REMINDER", url: "./index.html#punch" },
+    });
+  } catch {}
 }
 
 function consumeFlashMessage() {
@@ -498,6 +576,7 @@ function startNotificationPolling() {
     notificationPollTimer = window.setInterval(pollNotificationsForSound, 30000);
   }
   startLiveLocationPolling();
+  startAttendanceReminderPolling();
 }
 
 function startLiveLocationPolling() {
@@ -512,6 +591,7 @@ function stopNotificationPolling() {
   window.clearInterval(notificationPollTimer);
   notificationPollTimer = null;
   stopLiveLocationPolling();
+  stopAttendanceReminderPolling();
 }
 
 function stopLiveLocationPolling() {
@@ -521,6 +601,32 @@ function stopLiveLocationPolling() {
   document.removeEventListener("visibilitychange", onLiveLocationVisibilityChange);
   document.querySelectorAll("[data-live-location-alert]").forEach((node) => node.remove());
   activeLiveLocationAlertId = "";
+}
+
+async function checkAttendanceReminderNow() {
+  if (!state.user || isFriday()) return;
+  const employeeId = state.user?.employeeId || state.user?.employee?.id;
+  const events = await endpoints.myAttendanceEvents().then(unwrap).catch(() => []);
+  const todayEvents = events
+    .filter((event) => !employeeId || event.employeeId === employeeId)
+    .filter((event) => String(event.eventAt || event.createdAt || "").startsWith(todayIso()));
+  if (!todayReminderDue(todayEvents)) return;
+  showAttendanceFloatingReminder();
+  await showAttendanceBrowserNotification();
+}
+
+function startAttendanceReminderPolling() {
+  if (attendanceReminderTimer) return;
+  checkAttendanceReminderNow();
+  attendanceReminderTimer = window.setInterval(checkAttendanceReminderNow, 60000);
+  window.addEventListener("focus", checkAttendanceReminderNow);
+}
+
+function stopAttendanceReminderPolling() {
+  window.clearInterval(attendanceReminderTimer);
+  attendanceReminderTimer = null;
+  window.removeEventListener("focus", checkAttendanceReminderNow);
+  document.querySelectorAll("[data-attendance-floating-reminder]").forEach((node) => node.remove());
 }
 
 
@@ -754,8 +860,8 @@ function employeeSubject() {
 
 const BRANCH_DISPLAY_NAME = "مجمع أحلى شباب";
 const BRANCH_DISPLAY_AREA = "منيل شيحة - الجيزة";
-const ATTENDANCE_REMINDER_HOUR = 9;
-const ATTENDANCE_REMINDER_MINUTE = 30;
+const ATTENDANCE_REMINDER_HOUR = 10;
+const ATTENDANCE_REMINDER_MINUTE = 0;
 const FACE_SELFIE_TEMP_DISABLED = true;
 
 function attendanceConfig() {
@@ -930,8 +1036,9 @@ function isMorningPunchTime() {
 
 function todayReminderDue(events = []) {
   const now = new Date();
+  if (isFriday(now)) return false;
   if (now.getHours() < ATTENDANCE_REMINDER_HOUR || (now.getHours() === ATTENDANCE_REMINDER_HOUR && now.getMinutes() < ATTENDANCE_REMINDER_MINUTE)) return false;
-  return !(events || []).some((e) => String(e.type || e.eventType || "").toLowerCase().includes("in") || String(e.type || "").includes("حضور"));
+  return !hasCheckInToday(events);
 }
 
 function kpiSlider({ name, label, weight, value = 0, readonly = false }) {
@@ -1316,23 +1423,24 @@ async function renderHome() {
   const unread = notifications.filter((item) => !item.isRead && (!item.employeeId || item.employeeId === employeeId || item.userId === state.user?.id)).length;
   const pendingLive = (liveRequests || []).filter((item) => item.status === "PENDING" && (!employeeId || item.employeeId === employeeId)).length;
   const reminder = todayReminderDue(todayEvents);
+  const fridayHoliday = isFriday();
   const lastStatus = lastEvent.status || lastEvent.locationStatus || lastEvent.geofenceStatus || "";
   const inside = String(lastStatus).toLowerCase().includes("inside") || String(lastStatus).toLowerCase().includes("active") || String(lastStatus).toLowerCase().includes("in_range");
   shell(`
     <section class="employee-home-flow">
       <article class="employee-hero-card home-welcome">
         ${employeeHeaderCell(employee)}
-        <p>كل ما تحتاجه يوميًا في شاشة واحدة: بصمة، موقع، إجازة، مأمورية، شكوى، وإشعارات.</p>
-        <div class="hero-meta"><span class="hero-chip">${escapeHtml(fullDateText())}</span><span class="hero-chip">الساعة ${escapeHtml(timeNowText())}</span>${todayEvents.length ? `<span class="hero-chip success">تم تسجيل ${todayEvents.length} حركة اليوم</span>` : `<span class="hero-chip warning">لم تسجل حضور اليوم</span>`}</div>
+        <p>${fridayHoliday ? "اليوم إجازة أسبوعية. راجع إشعاراتك فقط واستمتع بيوم هادئ." : "كل ما تحتاجه يوميًا في شاشة واحدة: بصمة، موقع، إجازة، مأمورية، شكوى، وإشعارات."}</p>
+        <div class="hero-meta"><span class="hero-chip">${escapeHtml(fullDateText())}</span><span class="hero-chip">الساعة ${escapeHtml(timeNowText())}</span>${fridayHoliday ? `<span class="hero-chip holiday">إجازة سعيدة</span>` : (todayEvents.length ? `<span class="hero-chip success">تم تسجيل ${todayEvents.length} حركة اليوم</span>` : `<span class="hero-chip warning">لم تسجل حضور اليوم</span>`)}</div>
       </article>
 
-      ${reminder ? `<article class="employee-card full attendance-reminder-card"><h2>تذكير بصمة 10:00 صباحًا</h2><p>لم يتم تسجيل بصمة الحضور حتى الآن. يرجى تسجيل البصمة عند الوصول. سيصلك تنبيه الموبايل الساعة 9:30 صباحًا.</p><button class="button primary full" data-route="punch">تسجيل بصمة الآن</button></article>` : ""}
+      ${fridayHoliday ? `<article class="employee-card full holiday-card"><div class="holiday-icon" aria-hidden="true">☀</div><div><div class="panel-kicker">الجمعة إجازة</div><h2>إجازة سعيدة</h2><p>لا يوجد تذكير حضور اليوم. يمكنك متابعة الإشعارات أو الطلبات العاجلة فقط عند الحاجة.</p></div><div class="employee-actions-row"><button class="button ghost" data-route="notifications">الإشعارات</button><button class="button ghost" data-route="requests">طلباتي</button></div></article>` : ""}
 
       <article class="employee-card full punch-primary-card">
         <div class="panel-kicker">البصمة اليومية</div>
-        <h2>${todayEvents.length ? "متابعة حركة اليوم" : "جاهز لتسجيل الحضور"}</h2>
-        <p>${todayEvents.length ? `آخر حركة مسجلة: ${escapeHtml(date(lastEvent.eventAt || lastEvent.createdAt))}` : "سجّل حضورك عند الوصول، أو أرسل موقعك لو طلبته الإدارة."}</p>
-        <div class="employee-actions-row"><button class="button primary" data-route="punch">فتح البصمة</button><button class="button ghost" data-route="location">إرسال موقعي</button></div>
+        <h2>${fridayHoliday ? "لا توجد بصمة مطلوبة اليوم" : (todayEvents.length ? "متابعة حركة اليوم" : "جاهز لتسجيل الحضور")}</h2>
+        <p>${fridayHoliday ? "الجمعة إجازة أسبوعية. إذا كان لديك تكليف خاص أو مأمورية يمكن الرجوع للإدارة." : (todayEvents.length ? `آخر حركة مسجلة: ${escapeHtml(date(lastEvent.eventAt || lastEvent.createdAt))}` : "سجّل حضورك عند الوصول، أو أرسل موقعك لو طلبته الإدارة.")}</p>
+        <div class="employee-actions-row">${fridayHoliday ? `<button class="button ghost" data-route="notifications">عرض الإشعارات</button><button class="button ghost" data-route="location">إرسال موقعي عند الطلب</button>` : `<button class="button primary" data-route="punch">فتح البصمة</button><button class="button ghost" data-route="location">إرسال موقعي</button>`}</div>
       </article>
 
       <article class="employee-card full location-status-card">
@@ -1364,6 +1472,10 @@ async function renderHome() {
       <article class="employee-card full"><h2>آخر طلباتي</h2>${renderRequestList([...leaves.filter((x)=>x.employeeId===employeeId), ...missions.filter((x)=>x.employeeId===employeeId)].slice(0,3))}</article>
     </section>
   `, "الرئيسية", "ملخص سريع ومختصر لحسابك اليوم.");
+  if (reminder) {
+    showAttendanceFloatingReminder();
+    showAttendanceBrowserNotification();
+  }
 }
 
 async function renderActionCenter() {
