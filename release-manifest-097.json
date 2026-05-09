@@ -1,0 +1,45 @@
+{
+  "version": "v31-production-hardening-098",
+  "expectedPatch": "098_location_security_edge_hardening",
+  "buildDate": "2026-05-08",
+  "baseVersion": "096_kpi_automation_mobile_reports",
+  "focus": [
+    "deep full-system audit",
+    "live-location reject/postpone status fix",
+    "push notification smoothness and diagnostics",
+    "migration marker cleanup",
+    "cache/version alignment",
+    "release artifact hardening"
+  ],
+  "checksRun": [
+    "npm run check",
+    "check:js",
+    "check:html",
+    "check:guards",
+    "check:prepublish",
+    "check:production",
+    "check:final",
+    "check:sanitization",
+    "check:kpi-policy",
+    "check:kpi-cycle",
+    "check:management-suite",
+    "check:sql",
+    "check:attendance-identity",
+    "check:theme",
+    "check:live-deploy-readiness",
+    "check:v13-production-polish",
+    "check:v31",
+    "check:release-security",
+    "check:runtime-diagnostics",
+    "check:release-artifact",
+    "build:public",
+    "custom:live-location-status-mapping",
+    "zip:test"
+  ],
+  "deployNotes": [
+    "Run supabase/sql/RUN_IN_SUPABASE_SQL_EDITOR.sql",
+    "Verify with supabase/sql/VERIFY_AFTER_SUPABASE_DEPLOY.sql",
+    "Deploy Supabase Edge Functions, especially send-push-notifications, before live mobile push tests",
+    "Real push/location delivery requires HTTPS, VAPID secrets, browser permission, active Supabase project, and a real subscribed employee device"
+  ]
+}

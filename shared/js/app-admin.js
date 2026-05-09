@@ -1,7 +1,11 @@
-import { endpoints, unwrap } from "./api.js?v=v31-production-hardening-089";
-import { enableWebPushSubscription } from "./push.js?v=v31-production-hardening-089";
-import { runRuntimeDiagnostics, clearRuntimeCaches } from "./runtime-diagnostics.js?v=v31-production-hardening-089";
+import { endpoints, unwrap } from "./api.js?v=v33-ui-ux-overhaul-101";
+import { enableWebPushSubscription } from "./push.js?v=v33-ui-ux-overhaul-101";
+import { runRuntimeDiagnostics, clearRuntimeCaches } from "./runtime-diagnostics.js?v=v33-ui-ux-overhaul-101";
 
+const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
+const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };
+const debugError = (...args) => { if (debugEnabled()) globalThis.console?.error?.(...args); };
+const debugInfo = (...args) => { if (debugEnabled()) globalThis.console?.info?.(...args); };
 const app = document.querySelector("#app");
 const DEFAULT_LIVE_LOCATION_REASON = "متابعة تنفيذية مباشرة";
 
@@ -18,13 +22,45 @@ const state = {
 };
 
 const navGroups = [
-  ["الرئيسية", [["dashboard", "لوحة المتابعة"], ["executive-report", "تقرير المدير التنفيذي"], ["executive-mobile", "المتابعة التنفيذية"], ["presence-map", "خريطة الحضور اللحظية"], ["attendance-risk", "مخاطر البصمة"], ["manager-dashboard", "لوحة المدير"], ["manager-suite", "لوحة المدير المباشر"], ["realtime", "لوحة Live"], ["employee-punch", "بصمة الموظف"], ["attendance", "الحضور"], ["attendance-review", "مراجعة البصمات"], ["smart-attendance", "قواعد الحضور الذكية"], ["attendance-calendar", "تقويم الحضور"]]],
-  ["الأفراد", [["employees", "الأشخاص والموظفون"], ["management-structure", "هيكل الإدارة والفرق"], ["team-dashboard", "فريق المدير"], ["hr-operations", "عمليات HR"], ["employee-archive", "أرشيف موظف"], ["users", "المستخدمون"], ["leave-balances", "أرصدة الإجازات"], ["documents", "مستندات الموظفين"], ["trusted-devices", "الأجهزة المعتمدة"], ["org-chart", "الهيكل الوظيفي"]]],
-  ["الصلاحيات", [["roles", "الأدوار والصلاحيات"], ["permission-matrix", "مصفوفة الصلاحيات"], ["password-vault", "خزنة كلمات المرور"], ["sensitive-approvals", "اعتمادات حساسة"]]],
-  ["الطلبات", [["requests", "مركز الطلبات"], ["tasks", "المهام"], ["missions", "المأموريات"], ["leaves", "الإجازات"], ["locations", "طلبات وسجل المواقع"], ["disputes", "الشكاوى وفض الخلافات"], ["admin-decisions", "سجل القرارات الإدارية"], ["dispute-workflow", "مسار الشكاوى والتصعيد"]]],
-  ["المتابعة", [["kpi", "مؤشرات الأداء"], ["monthly-evaluations", "التقييم الشهري"], ["control-room", "غرفة التحكم"], ["daily-reports", "التقارير اليومية"], ["ai-analytics", "تحليلات AI"], ["reports", "التقارير"], ["report-center", "مركز التقارير والتصدير"], ["executive-pdf", "تقارير المدير التنفيذي PDF"], ["monthly-auto-pdf", "PDF شهري تلقائي"], ["smart-alerts", "التنبيهات الذكية"], ["monthly-report", "تقرير شهري"], ["advanced-reports", "منشئ التقارير"], ["audit", "سجل التدقيق"], ["security-log", "سجل الأمان"], ["notifications", "الإشعارات"]]],
-  ["النظام", [["settings", "الإعدادات"], ["supabase-setup", "إعداد Supabase"], ["db-updates", "تحديثات Database"], ["auto-backup", "Backup تلقائي"], ["data-center", "مركز البيانات"], ["complex-settings", "إعدادات المجمع"], ["system-diagnostics", "اختبار النظام"], ["quality-center", "مركز الجودة والإصلاح"], ["policies", "السياسات والتوقيعات"], ["route-access", "صلاحيات الواجهة"], ["integrations", "التكاملات"], ["access-control", "الأجهزة والبوابات"], ["offline-sync", "Offline Sync"], ["health", "حالة النظام"], ["backup", "نسخ واستيراد"]]],
+  ["مركز HR الأساسي", [["dashboard", "لوحة المتابعة"], ["hr-operations", "عمليات HR"], ["employees", "الموظفون"], ["attendance", "الحضور"], ["attendance-review", "مراجعة البصمات"], ["requests", "الطلبات والموافقات"], ["kpi", "KPI والتقييم"], ["kpi-month-center", "متابعة KPI الشهر"], ["kpi-executive-report", "تقرير KPI تنفيذي"], ["kpi-cycle-lock", "قفل دورة KPI"], ["report-center", "التقارير والتصدير"], ["notifications", "مراقبة الإشعارات"]]],
+  ["الموظفون والهيكل", [["management-structure", "هيكل الإدارة والفرق"], ["team-dashboard", "فريق المدير"], ["employee-archive", "صفحة موظف موحدة"], ["leave-balances", "أرصدة الإجازات"], ["documents", "مستندات الموظفين"], ["trusted-devices", "الأجهزة المعتمدة"], ["org-chart", "الهيكل الوظيفي"]]],
+  ["الحضور والموقع", [["presence-map", "خريطة الحضور"], ["attendance-risk", "مخاطر البصمة"], ["smart-attendance", "قواعد الحضور"], ["attendance-calendar", "تقويم الحضور"], ["locations", "مراقبة اللوكيشن"], ["employee-punch", "بصمة الموظف"]]],
+  ["الإدارة والاعتمادات", [["manager-suite", "لوحة المدير المباشر"], ["roles", "الأدوار"], ["permission-matrix", "مصفوفة الصلاحيات"], ["password-vault", "خزنة كلمات المرور"], ["sensitive-approvals", "اعتمادات حساسة"], ["disputes", "الشكاوى"], ["admin-decisions", "القرارات الإدارية"], ["policies", "السياسات والتوقيعات"]]],
+  ["التقارير والجودة", [["monthly-report", "تقرير شهري"], ["daily-reports", "التقارير اليومية"], ["control-room", "غرفة التحكم"], ["smart-alerts", "التنبيهات الذكية"], ["quality-center", "مركز الجودة"], ["workflow-automation", "مركز الربط والتشغيل"], ["audit", "سجل التدقيق"], ["security-log", "سجل الأمان"]]],
+  ["النظام", [["settings", "الإعدادات"], ["system-diagnostics", "تشخيص النظام"], ["mobile-alignment", "ربط الموبايل والصلاحيات"], ["health", "حالة النظام"], ["supabase-setup", "Supabase"], ["db-updates", "Database"], ["backup", "نسخ واستيراد"]]],
 ];
+
+// خريطة دمج بصري: هذه الصفحات ما زالت موجودة ومحمية بالصلاحيات،
+// لكنها لم تعد تزحم قائمة HR الرئيسية لأنها تُفتح من مراكزها المناسبة.
+const navAliasMap = {
+  "executive-report": "dashboard",
+  "executive-mobile": "presence-map",
+  "manager-dashboard": "manager-suite",
+  realtime: "presence-map",
+  users: "employees",
+  tasks: "requests",
+  missions: "requests",
+  leaves: "requests",
+  "dispute-workflow": "disputes",
+  reports: "report-center",
+  "advanced-reports": "report-center",
+  "executive-pdf": "report-center",
+  "monthly-auto-pdf": "report-center",
+  "monthly-evaluations": "kpi-month-center",
+  "kpi-manager-mobile": "kpi",
+  "kpi-executive-report": "kpi",
+  "kpi-cycle-lock": "kpi",
+  "ai-analytics": "quality-center",
+  "data-center": "backup",
+  "auto-backup": "backup",
+  "complex-settings": "settings",
+  "route-access": "settings",
+  integrations: "settings",
+  "access-control": "settings",
+  "offline-sync": "settings",
+  "workflow-automation": "quality-center",
+  "mobile-alignment": "settings",
+};
 
 const routePermissions = {
   dashboard: ["dashboard:view"],
@@ -71,6 +107,9 @@ const routePermissions = {
   "dispute-workflow": ["disputes:committee", "disputes:manage", "disputes:escalate", "requests:approve"],
   "admin-decisions": ["decisions:manage", "notifications:manage", "executive:report"],
   kpi: ["kpi:manage", "kpi:team", "kpi:self", "kpi:hr", "kpi:executive", "kpi:final-approve", "reports:export"],
+  "kpi-month-center": ["kpi:manage", "kpi:team", "kpi:hr", "kpi:executive", "reports:export"],
+  "kpi-executive-report": ["kpi:executive", "kpi:final-approve", "reports:export", "dashboard:view"],
+  "kpi-cycle-lock": ["kpi:final-approve", "kpi:executive", "settings:manage"],
   reports: ["reports:export"],
   "report-center": ["reports:export", "reports:pdf", "reports:excel"],
   "advanced-reports": ["reports:export"],
@@ -81,6 +120,8 @@ const routePermissions = {
   "control-room": ["control-room:view", "maintenance:run", "audit:view", "dashboard:view"],
   "daily-reports": ["daily-report:review", "dashboard:view", "reports:export"],
   notifications: ["dashboard:view"],
+  "workflow-automation": ["maintenance:run", "workflow:manage", "settings:manage", "dashboard:view"],
+  "mobile-alignment": ["settings:manage", "users:manage", "dashboard:view", "permissions:matrix"],
   "data-center": ["data-center:manage", "settings:manage", "reports:export"],
   settings: ["settings:manage"],
   "complex-settings": ["settings:manage", "attendance:manage"],
@@ -221,8 +262,8 @@ function roleLabel(user = state.user) {
 }
 
 function activeNavKey(key = routeKey()) {
-  if (key === "employee-profile") return "employees";
-  return key;
+  const baseKey = key === "employee-profile" ? "employees" : key;
+  return navAliasMap[baseKey] || baseKey;
 }
 
 function canRoute(key) {
@@ -483,6 +524,15 @@ function statusLabel(value) {
     MANUAL_APPROVED: "اعتماد يدوي",
     DEVICE_TRUSTED: "جهاز معتمد",
     DEVICE_DISABLED: "جهاز معطل",
+    PUSH_ACTIVE: "Push نشط",
+    PASSKEY_ONLY: "Passkey فقط",
+    PENDING_APPROVAL: "بانتظار اعتماد",
+    NO_DEVICE: "بلا جهاز",
+    NORMAL: "عادي",
+    SENSITIVE: "حساس",
+    FULL_ACCESS: "صلاحية كاملة",
+    ACTIVE: "نشط",
+    DISABLED: "معطل",
     unknown: "غير معروف",
   }[value] || value || "-";
 }
@@ -781,12 +831,15 @@ function shell(content, title, description = "") {
           <button class="button ghost full" type="button" data-action="logout">تسجيل الخروج</button>
         </div>
         <nav class="nav" aria-label="القائمة الرئيسية">
-          ${navGroups.map(([group, routes]) => `
+          ${navGroups.map(([group, routes]) => {
+            const visibleRoutes = routes.filter(([key]) => canRoute(key));
+            if (!visibleRoutes.length) return "";
+            return `
             <section class="nav-group">
               <p>${escapeHtml(group)}</p>
-              ${routes.filter(([key]) => canRoute(key)).map(([key, label]) => `<button class="${current === key ? "is-active" : ""}" data-route="${key}" aria-current="${current === key ? "page" : "false"}"><span>${escapeHtml(label)}</span></button>`).join("")}
-            </section>
-          `).join("")}
+              ${visibleRoutes.map(([key, label]) => `<button class="${current === key ? "is-active" : ""}" data-route="${key}" aria-current="${current === key ? "page" : "false"}"><span>${escapeHtml(label)}</span></button>`).join("")}
+            </section>`;
+          }).join("")}
           <section class="nav-group portal-links">
             <p>الانتقال للأنظمة</p>
             <button data-action="employee-portal"><span>تطبيق الموظف</span></button>
@@ -939,7 +992,11 @@ async function renderLogin() {
 }
 
 async function renderDashboard() {
-  const dashboard = normalizeDashboardPayload(unwrap(await endpoints.dashboard()));
+  const [dashboardRaw, executiveDaily] = await Promise.all([
+    endpoints.dashboard(),
+    endpoints.executiveDailyReport().then(unwrap).catch(() => ({ critical: [], counts: {}, requestSummary: {}, notificationMetrics: {}, quality: {} })),
+  ]);
+  const dashboard = normalizeDashboardPayload(unwrap(dashboardRaw));
   const trends = safeList(dashboard.attendanceTrends);
   const breakdown = safeList(dashboard.attendanceBreakdown);
   const latestEvents = safeList(dashboard.latestEvents);
@@ -954,6 +1011,18 @@ async function renderDashboard() {
       <article class="panel span-12 accent-panel">
         <div class="panel-head"><div><h2>لوحة تنفيذية ذكية</h2><p>مؤشر الجاهزية، الطلبات العالقة، ومراجعات الحضور في شاشة واحدة.</p></div><div class="score-ring"><strong>${escapeHtml(readiness.score || 0)}%</strong><span>${escapeHtml(readiness.grade || "-")}</span></div></div>
         <div class="readiness-grid">${safeList(readiness.parts).map((part) => `<div class="readiness-item ${part.ok ? "ok" : "warn"}"><strong>${escapeHtml(part.label)}</strong><span>${escapeHtml(part.detail || "")}</span><small>${escapeHtml(part.score || 0)} نقطة</small></div>`).join("")}</div>
+      </article>
+      <article class="panel span-12 executive-daily-strip">
+        <div class="panel-head"><div><h2>تقرير اليوم التنفيذي</h2><p>بيانات حية من الحضور، طلبات الموقع، الإشعارات، وجودة بيانات الموظفين.</p></div><div class="toolbar"><button class="button ghost" data-route="executive-mobile">غرفة المدير التنفيذي</button><button class="button ghost" data-route="quality-center">جودة البيانات</button></div></div>
+        <div class="metric-grid">
+          ${metric("حاضر", executiveDaily.counts?.present ?? 0, "اليوم")}
+          ${metric("غائب", executiveDaily.counts?.absent ?? 0, "اليوم")}
+          ${metric("موقع معلق", executiveDaily.counts?.pendingLiveLocations ?? 0, "طلبات مباشرة")}
+          ${metric("طلبات HR", executiveDaily.requestSummary?.pending ?? 0, "بانتظار إجراء")}
+          ${metric("إشعارات عاجلة", executiveDaily.notificationMetrics?.actionRequired ?? 0, "مطلوب إجراء")}
+          ${metric("مشاكل بيانات", executiveDaily.quality?.issues ?? 0, "موظفين/Push/مدير")}
+        </div>
+        ${table(["النوع", "الموظف", "التفاصيل", "فتح"], safeList(executiveDaily.critical).slice(0, 12).map((item) => `<tr><td>${escapeHtml(item.type)}</td><td>${escapeHtml(item.employee?.fullName || "-")}</td><td>${escapeHtml(item.title || "-")}</td><td><button class="button ghost" data-route="${escapeHtml(item.route || 'quality-center')}">فتح</button></td></tr>`))}
       </article>
       <article class="panel span-7">
         <div class="panel-head"><div><h2>توزيع الحضور حسب القسم</h2><p>مقارنة تشغيلية سريعة</p></div><span>اليوم</span></div>
@@ -1549,7 +1618,7 @@ async function renderEmployeePunch() {
         notes: app.querySelector("#self-punch-notes")?.value || "",
       });
     } catch (logError) {
-      console.warn("تعذر تسجيل محاولة البصمة المرفوضة", logError);
+      debugWarn("تعذر تسجيل محاولة البصمة المرفوضة", logError);
     }
   };
   const readLocationAndEvaluate = async () => {
@@ -2085,80 +2154,82 @@ async function renderOrgChart() {
 }
 
 async function renderLocations() {
-  const [employees, rawLocations] = await Promise.all([endpoints.employees().then(unwrap), endpoints.locations().then(unwrap).catch(() => [])]);
-  const locations = safeList(rawLocations);
-  const byEmployee = new Map(employees.map((employee) => [employee.id, employee]));
-  const enrichedLocations = locations.map((item) => ({ ...item, employee: item.employee || byEmployee.get(item.employeeId) || null }));
-  const latestFor = (employeeId) => enrichedLocations
-    .filter((item) => item.employeeId === employeeId && item.latitude && item.longitude)
-    .sort((a, b) => new Date(b.date || b.createdAt || b.requestedAt || 0) - new Date(a.date || a.createdAt || a.requestedAt || 0))[0];
-  const pendingFor = (employeeId) => enrichedLocations
-    .filter((item) => item.employeeId === employeeId && String(item.status || "").toUpperCase() === "PENDING")
-    .sort((a, b) => new Date(b.requestedAt || b.createdAt || 0) - new Date(a.requestedAt || a.createdAt || 0))[0];
-  const currentEmployeeId = state.user?.employeeId || state.user?.employee?.id || "";
-  const employeeCards = employees.map((employee) => {
-    const latest = latestFor(employee.id);
-    const pending = pendingFor(employee.id);
-    const employeeEvents = enrichedLocations
-      .filter((item) => item.employeeId === employee.id)
-      .sort((a, b) => new Date(b.date || b.createdAt || b.requestedAt || 0) - new Date(a.date || a.createdAt || a.requestedAt || 0))
-      .slice(0, 8);
-    return `<article class="employee-location-card" data-location-card="${escapeHtml(employee.id)}">
-      <button class="location-card-head" type="button" data-toggle-location-details="${escapeHtml(employee.id)}">
+  const data = await endpoints.locationMonitor().then(unwrap).catch(async () => {
+    const [employees, rawLocations] = await Promise.all([endpoints.employees().then(unwrap), endpoints.locations().then(unwrap).catch(() => [])]);
+    return { counts: {}, rows: employees.map((employee) => ({ employee, employeeId: employee.id, latestLocation: safeList(rawLocations).find((loc) => loc.employeeId === employee.id) || null, liveRequests: [], liveResponses: [], classicRequests: [], quality: "UNKNOWN" })) };
+  });
+  const rows = safeList(data.rows);
+  const counts = data.counts || {};
+  const qualityLabel = (quality) => ({ GOOD: "GPS جيد", LOW_ACCURACY: "دقة ضعيفة", STALE_GPS: "موقع قديم", NO_GPS: "لا يوجد GPS", UNKNOWN: "غير معروف" }[quality] || quality || "-");
+  const qualityBadge = (quality) => badge(quality === "GOOD" ? "APPROVED" : quality === "NO_GPS" ? "REJECTED" : "PENDING");
+  const problemRows = rows.filter((row) => row.quality !== "GOOD" || row.pendingLiveRequest).slice(0, 80);
+  const employeeCards = rows.map((row) => {
+    const employee = row.employee || {};
+    const latest = row.latestLocation || {};
+    const pending = row.pendingLiveRequest || null;
+    const accuracy = Number(row.accuracyMeters || latest.accuracyMeters || latest.accuracy || 0);
+    const at = latest.capturedAt || latest.respondedAt || latest.createdAt || latest.date || "";
+    return `<article class="employee-location-card ops-card" data-location-card="${escapeHtml(employee.id || row.employeeId)}">
+      <button class="location-card-head" type="button" data-toggle-location-details="${escapeHtml(employee.id || row.employeeId)}">
         ${avatar(employee, "medium")}
         <span><strong>${escapeHtml(employee.fullName || "-")}</strong><small>${escapeHtml(employee.jobTitle || employee.phone || "")}</small></span>
-        ${pending ? badge("طلب مفتوح") : badge(latest ? "آخر موقع موجود" : "لا يوجد موقع")}
+        ${pending ? badge("PENDING") : qualityBadge(row.quality)}
       </button>
       <div class="location-card-actions">
-        <button class="button primary" type="button" data-request-live-location="${escapeHtml(employee.id)}">إشعار فتح الموقع وإرسال اللوكيشن</button>
-        ${employee.id === currentEmployeeId ? `<button class="button ghost" type="button" data-send-my-location>إرسال موقعي الآن</button>` : ""}
+        <button class="button primary" type="button" data-request-live-location="${escapeHtml(employee.id || row.employeeId)}">طلب موقع مباشر</button>
+        <button class="button ghost" type="button" data-route="employee-archive?id=${escapeHtml(employee.id || row.employeeId)}">ملف الموظف</button>
+        ${latest.latitude && latest.longitude ? `<a class="button ghost" target="_blank" rel="noopener" href="https://maps.google.com/?q=${escapeHtml(latest.latitude)},${escapeHtml(latest.longitude)}">فتح الخريطة</a>` : ""}
       </div>
-      <div class="location-details hidden" id="location-details-${escapeHtml(employee.id)}">
+      <div class="location-details hidden" id="location-details-${escapeHtml(employee.id || row.employeeId)}">
         <div class="meta-grid">
-          <span>الاسم: ${escapeHtml(employee.fullName || "-")}</span>
-          <span>المسمى: ${escapeHtml(employee.jobTitle || "-")}</span>
-          <span>الهاتف: ${escapeHtml(employee.phone || "-")}</span>
-          <span>البريد: ${escapeHtml(employee.email || "-")}</span>
-          <span>المدير المباشر: ${escapeHtml(employee.manager?.fullName || "-")}</span>
-          <span>آخر تحديث: ${latest ? date(latest.date || latest.createdAt || latest.requestedAt) : "لا يوجد"}</span>
+          <span>الحالة: ${escapeHtml(qualityLabel(row.quality))}</span>
+          <span>حالة اليوم: ${escapeHtml(statusLabel(row.today?.status || "-"))}</span>
+          <span>آخر تحديث: ${date(at)}</span>
+          <span>عمر الموقع: ${row.ageMinutes == null ? "-" : `${escapeHtml(row.ageMinutes)} دقيقة`}</span>
+          <span>دقة GPS: ${latest.latitude ? formatMeters(accuracy) : "لا يوجد"}</span>
+          <span>طلبات مباشرة: ${escapeHtml(safeList(row.liveRequests).length)}</span>
         </div>
-        ${latest ? `<div class="map-line"><span>Lat: ${escapeHtml(latest.latitude)}</span><span>Lng: ${escapeHtml(latest.longitude)}</span><span>الدقة: ${escapeHtml(latest.accuracyMeters || "-")} متر</span><a class="button ghost" target="_blank" rel="noopener" href="https://maps.google.com/?q=${escapeHtml(latest.latitude)},${escapeHtml(latest.longitude)}">فتح على Google Maps</a></div>` : `<div class="empty-box">لم يرسل هذا الموظف موقعًا مباشرًا بعد.</div>`}
-        ${table(["النوع", "الحالة", "الوقت", "الموقع"], employeeEvents.map((item) => `<tr><td>${escapeHtml(item.latitude ? "موقع مباشر" : "طلب موقع")}</td><td>${badge(item.status || "ACTIVE")}</td><td>${date(item.date || item.createdAt || item.requestedAt)}</td><td>${item.latitude && item.longitude ? `${escapeHtml(item.latitude)}, ${escapeHtml(item.longitude)}` : "بانتظار الإرسال"}</td></tr>`))}
+        ${pending ? `<div class="message warning compact">طلب الموقع مُرسل مباشرة للموظف. الرد المتوقع: إرسال الموقع أو رفض/تأجيل مؤقت.</div>` : ""}
+        ${latest.latitude && latest.longitude ? `<div class="map-line"><span>Lat: ${escapeHtml(latest.latitude)}</span><span>Lng: ${escapeHtml(latest.longitude)}</span><span>الدقة: ${escapeHtml(accuracy || "-")} متر</span></div>` : `<div class="empty-box">لم يتم حفظ GPS لهذا الموظف بعد.</div>`}
+        ${table(["المصدر", "الحالة", "الوقت", "الرد"], [...safeList(row.liveRequests), ...safeList(row.classicRequests), ...safeList(row.liveResponses)].slice(0, 12).map((item) => `<tr><td>${escapeHtml(item.requestId ? "استجابة" : item.precision ? "طلب مباشر" : "طلب عادي")}</td><td>${badge(item.status || "ACTIVE")}</td><td>${date(item.createdAt || item.respondedAt || item.capturedAt || item.date)}</td><td>${escapeHtml(item.responseNote || item.note || item.reason || "-")}</td></tr>`))}
       </div>
     </article>`;
   }).join("");
   shell(
-    `<section class="grid locations-page">
+    `<section class="grid locations-page ops-monitor-page live-bound-page">
       <article class="panel span-12 accent-panel">
-        <div class="panel-head"><div><h2>طلبات وسجل المواقع</h2><p>كل موظف يظهر باسمه وصورته. اضغط على الموظف لعرض التفاصيل وآخر المواقع.</p></div></div>
-        <div class="message compact">لا يتم طلب سبب أو غرض. الإجراء يرسل إشعارًا مباشرًا للموظف لفتح صفحة الموقع وإرسال اللوكيشن الحالي.</div>
-        ${currentEmployeeId ? `<div class="toolbar spaced"><button class="button primary" type="button" data-send-my-location>إرسال موقعي الحالي الآن</button></div>` : ""}
+        <div class="panel-head"><div><h2>مركز مراقبة اللوكيشن الحقيقي</h2><p>مربوط بجداول live_location_requests و live_location_responses و employee_locations، ولا يعرض أرقامًا وهمية.</p></div><div class="toolbar"><button class="button ghost" type="button" data-route="presence-map">خريطة الحضور</button><button class="button primary" type="button" data-route="executive-mobile">غرفة المدير التنفيذي</button></div></div>
+        <div class="metric-grid">
+          ${metric("إجمالي الموظفين", counts.total ?? rows.length, "في المتابعة")}
+          ${metric("GPS جيد", counts.good ?? rows.filter((r)=>r.quality==='GOOD').length, "حديث ودقته مقبولة")}
+          ${metric("طلبات معلقة", counts.pending ?? 0, "بانتظار الموظف")}
+          ${metric("بدون GPS", counts.noGps ?? 0, "يحتاج طلب مباشر")}
+          ${metric("دقة ضعيفة", counts.lowAccuracy ?? 0, "أكبر من الحد المسموح")}
+          ${metric("موقع قديم", counts.stale ?? 0, "لم يتحدث منذ ساعتين+")}
+        </div>
+        <div class="message compact">طلب الموقع من المدير التنفيذي يتم اعتماده وإرساله فورًا للموظف، ثم يظهر هنا رد الموظف: إرسال الموقع أو رفض/تأجيل مؤقت.</div>
       </article>
       <article class="panel span-12">
+        <div class="panel-head"><div><h2>مشاكل تحتاج متابعة</h2><p>بدون GPS، دقة ضعيفة، موقع قديم، أو طلبات معلقة.</p></div><button class="button ghost" id="export-location-monitor">تصدير JSON</button></div>
+        ${table(["الموظف", "الحالة", "الدقة", "آخر تحديث", "إجراء"], problemRows.map((row) => `<tr><td class="person-cell">${avatar(row.employee,"tiny")}<span>${escapeHtml(row.employee?.fullName || row.employeeId || "-")}</span></td><td>${escapeHtml(qualityLabel(row.quality))}${row.pendingLiveRequest ? " — طلب معلق" : ""}</td><td>${formatMeters(row.accuracyMeters)}</td><td>${date(row.latestLocation?.capturedAt || row.latestLocation?.createdAt || row.latestLocation?.respondedAt || row.latestLocation?.date)}</td><td><button class="button primary" data-request-live-location="${escapeHtml(row.employeeId)}">طلب موقع</button><button class="button ghost" data-route="executive-mobile?employeeId=${escapeHtml(row.employeeId)}">تفاصيل</button></td></tr>`))}
+      </article>
+      <article class="panel span-12">
+        <div class="panel-head"><div><h2>كل الموظفين وحالة الموقع</h2><p>اضغط على الكارت لعرض الطلبات والاستجابات المحفوظة.</p></div></div>
         <div class="employee-location-grid">${employeeCards || `<div class="empty-state">لا يوجد موظفون مسجلون.</div>`}</div>
       </article>
     </section>`,
-    "طلبات وسجل المواقع",
-    "إشعار الموظفين لإرسال اللوكيشن المباشر ومراجعة سجل المواقع بدون سبب أو غرض.",
+    "مركز مراقبة اللوكيشن",
+    "مراقبة GPS وطلبات الموقع المباشر من قاعدة البيانات.",
   );
   app.querySelectorAll("[data-toggle-location-details]").forEach((button) => button.addEventListener("click", () => {
     const id = button.dataset.toggleLocationDetails;
     app.querySelector(`#location-details-${CSS.escape(id)}`)?.classList.toggle("hidden");
   }));
-  const sendMyLocation = async () => {
-    const employeeId = state.user?.employeeId || state.user?.employee?.id;
-    if (!employeeId) throw new Error("هذا الحساب غير مربوط بملف موظف لإرسال الموقع.");
-    const current = await getBrowserLocation();
-    if (!current.latitude || !current.longitude) throw new Error("تعذر قراءة الموقع الحالي. فعّل GPS ثم حاول مرة أخرى.");
-    await endpoints.recordLocation({ ...current, employeeId, source: "direct_live_location", status: "ACTIVE" });
-    setMessage("تم إرسال موقعك الحالي بنجاح.", "");
-    render();
-  };
-  app.querySelectorAll("[data-send-my-location]").forEach((button) => button.addEventListener("click", () => sendMyLocation().catch((error) => setMessage("", error.message))));
+  app.querySelector("#export-location-monitor")?.addEventListener("click", () => downloadFile("location-monitor.json", JSON.stringify(data, null, 2), "application/json;charset=utf-8"));
   app.querySelectorAll("[data-request-live-location]").forEach((button) => button.addEventListener("click", async () => {
     try {
-      await endpoints.requestLiveLocation(button.dataset.requestLiveLocation, { reason: "متابعة من الإدارة (Admin)" });
-      setMessage("تم إنشاء طلب الموقع وتم إرسال الإشعار للموظف بنجاح.", "");
+      await endpoints.requestLiveLocation(button.dataset.requestLiveLocation, { reason: DEFAULT_LIVE_LOCATION_REASON });
+      setMessage("تم اعتماد طلب الموقع وإرساله مباشرة للموظف. بانتظار رد الموظف: إرسال الموقع أو رفض/تأجيل مؤقت.", "");
     } catch (error) {
       setMessage("", error.message || "تعذر طلب الموقع.");
     }
@@ -2169,7 +2240,6 @@ async function renderLocations() {
 async function renderKpi() {
   const payload = unwrap(await endpoints.kpi());
   const ref = await referenceData();
-  const employees = (payload.accessMode === "all" ? ref.employees : (ref.employees || []).filter((employee) => employee.id === payload.currentEmployeeId || (payload.pendingEmployees || []).some((item) => item.id === employee.id) || (payload.evaluations || []).some((item) => item.employeeId === employee.id))) || [];
   const policy = payload.policy || {};
   const cycle = payload.cycle || {};
   const criteria = payload.criteria || [];
@@ -2181,9 +2251,24 @@ async function renderKpi() {
   const isTeam = payload.accessMode === "team";
   const isHr = payload.accessMode === "hr";
   const isExecutive = payload.accessMode === "executive";
-  const nextKpiStatus = isExecutive ? "EXECUTIVE_APPROVED" : isHr ? "HR_REVIEWED" : isTeam ? "MANAGER_APPROVED" : "SECRETARY_REVIEWED";
-  const employeeOptions = optionList(employees.map((employee) => ({ id: employee.id, name: `${employee.fullName}${employee.jobTitle ? " — " + employee.jobTitle : ""}` })), isSelf ? payload.currentEmployeeId : "", isSelf ? "" : "اختر الموظف");
-  const managerOptions = optionList(ref.employees.map((employee) => ({ id: employee.id, name: `${employee.fullName}${employee.jobTitle ? " — " + employee.jobTitle : ""}` })), state.user?.employeeId || "", "المدير المباشر من ملف الموظف");
+  const isSecretaryStage = payload.accessMode === "all";
+  const stageConfig = isSelf
+    ? { input: ["DRAFT", "REJECTED", "SELF_SUBMITTED"], output: "SELF_SUBMITTED", title: "تقييم ذاتي", action: "رفع للمدير المباشر" }
+    : isTeam
+      ? { input: ["SELF_SUBMITTED"], output: "MANAGER_APPROVED", title: "مراجعة المدير المباشر", action: "اعتماد المدير وتسليم HR" }
+      : isHr
+        ? { input: ["MANAGER_APPROVED"], output: "HR_REVIEWED", title: "مراجعة HR", action: "إكمال HR وتسليم السكرتير" }
+        : isExecutive
+          ? { input: ["SECRETARY_REVIEWED"], output: "EXECUTIVE_APPROVED", title: "اعتماد المدير التنفيذي", action: "اعتماد نهائي" }
+          : { input: ["HR_REVIEWED"], output: "SECRETARY_REVIEWED", title: "مراجعة السكرتير التنفيذي/التقني", action: "تسليم للمدير التنفيذي" };
+  const nextKpiStatus = stageConfig.output;
+  const actionableEvaluations = isSelf ? evaluations : evaluations.filter((item) => stageConfig.input.includes(String(item.status || "DRAFT")));
+  const formEvaluation = actionableEvaluations[0] || (isSelf ? evaluations.find((item) => item.employeeId === payload.currentEmployeeId) : null) || {};
+  const employees = isSelf
+    ? (ref.employees || []).filter((employee) => employee.id === payload.currentEmployeeId)
+    : actionableEvaluations.map((item) => item.employee || (ref.employees || []).find((employee) => employee.id === item.employeeId)).filter(Boolean);
+  const employeeOptions = optionList(employees.map((employee) => ({ id: employee.id, name: `${employee.fullName}${employee.jobTitle ? " — " + employee.jobTitle : ""}` })), isSelf ? payload.currentEmployeeId : (formEvaluation.employeeId || ""), isSelf ? "" : "اختر نموذجًا جاهزًا لهذه المرحلة");
+  const managerOptions = optionList(ref.employees.map((employee) => ({ id: employee.id, name: `${employee.fullName}${employee.jobTitle ? " — " + employee.jobTitle : ""}` })), formEvaluation.managerEmployeeId || state.user?.employeeId || "", "المدير المباشر من ملف الموظف");
   const metricCards = (payload.metrics || []).map((metric) => `<article class="metric span-3"><span>${escapeHtml(metric.label)}</span><strong>${escapeHtml(metric.value)}</strong><small>${escapeHtml(metric.helper || "")}</small></article>`).join("");
   const progressCards = progressMetrics.map((metric) => `<article class="metric span-2"><span>${escapeHtml(metric.label)}</span><strong>${escapeHtml(metric.value)}</strong><small>${escapeHtml(metric.helper || "")}</small></article>`).join("");
   shell(
@@ -2191,7 +2276,7 @@ async function renderKpi() {
       <article class="panel span-12 accent-panel">
         <div class="panel-head">
           <div>
-            <h2>${isSelf ? "تقييمي الذاتي الشهري" : isHr ? "مراجعة HR لتقييمات KPI" : isTeam ? "تقييمات الفريق المباشر" : isExecutive ? "الاعتماد النهائي لتقييمات KPI" : "نموذج تقييم الأداء الشهري المعتمد"}</h2>
+            <h2>${stageConfig.title}</h2>
             <p>${escapeHtml(policy.description || "يبدأ التقييم من يوم 20 وينتهي يوم 25 من نفس الشهر.")}</p>
           </div>
           ${payload.accessMode === "all" ? `<div class="toolbar"><button class="button primary" id="recompute-kpi">تجهيز تقييمات ناقصة</button><button class="button ghost" id="send-kpi-reminders">إرسال تذكيرات KPI</button><button class="button danger" id="close-kpi-cycle">إغلاق الدورة</button></div>` : isExecutive ? `<button class="button primary" id="close-kpi-cycle">إغلاق/اعتماد إغلاق الدورة</button>` : ""}
@@ -2207,24 +2292,25 @@ async function renderKpi() {
       ${metricCards}
       ${progressCards ? `<article class="panel span-12"><div class="panel-head"><div><h2>متابعة مراحل الاعتماد</h2><p>من الموظف حتى المدير التنفيذي</p></div></div><div class="grid nested-metrics">${progressCards}</div></article>` : ""}
       <article class="panel span-5">
-        <h2>${isSelf ? "إرسال تقييمي لمديري المباشر" : "إدخال / تعديل تقييم"}</h2>
+        <h2>${isSelf ? "إرسال تقييمي لمديري المباشر" : stageConfig.title}</h2>
+        ${!isSelf && !actionableEvaluations.length ? `<div class="notice">لا توجد نماذج جاهزة لهذه المرحلة الآن. المدير لا يستطيع بدء تقييم من الصفر؛ يجب أن يبدأ الموظف أولًا.</div>` : ""}
         <form id="kpi-form" class="form-grid compact-form">
           <label>الموظف<select name="employeeId" required ${isSelf ? "disabled" : ""}>${employeeOptions}</select></label>
           ${isSelf ? `<input type="hidden" name="employeeId" value="${escapeHtml(payload.currentEmployeeId || "")}" />` : ""}
           <label>المدير المباشر<select name="managerEmployeeId" ${isSelf ? "disabled" : ""}>${managerOptions}</select></label>
           ${isSelf ? `<input type="hidden" name="managerEmployeeId" value="${escapeHtml(state.user?.employee?.managerEmployeeId || "")}" />` : ""}
           <label>تاريخ الجلسة<input name="evaluationDate" type="date" value="${escapeHtml(cycle.startsOn || new Date().toISOString().slice(0, 10))}" required /></label>
-          <label>حالة التقييم<select name="status">${optionList(isSelf ? [{ value: "SELF_SUBMITTED", name: "رفع للمدير المباشر" }] : isHr ? [{ value: "HR_REVIEWED", name: "مراجعة HR مكتملة" }] : isTeam ? [{ value: "MANAGER_APPROVED", name: "اعتماد المدير المباشر" }] : isExecutive ? [{ value: "EXECUTIVE_APPROVED", name: "اعتماد المدير التنفيذي" }] : [{ value: "DRAFT", name: "مسودة" }, { value: "SELF_SUBMITTED", name: "استلام من الموظف" }, { value: "MANAGER_APPROVED", name: "اعتماد المدير" }, { value: "HR_REVIEWED", name: "مراجعة HR" }, { value: "SECRETARY_REVIEWED", name: "مراجعة السكرتير التنفيذي" }, { value: "EXECUTIVE_APPROVED", name: "اعتماد المدير التنفيذي" }], isSelf ? "SELF_SUBMITTED" : isHr ? "HR_REVIEWED" : isTeam ? "MANAGER_APPROVED" : "SECRETARY_REVIEWED")}</select></label>
-          ${!isHr ? `<label>تحقيق الأهداف / 40<input name="targetScore" type="number" min="0" max="40" step="0.5" value="0" /></label>
-          <label>الكفاءة في أداء المهام / 20<input name="efficiencyScore" type="number" min="0" max="20" step="0.5" value="0" /></label>
-          <label>حسن التعامل والسلوك / 5<input name="conductScore" type="number" min="0" max="5" step="0.5" value="0" /></label>
-          <label>التبرعات والمبادرات / 5<input name="initiativesScore" type="number" min="0" max="5" step="0.5" value="0" /></label>` : ""}
-          ${(isHr || payload.accessMode === "all") ? `<label>الالتزام بمواعيد العمل حضورًا وانصرافًا / 20<input name="attendanceScore" type="number" min="0" max="20" step="0.5" placeholder="يحسب تلقائيًا إن تُرك فارغًا" /></label>
-          <label>الالتزام بالصلاة في المسجد / 5<input name="prayerScore" type="number" min="0" max="5" step="0.5" value="0" /></label>
-          <label>حضور حلقة الشيخ وليد يوسف الأسبوعية لتدريس القرآن والتجويد / 5<input name="quranCircleScore" type="number" min="0" max="5" step="0.5" value="0" /></label>` : `<div class="notice span-2">خاص بـ HR — بنود HR فقط: الحضور والانصراف /20، الصلاة في المسجد /5، حضور حلقة الشيخ وليد يوسف الأسبوعية لتدريس القرآن والتجويد /5.</div>`}
-          <label class="span-2">${isSelf ? "ملاحظات الموظف" : "ملاحظات المدير"}<textarea name="${isSelf ? "employeeNotes" : "managerNotes"}" placeholder="${isSelf ? "اكتب ملخص تقييمك الذاتي وما تم الاتفاق عليه مع المدير" : "ملخص جلسة التقييم ونقاط التحسين"}"></textarea></label>
+          <label>حالة التقييم<select name="status">${optionList([{ value: stageConfig.output, name: stageConfig.action }], stageConfig.output)}</select></label>
+          ${!isHr ? `<label>تحقيق الأهداف / 40<input name="targetScore" type="number" min="0" max="40" step="0.5" value="${escapeHtml(formEvaluation.targetScore ?? 0)}" /></label>
+          <label>الكفاءة في أداء المهام / 20<input name="efficiencyScore" type="number" min="0" max="20" step="0.5" value="${escapeHtml(formEvaluation.efficiencyScore ?? 0)}" /></label>
+          <label>حسن التعامل والسلوك / 5<input name="conductScore" type="number" min="0" max="5" step="0.5" value="${escapeHtml(formEvaluation.conductScore ?? 0)}" /></label>
+          <label>التبرعات والمبادرات / 5<input name="initiativesScore" type="number" min="0" max="5" step="0.5" value="${escapeHtml(formEvaluation.initiativesScore ?? 0)}" /></label>` : ""}
+          ${(isHr || payload.accessMode === "all") ? `<label>الالتزام بمواعيد العمل حضورًا وانصرافًا / 20<input name="attendanceScore" type="number" min="0" max="20" step="0.5" value="${escapeHtml(formEvaluation.attendanceScore ?? "")}" placeholder="يحسب تلقائيًا إن تُرك فارغًا" /></label>
+          <label>الالتزام بالصلاة في المسجد / 5<input name="prayerScore" type="number" min="0" max="5" step="0.5" value="${escapeHtml(formEvaluation.prayerScore ?? 0)}" /></label>
+          <label>حضور حلقة الشيخ وليد يوسف الأسبوعية لتدريس القرآن والتجويد / 5<input name="quranCircleScore" type="number" min="0" max="5" step="0.5" value="${escapeHtml(formEvaluation.quranCircleScore ?? 0)}" /></label>` : `<div class="notice span-2">خاص بـ HR — بنود HR فقط: الحضور والانصراف /20، الصلاة في المسجد /5، حضور حلقة الشيخ وليد يوسف الأسبوعية لتدريس القرآن والتجويد /5.</div>`}
+          <label class="span-2">${isSelf ? "ملاحظات الموظف" : isHr ? "ملاحظات HR" : isExecutive ? "ملاحظات المدير التنفيذي" : isSecretaryStage ? "ملاحظات السكرتير التنفيذي/التقني" : "ملاحظات المدير"}<textarea name="${isSelf ? "employeeNotes" : isHr ? "hrNotes" : isExecutive ? "executiveNotes" : isSecretaryStage ? "secretaryNotes" : "managerNotes"}" placeholder="${isSelf ? "اكتب ملخص تقييمك الذاتي" : "اكتب ملاحظات المرحلة الحالية"}">${escapeHtml(isSelf ? formEvaluation.employeeNotes || "" : isHr ? formEvaluation.hrNotes || "" : isExecutive ? formEvaluation.executiveNotes || "" : isSecretaryStage ? formEvaluation.secretaryNotes || "" : formEvaluation.managerNotes || "")}</textarea></label>
           <label class="checkbox-row"><input name="meetingHeld" type="checkbox" checked /> تمت جلسة التقييم بين الموظف ومديره المباشر</label>
-          <div class="form-actions"><button class="button primary" type="submit" ${isSelf && windowInfo.isOpen === false ? "disabled" : ""}>${isSelf ? "رفع التقييم للمدير" : "حفظ / اعتماد التقييم"}</button></div>
+          <div class="form-actions"><button class="button primary" type="submit" ${(isSelf && windowInfo.isOpen === false) || (!isSelf && !actionableEvaluations.length) ? "disabled" : ""}>${isSelf ? "رفع التقييم للمدير" : stageConfig.action}</button></div>
         </form>
       </article>
       <article class="panel span-7">
@@ -2245,18 +2331,18 @@ async function renderKpi() {
           <td><strong>${escapeHtml(item.totalScore ?? "-")}/100</strong></td>
           <td>${escapeHtml(item.rating || item.grade || "-")}</td>
           <td>${badge(item.status || "DRAFT")}</td>
-          <td>${payload.accessMode === "self" ? "-" : `<button class="button ghost" data-kpi-action="approve" data-next-status="${escapeHtml(nextKpiStatus)}" data-id="${escapeHtml(item.id)}">${isExecutive ? "اعتماد نهائي" : "اعتماد وتسليم"}</button>`}</td>
+          <td>${payload.accessMode === "self" ? "-" : stageConfig.input.includes(String(item.status || "DRAFT")) ? `<button class="button ghost" data-kpi-action="approve" data-next-status="${escapeHtml(nextKpiStatus)}" data-id="${escapeHtml(item.id)}">${escapeHtml(stageConfig.action)}</button>` : `<span class="muted">بانتظار المرحلة السابقة</span>`}</td>
         </tr>`))}
       </article>
       <article class="panel span-12">
         <h2>${isSelf ? "الخطوة التالية" : "موظفون لم يتم تقييمهم بعد"}</h2>
-        <div class="chips">${isSelf ? `<span class="chip">بعد رفع تقييمك، يظهر للمدير المباشر لاعتماده أو تعديله ثم تسليمه.</span>` : pendingEmployees.length ? pendingEmployees.map((employee) => `<span class="chip">${escapeHtml(employee.fullName)} - ${escapeHtml(employee.jobTitle || "")}</span>`).join("") : `<span class="chip success">لا توجد تقييمات ناقصة</span>`}</div>
+        <div class="chips">${isSelf ? `<span class="chip">بعد رفع تقييمك، يظهر للمدير المباشر لاعتماده أو تعديله، ثم ينتقل إلى HR، ثم السكرتير التنفيذي، ثم المدير التنفيذي.</span>` : actionableEvaluations.length ? actionableEvaluations.map((item) => `<span class="chip">${escapeHtml(item.employee?.fullName || item.employeeId)} — ${escapeHtml(stageConfig.action)}</span>`).join("") : pendingEmployees.length ? pendingEmployees.slice(0, 20).map((employee) => `<span class="chip muted">${escapeHtml(employee.fullName)} لم يبدأ التقييم الذاتي</span>`).join("") : `<span class="chip success">لا توجد تقييمات ناقصة</span>`}</div>
       </article>
     </section>`,
     "مؤشرات وتقييم الأداء",
     isSelf ? "الموظف يرى تقييمه فقط ويرفعه لمديره المباشر." : "نموذج KPI شهري يبدأ من يوم 20 إلى 25، مع فصل بنود HR عن بنود الموظف والمدير.",
   );
-  app.querySelector("#kpi-form").addEventListener("submit", submitForm(endpoints.saveKpiEvaluation, isSelf ? "تم رفع تقييمك للمدير المباشر." : "تم حفظ تقييم الأداء."));
+  app.querySelector("#kpi-form").addEventListener("submit", submitForm(endpoints.saveKpiEvaluation, isSelf ? "تم رفع تقييمك للمدير المباشر." : `تم تنفيذ المرحلة: ${stageConfig.action}`));
   app.querySelector("#recompute-kpi")?.addEventListener("click", async () => {
     const result = await endpoints.recomputeKpi({});
     setMessage(`تم تجهيز ${result.recomputed || 0} تقييم ناقص.`, "");
@@ -2282,6 +2368,68 @@ async function renderKpi() {
     downloadFile("monthly-kpi-evaluations.csv", `\ufeff${toCsv(rows)}`, "text/csv;charset=utf-8");
   });
 }
+
+function kpiStatusGroups(evaluations = [], pendingEmployees = []) {
+  const canonical = (value = "") => String(value || "DRAFT").toUpperCase();
+  const group = (status) => evaluations.filter((item) => canonical(item.status) === status);
+  return {
+    pendingSelf: pendingEmployees || [],
+    waitingManager: group("SELF_SUBMITTED"),
+    waitingHr: group("MANAGER_APPROVED"),
+    waitingSecretary: group("HR_REVIEWED"),
+    waitingExecutive: group("SECRETARY_REVIEWED"),
+    finalized: evaluations.filter((item) => ["EXECUTIVE_APPROVED", "APPROVED"].includes(canonical(item.status))),
+  };
+}
+
+function kpiWorkflowTimeline() {
+  return `<div class="kpi-workflow-timeline"><span><b>1</b>الموظف يقيّم نفسه</span><span><b>2</b>المدير المباشر يؤكد/يعدل</span><span><b>3</b>HR يكمل بنود HR</span><span><b>4</b>السكرتير التنفيذي يراجع</span><span><b>5</b>المدير التنفيذي يعتمد</span></div>`;
+}
+
+function kpiRowsForReport(evaluations = []) {
+  return evaluations.map((item) => [item.employee?.fullName || item.employeeId || "-", item.manager?.fullName || item.managerEmployeeId || "-", item.targetScore ?? 0, item.efficiencyScore ?? 0, item.attendanceScore ?? 0, Number(item.conductScore || 0) + Number(item.prayerScore || 0) + Number(item.quranCircleScore || 0), item.initiativesScore ?? 0, item.totalScore ?? 0, item.rating || item.grade || "-", statusLabel(item.status || "DRAFT")]);
+}
+
+function employeeChipList(employees = [], label = "") {
+  return `<div class="chips scrollable-chips">${employees.length ? employees.slice(0, 80).map((employee) => `<span class="chip muted">${escapeHtml(employee.fullName || employee.name || employee.id)}${label ? ` — ${escapeHtml(label)}` : ""}</span>`).join("") : `<span class="chip success">لا توجد عناصر في هذه المرحلة</span>`}</div>`;
+}
+
+function kpiMiniRows(rows = [], actionLabel = "") {
+  return table(["الموظف", "المدير", "الإجمالي", "الحالة", "إجراء"], rows.map((item) => `<tr><td>${escapeHtml(item.employee?.fullName || item.employeeId || "-")}</td><td>${escapeHtml(item.manager?.fullName || item.managerEmployeeId || "-")}</td><td><strong>${escapeHtml(item.totalScore ?? "-")}/100</strong></td><td>${badge(item.status || "DRAFT")}</td><td><button class="button ghost small" data-route="kpi">${escapeHtml(actionLabel || "فتح")}</button></td></tr>`));
+}
+
+async function renderKpiMonthCenter() {
+  const payload = unwrap(await endpoints.kpi());
+  const evaluations = payload.evaluations || payload.summaries || [];
+  const pendingEmployees = payload.pendingEmployees || [];
+  const groups = kpiStatusGroups(evaluations, pendingEmployees);
+  const windowInfo = payload.windowInfo || payload.cycle?.window || {};
+  const stageCards = [["لم يبدأوا", groups.pendingSelf.length, "موظفون لم يرفعوا التقييم الذاتي", "pending"], ["بانتظار المدير", groups.waitingManager.length, "نماذج رفعها الموظفون وتنتظر المدير", "manager"], ["بانتظار HR", groups.waitingHr.length, "اعتمدها المدير وتحتاج بنود HR", "hr"], ["بانتظار السكرتير", groups.waitingSecretary.length, "اكتملت HR وتحتاج مراجعة تنفيذية", "secretary"], ["بانتظار المدير التنفيذي", groups.waitingExecutive.length, "جاهزة للاعتماد النهائي", "executive"], ["اعتماد نهائي", groups.finalized.length, "نماذج مكتملة", "done"]].map(([label, value, helper, tone]) => `<article class="metric kpi-stage-${tone}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(helper)}</small></article>`).join("");
+  shell(`<section class="grid kpi-month-center"><article class="panel span-12 accent-panel"><div class="panel-head"><div><h2>مركز HR لتقييمات الشهر</h2><p>متابعة حقيقية لكل مرحلة: من الموظف حتى الاعتماد النهائي.</p></div><div class="toolbar"><button class="button ghost" id="kpi-remind-all">إرسال تذكيرات حسب المرحلة</button><button class="button primary" data-route="kpi">فتح نموذج المرحلة الحالية</button></div></div>${kpiWorkflowTimeline()}<div class="message compact">الحالة الحالية: ${escapeHtml(windowInfo.label || "-")} — ${escapeHtml(windowInfo.message || "")}</div></article><article class="panel span-12"><div class="grid nested-metrics">${stageCards}</div></article><article class="panel span-6"><h2>بانتظار التقييم الذاتي</h2>${employeeChipList(groups.pendingSelf, "لم يبدأ")}</article><article class="panel span-6"><h2>بانتظار المدير المباشر</h2>${kpiMiniRows(groups.waitingManager, "اعتماد المدير")}</article><article class="panel span-6"><h2>بانتظار HR</h2>${kpiMiniRows(groups.waitingHr, "إكمال HR")}</article><article class="panel span-6"><h2>بانتظار السكرتير التنفيذي</h2>${kpiMiniRows(groups.waitingSecretary, "مراجعة السكرتير")}</article><article class="panel span-6"><h2>بانتظار المدير التنفيذي</h2>${kpiMiniRows(groups.waitingExecutive, "اعتماد نهائي")}</article><article class="panel span-6"><h2>المكتمل</h2>${kpiMiniRows(groups.finalized, "مكتمل")}</article></section>`, "متابعة KPI الشهر", "لوحة HR لمعرفة أين توقف كل نموذج تقييم.");
+  app.querySelector("#kpi-remind-all")?.addEventListener("click", async () => { const result = await endpoints.sendKpiReminders(); setMessage(`تم إرسال ${result.sent || 0} تذكير حسب المرحلة.`, ""); render(); });
+}
+
+async function renderKpiExecutiveReport() {
+  const payload = unwrap(await endpoints.kpi());
+  const evaluations = [...(payload.evaluations || payload.summaries || [])].sort((a, b) => Number(b.totalScore || 0) - Number(a.totalScore || 0));
+  const rows = kpiRowsForReport(evaluations);
+  const groups = kpiStatusGroups(evaluations, payload.pendingEmployees || []);
+  shell(`<section class="grid kpi-executive-report"><article class="panel span-12 accent-panel print-area"><div class="panel-head"><div><h2>تقرير KPI للمدير التنفيذي</h2><p>النسب النهائية لكل موظف، مع حالة الاعتماد وملخص مراحل الدورة.</p></div><div class="toolbar no-print"><button class="button primary" id="print-kpi-report">طباعة / PDF</button><button class="button ghost" id="export-kpi-executive-csv">تصدير CSV</button></div></div>${kpiWorkflowTimeline()}<div class="executive-report-summary"><div><span>إجمالي النماذج</span><strong>${escapeHtml(evaluations.length)}</strong></div><div><span>مكتمل</span><strong>${escapeHtml(groups.finalized.length)}</strong></div><div><span>بانتظار التنفيذي</span><strong>${escapeHtml(groups.waitingExecutive.length)}</strong></div><div><span>لم يبدأوا</span><strong>${escapeHtml(groups.pendingSelf.length)}</strong></div></div></article><article class="panel span-12 print-area">${table(["الموظف", "المدير", "الأهداف", "الكفاءة", "الحضور", "السلوكيات", "المبادرات", "الإجمالي", "التقدير", "الحالة"], rows.map((row) => `<tr>${row.map((cell, index) => index === 7 ? `<td><strong>${escapeHtml(cell)}/100</strong></td>` : `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`))}</article></section>`, "تقرير KPI تنفيذي", "جاهز للطباعة أو التصدير مع النسب النهائية.");
+  app.querySelector("#print-kpi-report")?.addEventListener("click", () => window.print());
+  app.querySelector("#export-kpi-executive-csv")?.addEventListener("click", () => downloadFile("executive-kpi-report.csv", `\ufeff${toCsv([["الموظف", "المدير", "الأهداف", "الكفاءة", "الحضور", "السلوكيات", "المبادرات", "الإجمالي", "التقدير", "الحالة"], ...rows])}`, "text/csv;charset=utf-8"));
+}
+
+async function renderKpiCycleLock() {
+  const payload = unwrap(await endpoints.kpi());
+  const windowInfo = payload.windowInfo || payload.cycle?.window || {};
+  const evaluations = payload.evaluations || payload.summaries || [];
+  const groups = kpiStatusGroups(evaluations, payload.pendingEmployees || []);
+  const blockers = [groups.pendingSelf.length ? `${groups.pendingSelf.length} موظف لم يرفع التقييم الذاتي` : "", groups.waitingManager.length ? `${groups.waitingManager.length} نموذج ينتظر المدير` : "", groups.waitingHr.length ? `${groups.waitingHr.length} نموذج ينتظر HR` : "", groups.waitingSecretary.length ? `${groups.waitingSecretary.length} نموذج ينتظر السكرتير` : "", groups.waitingExecutive.length ? `${groups.waitingExecutive.length} نموذج ينتظر المدير التنفيذي` : ""].filter(Boolean);
+  shell(`<section class="grid kpi-cycle-lock"><article class="panel span-12 accent-panel"><div class="panel-head"><div><h2>القفل الذكي لدورة KPI</h2><p>بعد يوم 25 يمنع الموظف والمدير من التعديل، وتستكمل HR والسكرتير والمدير التنفيذي الاعتماد فقط.</p></div><button class="button danger" id="lock-kpi-cycle">إغلاق الدورة الآن</button></div><div class="message ${windowInfo.isClosed ? "success" : "warning"}">الحالة: ${escapeHtml(windowInfo.label || "-")} — ${escapeHtml(windowInfo.message || "")}</div></article><article class="panel span-6"><h2>ما قبل الإغلاق</h2><div class="readiness-grid">${blockers.length ? blockers.map((item) => `<div class="readiness-item warn"><strong>${escapeHtml(item)}</strong><span>يفضل إرسال تذكير قبل القفل.</span></div>`).join("") : `<div class="empty-state">لا توجد عوائق ظاهرة قبل الإغلاق.</div>`}</div></article><article class="panel span-6"><h2>إجراءات سريعة</h2><div class="toolbar stacked"><button class="button ghost" id="kpi-lock-reminders">إرسال تذكير لكل مرحلة</button><button class="button ghost" data-route="kpi-month-center">فتح متابعة الشهر</button><button class="button primary" data-route="kpi-executive-report">تقرير المدير التنفيذي</button></div></article></section>`, "قفل دورة KPI", "تحكم آمن في نهاية دورة التقييم.");
+  app.querySelector("#kpi-lock-reminders")?.addEventListener("click", async () => { const result = await endpoints.sendKpiReminders(); setMessage(`تم إرسال ${result.sent || 0} تذكير.`, ""); render(); });
+  app.querySelector("#lock-kpi-cycle")?.addEventListener("click", async () => { if (!await confirmAction({ title: "إغلاق دورة KPI", message: "سيتم قفل تعديل الموظف والمدير، وتستكمل المراحل التنفيذية حسب الصلاحيات.", confirmLabel: "إغلاق الدورة", danger: true })) return; await endpoints.closeKpiCycle(); setMessage("تم إغلاق دورة KPI الحالية.", ""); render(); });
+}
+
 
 async function renderReports() {
   const payload = await endpoints.reports();
@@ -2351,43 +2499,78 @@ async function renderAudit() {
 }
 
 async function renderNotifications() {
-  const [items, ref] = await Promise.all([endpoints.notifications().then(unwrap), referenceData()]);
-  const unread = items.filter((item) => !item.isRead).length;
+  const monitor = await endpoints.notificationMonitor().then(unwrap).catch(async () => {
+    const [items, ref] = await Promise.all([endpoints.notifications().then(unwrap), referenceData()]);
+    return { metrics: {}, notifications: safeList(items), employees: safeList(ref.employees), pushSubscriptions: [], missingPush: [], locationFlow: [] };
+  });
+  const rows = safeList(monitor.notifications);
+  const employees = safeList(monitor.employees);
+  const metrics = monitor.metrics || {};
+  const recent = rows.slice(0, 120);
+  const urgentRows = safeList(monitor.actionRequired).length ? safeList(monitor.actionRequired).slice(0, 20) : recent.filter((item) => !item.isRead || ["ACTION_REQUIRED", "WARNING", "HIGH"].includes(String(item.type || item.status || item.priority || "").toUpperCase())).slice(0, 20);
+  const byEmployee = new Map(employees.map((employee) => [employee.id, employee]));
+  const permission = "Notification" in window ? Notification.permission : "unsupported";
+  const swReady = Boolean(navigator.serviceWorker);
+  let pushStatus = "غير مفعل";
+  try {
+    const reg = swReady ? await navigator.serviceWorker.ready : null;
+    const sub = reg?.pushManager ? await reg.pushManager.getSubscription() : null;
+    pushStatus = sub ? "مشترك فعليًا" : "لا يوجد اشتراك محفوظ على هذا الجهاز";
+  } catch {
+    pushStatus = "تعذر قراءة اشتراك الجهاز";
+  }
+  const subscriptionRows = safeList(monitor.pushSubscriptions).slice(0, 80);
+  const missingPushRows = safeList(monitor.missingPush).slice(0, 30);
+  const flowRows = safeList(monitor.locationFlow).slice(0, 30);
   shell(
-    `<section class="grid notifications-hub-page">
+    `<section class="grid notifications-hub-page ops-monitor-page live-bound-page">
+      <article class="panel span-12 accent-panel">
+        <div class="panel-head"><div><h2>مركز مراقبة الإشعارات الحقيقي</h2><p>مربوط بجدول notifications و push_subscriptions وطلبات الموقع المباشر، ويعرض ما وصل وما يحتاج إصلاحًا.</p></div><div class="toolbar"><button class="button ghost" type="button" id="enable-browser-notifications">تفعيل/تحديث Push</button><button class="button primary" type="button" id="test-local-notification">اختبار إشعار محلي</button></div></div>
+        <div class="metric-grid">
+          ${metric("كل الإشعارات", metrics.notifications ?? rows.length, "من جدول notifications")}
+          ${metric("غير مقروء", metrics.unread ?? rows.filter((item)=>!item.isRead).length, "يحتاج متابعة")}
+          ${metric("مطلوب إجراء", metrics.actionRequired ?? urgentRows.length, "موقع/قرار/تنبيه")}
+          ${metric("Push نشط", `${metrics.activePush ?? 0}/${metrics.pushSubscriptions ?? 0}`, pushStatus)}
+          ${metric("موظفون بلا Push", metrics.missingPush ?? missingPushRows.length, "قد لا تصلهم إشعارات خارج التطبيق")}
+          ${metric("طلبات موقع معلقة", metrics.livePending ?? 0, "بانتظار رد الموظف")}
+        </div>
+        <div class="health-strip">${healthBadge(permission === "granted", "إذن الإشعارات")} ${healthBadge(swReady, "Service Worker")} ${healthBadge(pushStatus === "مشترك فعليًا", "اشتراك الجهاز الحالي")}</div>
+      </article>
       <article class="panel span-5">
-        <div class="panel-head"><div><h2>قناة التواصل الداخلي</h2><p>إعلانات، تذكيرات، وتعليمات تصل للموظفين كتنبيه داخلي وWeb Push مع تنبيه صوتي داخل التطبيق عند فتحه.</p></div>${healthBadge(Boolean("Notification" in window), "Browser Push")}</div>
+        <div class="panel-head"><div><h2>إرسال إعلان أو تنبيه</h2><p>يُسجّل كإشعار داخلي ويُدفع عبر Web Push عند توفر اشتراك الموظف.</p></div></div>
         <form id="announcement-form" class="form-grid compact-form">
           <label>نوع الرسالة<select name="type"><option value="ANNOUNCEMENT">إعلان إداري</option><option value="REMINDER">تذكير</option><option value="ACTION_REQUIRED">مطلوب إجراء</option><option value="DECISION">قرار إداري</option></select></label>
           <label>العنوان<input name="title" value="تذكير إداري مهم" /></label>
-          <label>الجمهور<select name="audience"><option value="all">كل الموظفين</option>${optionList(ref.departments.map((d) => ({ value: d.id, name: `قسم: ${d.name}` })))}${optionList(ref.branches.map((b) => ({ value: b.id, name: `فرع: ${b.name}` })))}</select></label>
-          <label class="check-row"><input type="checkbox" name="playSound" checked /> تشغيل تنبيه صوتي داخل تطبيق الموظف عند وصول الرسالة</label>
+          <label>الجمهور<select name="audience"><option value="all">كل الموظفين</option><option value="managers">المديرون فقط</option></select></label>
           <label class="span-2">المحتوى<textarea name="body" placeholder="اكتب نص الإعلان أو التذكير أو التعليمات"></textarea></label>
-          <div class="form-actions"><button class="button primary">إرسال عبر القناة الداخلية</button><button class="button ghost" type="button" id="enable-browser-notifications">تفعيل إشعارات المتصفح</button></div>
+          <div class="form-actions"><button class="button primary">إرسال عبر القناة الداخلية</button></div>
         </form>
       </article>
       <article class="panel span-7">
-        <div class="panel-head"><div><h2>صندوق الإشعارات</h2><p>${escapeHtml(unread)} إشعار غير مقروء</p></div></div>
-        ${table(["العنوان", "المحتوى", "الحالة", "التاريخ", "إجراءات"], items.map((item) => `<tr><td>${escapeHtml(item.title)}</td><td>${escapeHtml(item.body || "")}</td><td>${badge(item.isRead ? "READ" : "UNREAD")}</td><td>${date(item.createdAt)}</td><td>${item.isRead ? "" : `<button class="button ghost" data-read="${item.id}">تعليم كمقروء</button>`}</td></tr>`))}
+        <div class="panel-head"><div><h2>العاجل أولًا</h2><p>غير المقروء والمطلوب إجراء وطلبات الموقع.</p></div><button class="button ghost" data-route="locations">مركز اللوكيشن</button></div>
+        ${table(["العنوان", "الموظف", "النوع", "الحالة", "التاريخ", "إجراء"], urgentRows.map((item) => `<tr><td><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.body || "")}</small></td><td>${escapeHtml(byEmployee.get(item.employeeId)?.fullName || item.employee?.fullName || item.employeeId || "عام")}</td><td>${escapeHtml(item.type || "-")}</td><td>${badge(item.isRead ? "READ" : "UNREAD")}</td><td>${date(item.createdAt)}</td><td>${item.isRead ? "" : `<button class="button ghost" data-read="${escapeHtml(item.id)}">تعليم كمقروء</button>`}</td></tr>`))}
+      </article>
+      <article class="panel span-6">
+        <div class="panel-head"><div><h2>حالة أجهزة Push</h2><p>أي موظف بلا اشتراك نشط لن يصله التنبيه خارج التطبيق.</p></div><button class="button ghost" data-route="trusted-devices">مركز الأجهزة</button></div>
+        ${table(["الموظف", "الهاتف", "الحالة", "إجراء"], missingPushRows.map((employee) => `<tr><td class="person-cell">${avatar(employee,"tiny")}<span>${escapeHtml(employee.fullName || "-")}</span></td><td>${escapeHtml(employee.phone || "-")}</td><td>${badge("NO_DEVICE")}</td><td><button class="button ghost" data-route="employee-archive?id=${escapeHtml(employee.id)}">ملف الموظف</button></td></tr>`))}
+      </article>
+      <article class="panel span-6">
+        <div class="panel-head"><div><h2>مسار طلبات الموقع</h2><p>يربط طلب المدير التنفيذي برد الموظف.</p></div></div>
+        ${table(["الموظف", "الطلب", "الرد", "التاريخ"], flowRows.map((row) => `<tr><td>${escapeHtml(row.employee?.fullName || byEmployee.get(row.employeeId)?.fullName || row.employeeId || "-")}</td><td>${badge(row.status || "PENDING")}<br><small>${escapeHtml(row.reason || "")}</small></td><td>${row.response ? badge(row.response.status || row.responseStatus || "LIVE_SHARED") : "بانتظار الرد"}</td><td>${date(row.createdAt || row.respondedAt)}</td></tr>`))}
+      </article>
+      <article class="panel span-12">
+        <div class="panel-head"><div><h2>سجل الإشعارات الكامل</h2><p>آخر 120 إشعارًا من قاعدة البيانات.</p></div><button class="button ghost" id="export-notification-monitor">تصدير JSON</button></div>
+        ${table(["العنوان", "المحتوى", "الموظف", "الحالة", "التاريخ"], recent.map((item) => `<tr><td>${escapeHtml(item.title)}</td><td>${escapeHtml(item.body || "")}</td><td>${escapeHtml(byEmployee.get(item.employeeId)?.fullName || item.employee?.fullName || item.employeeId || "عام")}</td><td>${badge(item.isRead ? "READ" : "UNREAD")}</td><td>${date(item.createdAt)}</td></tr>`))}
       </article>
     </section>`,
-    "الإشعارات",
-    "قناة التواصل الداخلي والإعلانات والتنبيهات الصوتية.",
+    "مركز مراقبة الإشعارات",
+    "تتبع الإرسال والقراءة وحالة Push وربطها بطلبات الموقع.",
   );
   app.querySelector("#announcement-form")?.addEventListener("submit", submitForm(endpoints.createAnnouncement, "تم إرسال الإعلان للموظفين."));
-  app.querySelector("#enable-browser-notifications")?.addEventListener("click", async () => {
-    if (!("Notification" in window)) return setMessage("", "المتصفح لا يدعم إشعارات سطح المكتب.");
-    const permission = await Notification.requestPermission();
-    if (permission === "granted") {
-      await enableBrowserNotifications();
-      setMessage("تم تفعيل اشتراك Web Push الحقيقي لهذا المتصفح.", "");
-    } else setMessage("", "لم يتم السماح بإشعارات المتصفح.");
-    render();
-  });
-  app.querySelectorAll("[data-read]").forEach((button) => button.addEventListener("click", async () => {
-    await endpoints.markNotificationRead(button.dataset.read);
-    render();
-  }));
+  app.querySelector("#enable-browser-notifications")?.addEventListener("click", async () => { try { await enableWebPushSubscription(endpoints); setMessage("تم تفعيل/تحديث اشتراك Web Push الحقيقي لهذا المتصفح.", ""); } catch (error) { setMessage("", error.message || "تعذر تفعيل الإشعارات."); } render(); });
+  app.querySelector("#test-local-notification")?.addEventListener("click", async () => { try { await enableBrowserNotifications(); setMessage("تم إرسال إشعار اختبار محلي على هذا الجهاز.", ""); } catch (error) { setMessage("", error.message || "تعذر اختبار الإشعار."); } });
+  app.querySelector("#export-notification-monitor")?.addEventListener("click", () => downloadFile("notification-monitor.json", JSON.stringify(monitor, null, 2), "application/json;charset=utf-8"));
+  app.querySelectorAll("[data-read]").forEach((button) => button.addEventListener("click", async () => { await endpoints.markNotificationRead(button.dataset.read); render(); }));
 }
 
 
@@ -2930,22 +3113,38 @@ async function renderEmployeeQr() {
 
 
 async function renderTrustedDevices() {
-  const [devices, employees, requests] = await Promise.all([
-    endpoints.trustedDevices().then(unwrap),
-    endpoints.employees().then(unwrap),
-    endpoints.trustedDeviceApprovalRequests().then(unwrap).catch(() => []),
-  ]);
-  const byEmployee = new Map(employees.map((e) => [e.id, e]));
+  const data = await endpoints.deviceCenter().then(unwrap).catch(async () => {
+    const [devices, employees, requests] = await Promise.all([endpoints.trustedDevices().then(unwrap), endpoints.employees().then(unwrap), endpoints.trustedDeviceApprovalRequests().then(unwrap).catch(() => [])]);
+    return { counts: {}, rows: employees.map((employee) => ({ employee, passkeys: devices.filter((d)=>d.employeeId===employee.id || d.userId===employee.userId), pushSubscriptions: [], pendingApprovals: requests.filter((r)=>r.employeeId===employee.id), activePush: [], deviceStatus: "PASSKEY_ONLY" })), passkeys: devices, approvals: requests, pushSubscriptions: [] };
+  });
+  const rows = safeList(data.rows);
+  const approvals = safeList(data.approvals);
+  const passkeys = safeList(data.passkeys);
+  const pushRows = safeList(data.pushSubscriptions);
   shell(
-    `<section class="grid devices-page">
+    `<section class="grid devices-page live-bound-page">
+      <article class="panel span-12 accent-panel"><div class="panel-head"><div><h2>مركز أجهزة الموظفين</h2><p>يربط Passkeys وPush Subscriptions وطلبات اعتماد الأجهزة بملف الموظف حتى لا تبقى الصفحة شكلية.</p></div><div class="toolbar"><button class="button ghost" data-route="notifications">مراقبة الإشعارات</button><button class="button primary" data-route="employee-punch">تسجيل بصمة جهاز</button></div></div>
+        <div class="metric-grid">
+          ${metric("الموظفون", data.counts?.total ?? rows.length, "إجمالي المتابعة")}
+          ${metric("Push نشط", data.counts?.PUSH_ACTIVE ?? rows.filter((r)=>r.deviceStatus==='PUSH_ACTIVE').length, "جاهز لإشعارات خارج التطبيق")}
+          ${metric("Passkey فقط", data.counts?.PASSKEY_ONLY ?? rows.filter((r)=>r.deviceStatus==='PASSKEY_ONLY').length, "بصمة/دخول بدون Push")}
+          ${metric("طلبات اعتماد", data.counts?.PENDING_APPROVAL ?? rows.filter((r)=>r.deviceStatus==='PENDING_APPROVAL').length, "تحتاج HR/مدير")}
+          ${metric("بلا جهاز", data.counts?.NO_DEVICE ?? rows.filter((r)=>r.deviceStatus==='NO_DEVICE').length, "يحتاج تفعيل")}
+        </div>
+      </article>
+      <article class="panel span-12"><div class="panel-head"><div><h2>حالة كل موظف</h2><p>هل لديه جهاز معتمد؟ هل Push نشط؟ هل هناك طلب اعتماد؟</p></div><button class="button ghost" id="export-device-center">تصدير JSON</button></div>
+      ${table(["الموظف", "Push", "Passkeys", "طلبات اعتماد", "الحالة", "إجراء"], rows.map((row) => `<tr><td class="person-cell">${avatar(row.employee,"tiny")}<span><strong>${escapeHtml(row.employee?.fullName || "-")}</strong><small>${escapeHtml(row.employee?.phone || row.employee?.jobTitle || "")}</small></span></td><td>${escapeHtml(safeList(row.activePush).length)} نشط / ${escapeHtml(safeList(row.pushSubscriptions).length)} إجمالي</td><td>${escapeHtml(safeList(row.passkeys).length)}</td><td>${escapeHtml(safeList(row.pendingApprovals).length)}</td><td>${badge(row.deviceStatus || "NO_DEVICE")}</td><td><button class="button ghost" data-route="employee-archive?id=${escapeHtml(row.employee?.id || "")}">ملف الموظف</button></td></tr>`))}</article>
       <article class="panel span-12"><div class="panel-head"><div><h2>طلبات اعتماد الأجهزة الجديدة</h2><p>أي جهاز جديد أو غير معتمد يتحول إلى هذه القائمة قبل اعتماد بصمته تلقائيًا.</p></div></div>
-      ${table(["الموظف", "الجهاز", "الحالة", "السيلفي", "الموقع", "التاريخ", "إجراء"], (requests || []).map((r) => { const employee = byEmployee.get(r.employeeId) || {}; return `<tr><td>${escapeHtml(employee.fullName || r.employeeName || r.employeeId || "-")}</td><td><strong>${escapeHtml(r.deviceName || "جهاز متصفح")}</strong><br><small>${escapeHtml(String(r.deviceFingerprintHash || "").slice(0,16))}</small></td><td>${badge(r.status || "PENDING")}</td><td>${r.selfieUrl ? `<a target="_blank" rel="noopener" href="${escapeHtml(r.selfieUrl)}">عرض</a>` : "-"}</td><td>${r.latitude ? `<a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${escapeHtml(r.latitude)},${escapeHtml(r.longitude)}">خريطة</a>` : "-"}</td><td>${date(r.createdAt)}</td><td><div class="toolbar"><button class="button primary" data-device-review="APPROVED" data-request-id="${escapeHtml(r.id)}">اعتماد</button><button class="button danger" data-device-review="REJECTED" data-request-id="${escapeHtml(r.id)}">رفض</button></div></td></tr>`; }))}</article>
-      <article class="panel span-12"><div class="panel-head"><div><h2>الأجهزة المعتمدة</h2><p>قائمة Passkeys والأجهزة التي يستخدمها الموظفون في بصمة الحضور.</p></div><button class="button ghost" data-route="employee-punch">تسجيل بصمة جهاز</button></div>
-      ${table(["الموظف", "الجهاز", "المنصة", "الحالة", "آخر استخدام", "إجراءات"], devices.map((d) => { const employee = d.employee || byEmployee.get(d.employeeId) || employees.find((e) => e.userId === d.userId) || {}; return `<tr><td>${escapeHtml(employee.fullName || d.employeeId || d.userId || "-")}</td><td>${escapeHtml(d.label || d.deviceLabel || "مفتاح مرور")}</td><td>${escapeHtml(d.platform || d.userAgent || "-")}</td><td>${badge(d.approvalStatus || d.status || (d.trusted === false ? "DEVICE_DISABLED" : "DEVICE_TRUSTED"))}</td><td>${date(d.lastUsedAt)}</td><td><div class="toolbar"><button class="button ghost" data-device-action="trust" data-id="${escapeHtml(d.id)}">اعتماد</button><button class="button danger" data-device-action="disable" data-id="${escapeHtml(d.id)}">تعطيل</button></div></td></tr>`; }))}</article>
+      ${table(["الموظف", "الجهاز", "الحالة", "السيلفي", "الموقع", "التاريخ", "إجراء"], approvals.map((r) => { const employee = r.employee || rows.find((row)=>row.employee?.id===r.employeeId)?.employee || {}; return `<tr><td>${escapeHtml(employee.fullName || r.employeeName || r.employeeId || "-")}</td><td><strong>${escapeHtml(r.deviceName || "جهاز متصفح")}</strong><br><small>${escapeHtml(String(r.deviceFingerprintHash || "").slice(0,16))}</small></td><td>${badge(r.status || "PENDING")}</td><td>${r.selfieUrl ? `<a target="_blank" rel="noopener" href="${escapeHtml(r.selfieUrl)}">عرض</a>` : "-"}</td><td>${r.latitude ? `<a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${escapeHtml(r.latitude)},${escapeHtml(r.longitude)}">خريطة</a>` : "-"}</td><td>${date(r.createdAt)}</td><td><div class="toolbar"><button class="button primary" data-device-review="APPROVED" data-request-id="${escapeHtml(r.id)}">اعتماد</button><button class="button danger" data-device-review="REJECTED" data-request-id="${escapeHtml(r.id)}">رفض</button></div></td></tr>`; }))}</article>
+      <article class="panel span-6"><div class="panel-head"><div><h2>Passkeys / أجهزة البصمة</h2><p>قائمة الأجهزة المحفوظة.</p></div></div>
+      ${table(["الموظف", "الجهاز", "المنصة", "الحالة", "آخر استخدام", "إجراءات"], passkeys.slice(0, 160).map((d) => { const row = rows.find((r)=>r.employee?.id===d.employeeId || r.employee?.userId===d.userId); const employee = d.employee || row?.employee || {}; return `<tr><td>${escapeHtml(employee.fullName || d.employeeId || d.userId || "-")}</td><td>${escapeHtml(d.label || d.deviceLabel || "مفتاح مرور")}</td><td>${escapeHtml(d.platform || d.userAgent || "-")}</td><td>${badge(d.approvalStatus || d.status || (d.trusted === false ? "DEVICE_DISABLED" : "DEVICE_TRUSTED"))}</td><td>${date(d.lastUsedAt)}</td><td><div class="toolbar"><button class="button ghost" data-device-action="trust" data-id="${escapeHtml(d.id)}">اعتماد</button><button class="button danger" data-device-action="disable" data-id="${escapeHtml(d.id)}">تعطيل</button></div></td></tr>`; }))}</article>
+      <article class="panel span-6"><div class="panel-head"><div><h2>Push Subscriptions</h2><p>اشتراكات Web Push التي تعتمد عليها إشعارات الموبايل والمتصفح.</p></div></div>
+      ${table(["الموظف/المستخدم", "الحالة", "آخر إرسال", "آخر خطأ"], pushRows.slice(0, 160).map((row) => `<tr><td>${escapeHtml(rows.find((r)=>r.employee?.id===row.employeeId || r.employee?.userId===row.userId)?.employee?.fullName || row.employeeId || row.userId || "-")}</td><td>${badge(row.status || (row.isActive === false ? "DISABLED" : "ACTIVE"))}</td><td>${date(row.lastSentAt || row.updatedAt || row.createdAt)}</td><td>${escapeHtml(row.lastError || "-")}</td></tr>`))}</article>
     </section>`,
-    "الأجهزة المعتمدة",
-    "إدارة مفاتيح المرور والأجهزة الموثوقة.",
+    "مركز أجهزة الموظفين",
+    "ربط الأجهزة، Passkeys، وWeb Push ببيانات الموظفين.",
   );
+  app.querySelector("#export-device-center")?.addEventListener("click", () => downloadFile("device-center.json", JSON.stringify(data, null, 2), "application/json;charset=utf-8"));
   app.querySelectorAll("[data-device-review]").forEach((button) => button.addEventListener("click", async () => {
     await endpoints.reviewTrustedDeviceApproval({ requestId: button.dataset.requestId, decision: button.dataset.deviceReview });
     setMessage(button.dataset.deviceReview === "APPROVED" ? "تم اعتماد الجهاز." : "تم رفض الجهاز.", "");
@@ -2954,7 +3153,7 @@ async function renderTrustedDevices() {
   app.querySelectorAll("[data-device-action]").forEach((button) => button.addEventListener("click", async () => {
     await endpoints.updateTrustedDevice(button.dataset.id, { action: button.dataset.deviceAction });
     setMessage(button.dataset.deviceAction === "trust" ? "تم اعتماد الجهاز." : "تم تعطيل الجهاز.", "");
-    render();
+    renderTrustedDevices();
   }));
 }
 
@@ -3089,12 +3288,27 @@ async function renderDocuments() {
 }
 
 async function renderPermissionMatrix() {
-  const data = unwrap(await endpoints.permissionMatrix());
-  const roles = safeList(data.roles);
-  const permissions = safeList(data.permissions);
+  const [data, overview] = await Promise.all([
+    endpoints.permissionMatrix().then(unwrap),
+    endpoints.permissionOverview().then(unwrap).catch(() => ({ roles: [], permissions: [], employees: [], users: [] })),
+  ]);
+  const roles = safeList(overview.roles).length ? safeList(overview.roles) : safeList(data.roles);
+  const permissions = safeList(overview.permissions).length ? safeList(overview.permissions) : safeList(data.permissions);
   const firstRole = roles[0] || {};
   shell(
-    `<section class="grid">
+    `<section class="grid live-bound-page">
+      <article class="panel span-12 accent-panel"><div class="panel-head"><div><h2>مركز صلاحيات مبسط</h2><p>يعرض الدور وما يراه المستخدم فعليًا وعدد الموظفين المرتبطين به، ثم يسمح بتعديل المصفوفة.</p></div><button class="button ghost" id="export-permission-overview">تصدير JSON</button></div>
+        <div class="metric-grid">
+          ${metric("الأدوار", roles.length, "من جدول roles")}
+          ${metric("الصلاحيات", permissions.length, "Scopes")}
+          ${metric("مستخدمون", safeList(overview.users).length, "Profiles")}
+          ${metric("موظفون", safeList(overview.employees).length, "Employees")}
+          ${metric("أدوار كاملة", roles.filter((r)=>r.risk==='FULL_ACCESS' || safeList(r.permissions).includes('*')).length, "Full access")}
+        </div>
+      </article>
+      <article class="panel span-12"><div class="panel-head"><div><h2>ملخص الأدوار</h2><p>قبل تعديل الصلاحيات، راجع من يستخدم كل دور.</p></div></div>
+        ${table(["الدور", "الموظفون", "المستخدمون", "مستوى الحساسية", "أهم الصلاحيات"], roles.map((role) => `<tr><td><strong>${escapeHtml(role.name || role.key || role.slug)}</strong><small>${escapeHtml(role.slug || role.key || '')}</small></td><td>${escapeHtml(role.employeeCount ?? '-')}</td><td>${escapeHtml(role.userCount ?? '-')}</td><td>${badge(role.risk || 'NORMAL')}</td><td><div class="scope-list">${safeList(role.permissions).slice(0,8).map((scope)=>`<span>${escapeHtml(scope)}</span>`).join('')}${safeList(role.permissions).length>8?`<span>+${safeList(role.permissions).length-8}</span>`:''}</div></td></tr>`))}
+      </article>
       <article class="panel span-12"><div class="panel-head"><div><h2>مصفوفة الصلاحيات</h2><p>تحكم تفصيلي في صلاحيات كل دور داخل النظام.</p></div></div>
         <form id="matrix-form" class="matrix-form">
           <label>الدور<select name="roleId" id="matrix-role">${optionList(roles, firstRole.id, "اختر الدور")}</select></label>
@@ -3103,8 +3317,8 @@ async function renderPermissionMatrix() {
         </form>
       </article>
     </section>`,
-    "مصفوفة الصلاحيات",
-    "إدارة صلاحيات الأدوار بطريقة واضحة.",
+    "مركز الصلاحيات",
+    "عرض وتعديل الصلاحيات مع ربطها بالموظفين والمستخدمين.",
   );
   const applyRoleChecks = () => {
     const role = roles.find((item) => item.id === app.querySelector("#matrix-role")?.value) || {};
@@ -3119,32 +3333,44 @@ async function renderPermissionMatrix() {
     setMessage("تم حفظ مصفوفة الصلاحيات.", "");
     renderPermissionMatrix();
   });
+  app.querySelector("#export-permission-overview")?.addEventListener("click", () => downloadFile("permission-overview.json", JSON.stringify(overview, null, 2), "application/json;charset=utf-8"));
 }
 
 
 async function renderQualityCenter() {
-  const data = await endpoints.qualityCenter().then(unwrap).catch(() => ({ readiness: { score: 0, grade: "غير متاح", issues: [] }, policy: {}, maintenanceRuns: [], escalations: [] }));
+  const [data, quality] = await Promise.all([
+    endpoints.qualityCenter().then(unwrap).catch(() => ({ readiness: { score: 0, grade: "غير متاح", issues: [] }, policy: {}, maintenanceRuns: [], escalations: [] })),
+    endpoints.employeeDataQuality().then(unwrap).catch(() => ({ score: 0, grade: "غير متاح", rows: [], issues: [], counts: {} })),
+  ]);
   const readiness = data.readiness || {};
-  const issues = readiness.issues || [];
+  const issues = [...safeList(readiness.issues), ...safeList(quality.issues).map((issue) => ({ ...issue, area: "بيانات الموظفين", detail: issue.employee?.fullName || issue.employeeId || "" }))];
   const policy = data.policy || {};
+  const employeeRows = safeList(quality.rows).filter((row) => row.issueCount || row.pendingItems).slice(0, 80);
   shell(
-    `<section class="grid quality-center-page">
+    `<section class="grid quality-center-page live-bound-page">
       <article class="panel span-12 accent-panel">
         <div class="panel-head">
-          <div><h2>مركز الجودة والإصلاح التلقائي</h2><p>يفحص الترابط بين الموظفين والمستخدمين، الهيكل الإداري، الطلبات المتأخرة، السياسات، والمستندات.</p></div>
+          <div><h2>مركز جودة البيانات والترابط</h2><p>يفحص الربط الحقيقي بين الموظفين، المستخدمين، الأجهزة، الإشعارات، المديرين، الطلبات، والسياسات.</p></div>
           <div class="toolbar"><button class="button primary" id="run-maintenance">تشغيل إصلاح شامل الآن</button><button class="button ghost" id="export-quality-report">تصدير تقرير JSON</button></div>
         </div>
+        <div class="metric-grid">
+          ${metric("جاهزية النظام", `${escapeHtml(readiness.score ?? quality.score ?? 0)}%`, readiness.grade || quality.grade || "-")}
+          ${metric("جودة بيانات الموظفين", `${escapeHtml(quality.score ?? 0)}%`, quality.grade || "-")}
+          ${metric("مشاكل عالية", quality.counts?.high ?? issues.filter((item) => item.severity === "HIGH").length, "تحتاج تصحيح")}
+          ${metric("موظفون", quality.counts?.employees ?? 0, "ملفات مربوطة")}
+          ${metric("طلبات متأخرة", readiness.staleWorkflow || 0, "SLA أكثر من 48 ساعة")}
+          ${metric("توقيع السياسات", `${policy.percent ?? 100}%`, `${policy.signed || 0} من ${policy.totalRequired || 0}`)}
+        </div>
       </article>
-      <article class="panel span-3"><span class="panel-kicker">جاهزية النظام</span><strong class="big-number">${escapeHtml(readiness.score ?? 0)}%</strong><p>${escapeHtml(readiness.grade || "-")}</p></article>
-      <article class="panel span-3"><span class="panel-kicker">مشاكل عالية</span><strong class="big-number">${issues.filter((item) => item.severity === "HIGH").length}</strong><p>تحتاج إصلاح فوري</p></article>
-      <article class="panel span-3"><span class="panel-kicker">طلبات متأخرة</span><strong class="big-number">${escapeHtml(readiness.staleWorkflow || 0)}</strong><p>SLA أكثر من 48 ساعة</p></article>
-      <article class="panel span-3"><span class="panel-kicker">توقيع السياسات</span><strong class="big-number">${escapeHtml(policy.percent ?? 100)}%</strong><p>${escapeHtml(policy.signed || 0)} من ${escapeHtml(policy.totalRequired || 0)}</p></article>
-      <article class="panel span-8"><h2>المشاكل المكتشفة</h2>${table(["الخطورة", "المجال", "المشكلة", "التفاصيل"], issues.map((item) => `<tr><td>${badge(item.severity)}</td><td>${escapeHtml(item.area)}</td><td>${escapeHtml(item.title)}</td><td>${escapeHtml(item.detail || "-")}</td></tr>`))}</article>
+      <article class="panel span-12"><div class="panel-head"><div><h2>مشاكل بيانات الموظفين</h2><p>أرقام الهاتف، المدير المباشر، حساب الدخول، Push، والصورة الشخصية.</p></div><button class="button ghost" data-route="employees">فتح الموظفين</button></div>
+        ${table(["الموظف", "مشاكل", "عالي", "آخر حضور", "طلبات معلقة", "إجراء"], employeeRows.map((row) => `<tr><td class="person-cell">${avatar(row.employee,"tiny")}<span><strong>${escapeHtml(row.employee?.fullName || "-")}</strong><small>${escapeHtml(row.employee?.phone || row.employee?.jobTitle || "")}</small></span></td><td>${safeList(row.issues).map((issue)=>`<span class="tag ${issue.severity==='HIGH'?'danger':issue.severity==='MEDIUM'?'warning':'info'}">${escapeHtml(issue.title)}</span>`).join(' ')}</td><td>${escapeHtml(row.highCount || 0)}</td><td>${date(row.lastAttendanceAt)}</td><td>${escapeHtml(row.pendingItems || 0)}</td><td><button class="button ghost" data-route="employee-archive?id=${escapeHtml(row.employee?.id || '')}">ملف الموظف</button></td></tr>`))}
+      </article>
+      <article class="panel span-8"><h2>كل المشاكل المكتشفة</h2>${table(["الخطورة", "المجال", "المشكلة", "التفاصيل"], issues.slice(0, 120).map((item) => `<tr><td>${badge(item.severity)}</td><td>${escapeHtml(item.area || "النظام")}</td><td>${escapeHtml(item.title)}</td><td>${escapeHtml(item.detail || item.employee?.fullName || "-")}</td></tr>`))}</article>
       <article class="panel span-4"><h2>آخر عمليات الصيانة</h2>${table(["قبل", "بعد", "إصلاحات", "تصعيد"], (data.maintenanceRuns || []).slice(0, 8).map((run) => `<tr><td>${escapeHtml(run.beforeScore ?? "-")}</td><td>${escapeHtml(run.afterScore ?? "-")}</td><td>${escapeHtml(run.repair?.fixed ?? 0)}</td><td>${escapeHtml(run.workflow?.escalated ?? 0)}</td></tr>`))}</article>
       <article class="panel span-12"><h2>التصعيدات المفتوحة</h2>${table(["النوع", "الموظف", "السبب", "الحالة", "التاريخ"], (data.escalations || []).slice(0, 50).map((item) => `<tr><td>${escapeHtml(item.sourceKind)}</td><td>${escapeHtml(item.employeeId)}</td><td>${escapeHtml(item.reason)}</td><td>${badge(item.status)}</td><td>${date(item.createdAt)}</td></tr>`))}</article>
     </section>`,
     "مركز الجودة والإصلاح",
-    "تشغيل صيانة ذكية وفحص جاهزية النظام.",
+    "تشغيل صيانة ذكية وفحص جاهزية النظام وربط الصفحات ببيانات Supabase.",
   );
   app.querySelector("#run-maintenance")?.addEventListener("click", async () => {
     if (!await confirmAction({ title: "تشغيل الإصلاح الشامل", message: "سيتم إصلاح الروابط الناقصة وإنشاء حسابات مؤقتة للموظفين بلا حساب وتصعيد الطلبات المتأخرة.", confirmLabel: "تشغيل الآن" })) return;
@@ -3152,7 +3378,7 @@ async function renderQualityCenter() {
     setMessage(`تم التشغيل: ${result.run?.repair?.fixed || 0} إصلاحات، ${result.run?.workflow?.escalated || 0} تصعيدات.`, "");
     renderQualityCenter();
   });
-  app.querySelector("#export-quality-report")?.addEventListener("click", () => downloadFile("quality-center-report.json", JSON.stringify(data, null, 2), "application/json;charset=utf-8"));
+  app.querySelector("#export-quality-report")?.addEventListener("click", () => downloadFile("quality-center-report.json", JSON.stringify({ ...data, employeeDataQuality: quality }, null, 2), "application/json;charset=utf-8"));
 }
 
 async function renderPolicies() {
@@ -3309,23 +3535,26 @@ async function renderExecutiveMobile() {
         </article>
         <article class="panel span-6"><h3>آخر 7 أيام حضور</h3>${table(["النوع", "الوقت", "الحالة", "ملاحظات"], (detail.attendance || []).slice(0, 12).map((row) => `<tr><td>${escapeHtml(statusLabel(row.type || row.action))}</td><td>${escapeHtml(date(row.eventAt || row.createdAt))}</td><td>${badge(row.geofenceStatus || row.status || "")}</td><td>${escapeHtml(row.notes || row.source || "")}</td></tr>`))}</article>
         <article class="panel span-6"><h3>الإجازات والمأموريات</h3>${table(["النوع", "الفترة", "الحالة"], [...(detail.leaves || []).map((row) => [row.leaveType?.name || row.leaveType || "إجازة", `${row.startDate || "-"} → ${row.endDate || "-"}`, row.status]), ...(detail.missions || []).map((row) => [row.destinationName || row.title || "مأمورية", `${row.plannedStart || "-"} → ${row.plannedEnd || "-"}`, row.status])].slice(0, 12).map((row) => `<tr><td>${escapeHtml(row[0])}</td><td>${escapeHtml(row[1])}</td><td>${badge(row[2])}</td></tr>`))}</article>
-        <article class="panel span-12"><h3>طلبات الموقع المباشر</h3>${table(["الوقت", "الحالة", "السبب", "الرد"], (detail.liveRequests || []).map((row) => `<tr><td>${escapeHtml(date(row.createdAt))}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.reason || "")}</td><td>${escapeHtml(date(row.respondedAt))}</td></tr>`))}</article>
+        <article class="panel span-12"><h3>طلبات الموقع المباشر</h3>${table(["الوقت", "الحالة", "السبب", "رد الموظف"], (detail.liveRequests || []).map((row) => `<tr><td>${escapeHtml(date(row.createdAt))}</td><td>${badge(row.status)}</td><td>${escapeHtml(row.reason || "")}</td><td>${escapeHtml(row.responseNote || row.note || (row.status === "APPROVED" ? "أرسل الموقع" : row.status === "POSTPONED" ? "رفض/تأجيل مؤقت" : row.status === "REJECTED" || row.status === "REJECTED_TEMPORARY" ? "رفض مؤقت" : "بانتظار الرد"))}<br><small>${escapeHtml(date(row.respondedAt))}</small></td></tr>`))}</article>
       </section>
     `, "المتابعة التنفيذية", "تفاصيل موظف من شاشة المدير التنفيذي.");
     app.querySelector("[data-request-live]")?.addEventListener("click", async (event) => {
-      try { await endpoints.requestLiveLocation(event.currentTarget.dataset.requestLive, { reason: DEFAULT_LIVE_LOCATION_REASON }); setMessage("تم إنشاء طلب الموقع، وقد لا يصل الإشعار الخارجي إذا كان غير مفعل.", ""); location.hash = `executive-mobile?employeeId=${encodeURIComponent(event.currentTarget.dataset.requestLive)}`; render(); } catch (error) { setMessage("", error.message || "تعذر طلب الموقع."); render(); }
+      try { await endpoints.requestLiveLocation(event.currentTarget.dataset.requestLive, { reason: DEFAULT_LIVE_LOCATION_REASON }); setMessage("تم اعتماد طلب الموقع وإرساله مباشرة للموظف. سيظهر رد الموظف هنا: إرسال الموقع أو رفض/تأجيل مؤقت.", ""); location.hash = `executive-mobile?employeeId=${encodeURIComponent(event.currentTarget.dataset.requestLive)}`; render(); } catch (error) { setMessage("", error.message || "تعذر طلب الموقع."); render(); }
     });
     return;
   }
   const data = await endpoints.executiveMobile().then(unwrap);
   const q = String(params.get("q") || "").trim();
   const employees = (data.employees || []).filter((employee) => !q || String(employee.fullName || "").includes(q) || String(employee.phone || "").includes(q));
+  const missingLocation = employees.filter((employee) => !employee.today?.latestLocation?.latitude);
+  const pendingLocation = employees.filter((employee) => employee.today?.pendingLiveRequest);
+  const outOfRange = employees.filter((employee) => Number(employee.today?.latestLocation?.accuracyMeters || 0) > 300);
   shell(`
-    <section class="grid executive-mobile-view">
-      <article class="panel span-12">
-        <div class="panel-head"><div><h2>المتابعة التنفيذية للموبايل</h2><p>صفحة خاصة للمدير التنفيذي تعرض كل الموظفين وحالة اليوم وطلب الموقع المباشر عند الحاجة.</p></div><div class="toolbar"><button class="button ghost" data-action="refresh">تحديث</button></div></div>
+    <section class="grid executive-mobile-view executive-ops-page">
+      <article class="panel span-12 accent-panel">
+        <div class="panel-head"><div><h2>غرفة عمليات المدير التنفيذي</h2><p>متابعة فورية للحضور وطلبات الموقع: الطلب يُعتمد ويرسل مباشرة للموظف، والرد يكون إرسال موقع أو رفض/تأجيل مؤقت.</p></div><div class="toolbar"><button class="button ghost" data-action="refresh">تحديث</button><button class="button primary" data-route="locations">مراقبة اللوكيشن</button></div></div>
         <div class="metric-grid">
-          ${[["إجمالي", data.counts?.total], ["حاضر", data.counts?.present], ["متأخر", data.counts?.late], ["غائب", data.counts?.absent], ["إجازة", data.counts?.onLeave], ["مواقع معلقة", data.counts?.pendingLiveLocations]].map(([label, value]) => `<article class="metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value ?? 0)}</strong><small>اليوم</small></article>`).join("")}
+          ${[["إجمالي", data.counts?.total], ["حاضر", data.counts?.present], ["متأخر", data.counts?.late], ["غائب", data.counts?.absent], ["مواقع معلقة", pendingLocation.length], ["بدون GPS", missingLocation.length], ["دقة ضعيفة", outOfRange.length]].map(([label, value]) => `<article class="metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value ?? 0)}</strong><small>اليوم</small></article>`).join("")}
         </div>
         <form class="toolbar" id="exec-search"><input name="q" placeholder="بحث باسم الموظف أو الهاتف" value="${escapeHtml(q)}" /><button class="button ghost" type="submit">بحث</button></form>
       </article>
@@ -3339,9 +3568,10 @@ async function renderExecutiveMobile() {
             <div class="card-info-box">
               <strong class="emp-name">${escapeHtml(employee.fullName || "-")}</strong>
               <div class="emp-job-title">${escapeHtml(employee.jobTitle || "موظف")}</div>
+              ${employee.today?.pendingLiveRequest ? '<div class="tag warning">طلب موقع بانتظار الرد</div>' : employee.today?.latestLocation?.latitude ? '<div class="tag success">GPS متاح</div>' : '<div class="tag danger">لا يوجد GPS حديث</div>'}
             </div>
             <div class="card-actions-row">
-              <button class="button primary" data-request-live="${escapeHtml(employee.id)}">ارسال موقع</button>
+              <button class="button primary" data-request-live="${escapeHtml(employee.id)}">طلب موقع مباشر</button>
               <button class="button ghost" data-view-exec="${escapeHtml(employee.id)}">التفاصيل</button>
             </div>
           </article>
@@ -3358,7 +3588,7 @@ async function renderExecutiveMobile() {
     button.textContent = "جاري الإرسال...";
     try {
       await endpoints.requestLiveLocation(button.dataset.requestLive, { reason: DEFAULT_LIVE_LOCATION_REASON });
-      setMessage("تم إنشاء طلب الموقع، وقد لا يصل الإشعار الخارجي إذا كان غير مفعل.", "");
+      setMessage("تم اعتماد طلب الموقع وإرساله مباشرة للموظف. بانتظار رد الموظف: إرسال الموقع أو رفض/تأجيل مؤقت.", "");
       renderExecutiveMobile();
     } catch (error) {
       setMessage("", error.message || "تعذر طلب الموقع.");
@@ -3522,18 +3752,36 @@ async function renderEmployeeArchive() {
   const params = new URLSearchParams((state.route || '').split('?')[1] || '');
   const selectedId = params.get('id') || employees[0]?.id || '';
   const archive = selectedId ? await endpoints.employeeArchive(selectedId).then(unwrap).catch((error) => ({ error: error.message })) : null;
+  const employee = archive?.employee || employees.find((item) => item.id === selectedId) || null;
+  const latestDaily = safeList(archive?.daily).find((row) => row.firstCheckInAt || row.lastCheckOutAt || row.status) || null;
+  const latestRequest = [...safeList(archive?.leaves).map((item) => ({ kind: 'إجازة', title: item.leaveType || item.reason || '-', status: item.status, at: item.createdAt || item.startDate })), ...safeList(archive?.missions).map((item) => ({ kind: 'مأمورية', title: item.title || item.destinationName || '-', status: item.status, at: item.createdAt || item.plannedStart }))].sort((a,b)=>new Date(b.at||0)-new Date(a.at||0))[0];
+  const latestKpi = safeList(archive?.kpi).sort((a,b)=>String(b.month||b.cycleId||'').localeCompare(String(a.month||a.cycleId||'')))[0];
+  const profileMetrics = archive && !archive.error ? `
+    <div class="metric-grid unified-profile-metrics">
+      ${metric('بصمات', archive.summary?.attendanceEvents || 0, 'إجمالي محفوظ')}
+      ${metric('غياب', archive.summary?.absences || 0, 'ضمن السجل')}
+      ${metric('تأخير', `${archive.summary?.lateMinutes || 0} د`, 'إجمالي دقائق')}
+      ${metric('مهام مفتوحة', archive.summary?.openTasks || 0, 'تحتاج متابعة')}
+    </div>` : '';
   shell(`
-    <section class="stack">
-      <article class="panel"><div class="panel-head"><div><h2>أرشيف الموظف الكامل</h2><p>ملف HR متكامل: بيانات، حضور، إجازات، مهام، مستندات، مشاكل، تقييمات وسجل تدقيق.</p></div><button class="button ghost" data-print-archive>طباعة ملف الموظف PDF</button></div>
-        <form class="filters" id="archive-filter"><select name="employeeId">${optionList(employees.map((e) => ({ id: e.id, name: e.fullName })), selectedId, 'اختر موظف')}</select><button class="button primary">فتح الأرشيف</button></form>
+    <section class="stack unified-employee-profile">
+      <article class="panel accent-panel"><div class="panel-head"><div><h2>صفحة موظف موحدة</h2><p>ملف HR مختصر وقوي يجمع بيانات الموظف، الحضور، الطلبات، المستندات، والتقييمات في صفحة واحدة.</p></div><div class="toolbar"><button class="button ghost" data-print-archive>طباعة PDF</button><button class="button primary" type="button" data-route="employees">إدارة الموظفين</button></div></div>
+        <form class="filters" id="archive-filter"><select name="employeeId">${optionList(employees.map((e) => ({ id: e.id, name: e.fullName })), selectedId, 'اختر موظف')}</select><button class="button primary">فتح الملف</button></form>
       </article>
       ${archive?.error ? `<article class="panel"><div class="message error">${escapeHtml(archive.error)}</div></article>` : archive ? `
-      <article class="panel profile-card"><div class="person-cell large">${avatar(archive.employee, 'large')}<span><strong>${escapeHtml(archive.employee?.fullName || '')}</strong><small>${escapeHtml(archive.employee?.jobTitle || '')}</small></span></div><div class="mini-stats"><div><span>بصمات</span><strong>${archive.summary?.attendanceEvents || 0}</strong></div><div><span>غياب</span><strong>${archive.summary?.absences || 0}</strong></div><div><span>تأخير بالدقائق</span><strong>${archive.summary?.lateMinutes || 0}</strong></div><div><span>مهام مفتوحة</span><strong>${archive.summary?.openTasks || 0}</strong></div></div></article>
-      <article class="panel"><h2>الحضور اليومي</h2>${table(['اليوم','الحالة','حضور','انصراف','ملاحظات'], (archive.daily || []).slice(0,30).map((row) => `<tr><td>${escapeHtml(row.date)}</td><td>${badge(smartStatusLabel(row.smartStatus || row.status))}</td><td>${date(row.firstCheckInAt)}</td><td>${date(row.lastCheckOutAt)}</td><td>${escapeHtml(row.recommendation || '')}</td></tr>`))}</article>
-      <article class="panel"><h2>الطلبات والمستندات</h2>${table(['النوع','العنوان','الحالة','التاريخ'], [...(archive.leaves||[]).map(i=>['إجازة', i.leaveType || i.reason || '-', i.status, i.createdAt || i.startDate]), ...(archive.missions||[]).map(i=>['مأمورية', i.title || i.destinationName || '-', i.status, i.createdAt || i.plannedStart]), ...(archive.documents||[]).map(i=>['مستند', i.title || i.fileName || '-', i.status, i.expiresOn])].map((row)=>`<tr>${row.map((c)=>`<td>${escapeHtml(c || '-')}</td>`).join('')}</tr>`))}</article>
-      <article class="panel"><h2>التقييمات</h2>${table(['الشهر/الدورة','الحضور','الإجمالي','الحالة'], (archive.kpi || []).slice(0,20).map((row) => `<tr><td>${escapeHtml(row.month || row.cycleId || '-')}</td><td>${escapeHtml(row.attendanceScore || 0)}</td><td>${escapeHtml(row.totalScore || 0)}</td><td>${badge(row.status || 'DRAFT')}</td></tr>`))}</article>` : `<article class="panel"><div class="empty-state">اختر موظفًا لعرض الأرشيف.</div></article>`}
+      <article class="panel profile-card employee-unified-hero"><div class="person-cell large">${avatar(employee, 'large')}<span><strong>${escapeHtml(employee?.fullName || '')}</strong><small>${escapeHtml(employee?.jobTitle || '')}</small><small>${escapeHtml(employee?.phone || employee?.email || '')}</small></span></div>${profileMetrics}
+        <div class="quick-insight-grid">
+          <div><span>حالة آخر يوم</span><strong>${escapeHtml(smartStatusLabel(latestDaily?.smartStatus || latestDaily?.status || '-'))}</strong><small>${escapeHtml(latestDaily?.date || '-')}</small></div>
+          <div><span>آخر طلب</span><strong>${escapeHtml(latestRequest?.kind || '-')}</strong><small>${escapeHtml(latestRequest ? `${latestRequest.title} — ${latestRequest.status || '-'}` : 'لا توجد طلبات')}</small></div>
+          <div><span>آخر KPI</span><strong>${escapeHtml(latestKpi?.totalScore || 0)}</strong><small>${escapeHtml(latestKpi?.status || 'لا يوجد تقييم')}</small></div>
+          <div><span>المدير المباشر</span><strong>${escapeHtml(employee?.manager?.fullName || '-')}</strong><small>حسب الهيكل الحالي</small></div>
+        </div>
+      </article>
+      <article class="panel"><div class="panel-head"><div><h2>الحضور اليومي</h2><p>آخر 30 سجل حضور وانصراف مع التوصية.</p></div><button class="button ghost" type="button" data-route="attendance">فتح الحضور</button></div>${table(['اليوم','الحالة','حضور','انصراف','ملاحظات'], safeList(archive.daily).slice(0,30).map((row) => `<tr><td>${escapeHtml(row.date)}</td><td>${badge(smartStatusLabel(row.smartStatus || row.status))}</td><td>${date(row.firstCheckInAt)}</td><td>${date(row.lastCheckOutAt)}</td><td>${escapeHtml(row.recommendation || '')}</td></tr>`))}</article>
+      <article class="panel"><div class="panel-head"><div><h2>الطلبات والمستندات</h2><p>إجازات، مأموريات، ومرفقات الموظف في شاشة واحدة.</p></div><button class="button ghost" type="button" data-route="requests">فتح الطلبات</button></div>${table(['النوع','العنوان','الحالة','التاريخ'], [...safeList(archive.leaves).map(i=>['إجازة', i.leaveType || i.reason || '-', i.status, i.createdAt || i.startDate]), ...safeList(archive.missions).map(i=>['مأمورية', i.title || i.destinationName || '-', i.status, i.createdAt || i.plannedStart]), ...safeList(archive.documents).map(i=>['مستند', i.title || i.fileName || '-', i.status, i.expiresOn])].map((row)=>`<tr>${row.map((c)=>`<td>${escapeHtml(c || '-')}</td>`).join('')}</tr>`))}</article>
+      <article class="panel"><div class="panel-head"><div><h2>التقييمات KPI</h2><p>آخر تقييمات الموظف ودرجاته الشهرية.</p></div><button class="button ghost" type="button" data-route="kpi">فتح KPI</button></div>${table(['الشهر/الدورة','الحضور','الإجمالي','الحالة'], safeList(archive.kpi).slice(0,20).map((row) => `<tr><td>${escapeHtml(row.month || row.cycleId || '-')}</td><td>${escapeHtml(row.attendanceScore || 0)}</td><td>${escapeHtml(row.totalScore || 0)}</td><td>${badge(row.status || 'DRAFT')}</td></tr>`))}</article>` : `<article class="panel"><div class="empty-state">اختر موظفًا لعرض الملف الموحد.</div></article>`}
     </section>
-  `, "أرشيف موظف", "ملف شامل لكل موظف.");
+  `, "صفحة موظف موحدة", "ملف شامل لكل موظف بدون تشتيت صفحات HR.");
   app.querySelector('#archive-filter')?.addEventListener('submit', (event) => { event.preventDefault(); const values = readForm(event.currentTarget); location.hash = `employee-archive?id=${encodeURIComponent(values.employeeId)}`; });
   app.querySelector('[data-print-archive]')?.addEventListener('click', () => window.print());
 }
@@ -3615,6 +3863,31 @@ async function renderMonthlyAutoPdfReports() {
   app.querySelector('[data-regenerate-monthly]')?.addEventListener('click', () => renderMonthlyAutoPdfReports());
 }
 
+
+async function renderWorkflowAutomation() {
+  const data = await endpoints.workflowAutomationCenter().then(unwrap);
+  const fixes = data.urgentFixes || [];
+  shell(`<section class="stack workflow-automation-page">
+    <article class="panel accent-panel"><div class="panel-head"><div><h2>مركز الربط والتشغيل</h2><p>يربط HR، المدير التنفيذي، تطبيق الموظف، المديرين، ولجنة الخلافات ببيانات Supabase الفعلية بدل صفحات ثابتة.</p></div><button class="button primary" data-create-workflow-alerts>إرسال تنبيهات إصلاح</button></div>
+      <div class="metric-grid">${metric('مطلوب إصلاحه', data.totals?.urgentFixes || fixes.length, 'مشاكل تشغيلية')}${metric('مديرون مربوطون', data.totals?.managers || 0, 'يرون فريقهم من الموبايل')}${metric('أعضاء لجنة', data.totals?.committee || 0, 'يتابعون الخلافات')}${metric('وقت الفحص', date(data.generatedAt), 'آخر تحديث')}</div>
+    </article>
+    <article class="panel"><h2>قائمة مطلوب إصلاحه الآن</h2>${table(['المشكلة','الموظف/الطلب','المسار','الإجراء'], fixes.map((item) => `<tr><td><strong>${escapeHtml(item.title || item.code || 'مشكلة')}</strong><br><small>${escapeHtml(item.code || '')}</small></td><td>${escapeHtml(item.employee?.fullName || item.request?.employeeName || item.request?.employeeId || '-')}</td><td>${escapeHtml(item.route || '-')}</td><td><button class="button ghost" data-route="${escapeHtml(item.route || 'quality-center')}">فتح</button></td></tr>`))}</article>
+    <article class="panel"><h2>مشاكل ربط الموبايل والصلاحيات</h2>${table(['الموظف','مدير؟','لجنة؟','Push','مشاكل'], (data.alignment?.rows || []).map((row) => `<tr><td class="person-cell">${avatar(row.employee,'tiny')}<span>${escapeHtml(row.employee?.fullName || row.employee?.name || row.employee?.id || '-')}</span></td><td>${row.isManager ? badge('YES') : '—'}</td><td>${row.isCommittee ? badge('YES') : '—'}</td><td>${escapeHtml(row.activePush || 0)}</td><td>${(row.issues || []).map((x) => `<span class="tag warning">${escapeHtml(x)}</span>`).join('') || '—'}</td></tr>`))}</article>
+  </section>`, 'مركز الربط والتشغيل', 'تشغيل موحد لكل لوحات النظام.');
+  app.querySelector('[data-create-workflow-alerts]')?.addEventListener('click', async () => { await endpoints.createWorkflowAutomationAlerts(); setMessage('تم إنشاء تنبيهات الإصلاح وإرسالها قدر الإمكان.', ''); renderWorkflowAutomation(); });
+}
+
+async function renderMobileAlignment() {
+  const data = await endpoints.mobilePortalAlignment().then(unwrap);
+  const rows = data.rows || [];
+  shell(`<section class="stack mobile-alignment-page">
+    <article class="panel accent-panel"><div class="panel-head"><div><h2>ربط الموبايل والصلاحيات</h2><p>كل الموظفين يدخلون من نفس تطبيق الموظف، وتظهر إضافات المدير أو اللجنة حسب الفريق والدور.</p></div></div>
+      <div class="metric-grid">${metric('الموظفون', rows.length, 'تطبيق موحد')}${metric('المديرون', data.managers?.length || 0, 'إضافات داخل الموبايل')}${metric('لجنة الخلافات', data.committee?.length || 0, 'متابعة الشكاوى')}${metric('مشاكل الربط', rows.reduce((sum,row)=>sum+(row.issues?.length||0),0), 'تحتاج تصحيح')}</div>
+    </article>
+    <article class="panel"><h2>جدول ربط الموظفين</h2>${table(['الموظف','حساب دخول','مدير لفريق','عضو لجنة','Push','الملاحظات'], rows.map((row) => `<tr><td class="person-cell">${avatar(row.employee,'tiny')}<span>${escapeHtml(row.employee?.fullName || row.employee?.name || row.employee?.id || '-')}</span></td><td>${row.user ? badge('OK') : badge('MISSING')}</td><td>${row.isManager ? escapeHtml(row.teamCount || 0) : '—'}</td><td>${row.isCommittee ? badge('YES') : '—'}</td><td>${escapeHtml(row.activePush || 0)}</td><td>${(row.issues || []).map((issue) => `<span class="tag warning">${escapeHtml(issue)}</span>`).join('') || '—'}</td></tr>`))}</article>
+  </section>`, 'ربط الموبايل والصلاحيات', 'توحيد الموظفين والمديرين واللجان داخل تطبيق واحد.');
+}
+
 async function renderSupabaseSetup() {
   const data = await endpoints.supabaseSetupCheck().then(unwrap);
   shell(`<section class="panel"><div class="panel-head"><div><h2>لوحة إعداد Supabase</h2><p>فحص سريع لمعرفة هل النظام جاهز للحفظ الحقيقي بين كل الأجهزة.</p></div></div>${table(['الفحص','النتيجة','التفاصيل'], (data.checks||[]).map((c)=>`<tr><td>${escapeHtml(c.label)}</td><td>${c.ok ? badge('APPROVED') : badge('PENDING')}</td><td>${escapeHtml(c.detail||'')}</td></tr>`))}<div class="message warning">${escapeHtml(data.recommended || '')}</div></section>`, "إعداد Supabase", "فحص الاتصال والتجهيز.");
@@ -3691,6 +3964,8 @@ async function render() {
     else if (key === "control-room") await renderControlRoom();
     else if (key === "smart-alerts") await renderSmartAlerts();
     else if (key === "daily-reports") await renderDailyReports();
+    else if (key === "workflow-automation") await renderWorkflowAutomation();
+    else if (key === "mobile-alignment") await renderMobileAlignment();
     else if (key === "ai-analytics") await renderAiAnalytics();
     else if (key === "data-center") await renderDataCenter();
     else if (key === "settings") await renderSettings();
@@ -3710,14 +3985,130 @@ async function render() {
     else if (key === "audit") await renderAudit();
     else if (key === "security-log") await renderSecurityLog();
     else if (key === "kpi") await renderKpi();
+    else if (key === "kpi-month-center") await renderKpiMonthCenter();
+    else if (key === "kpi-executive-report") await renderKpiExecutiveReport();
+    else if (key === "kpi-cycle-lock") await renderKpiCycleLock();
     else if (key === "monthly-evaluations") await renderMonthlyEvaluations();
     else if (key === "notifications") await renderNotifications();
     else await renderDashboard();
   } catch (error) {
-    console.error(error);
+    debugError(error);
     setMessage("", error.message);
     shell(`<section class="panel"><h2>تعذر تحميل الصفحة</h2><p>${escapeHtml(error.message)}</p></section>`, "خطأ", "راجع البيانات أو أعد تحميل الصفحة.");
   }
 }
+
+/* ── v101: Admin keyboard shortcuts ── */
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+  const alt = e.altKey;
+  const shortcuts = {
+    'd': 'dashboard', 'e': 'employees', 'a': 'attendance',
+    'r': 'reports',   'n': 'notifications', 's': 'settings',
+    'u': 'users',     'l': 'locations',     'k': 'kpi',
+  };
+  if (alt && shortcuts[e.key]) {
+    e.preventDefault();
+    location.hash = shortcuts[e.key];
+  }
+  // Alt+/ → focus sidebar search
+  if (alt && e.key === '/') {
+    e.preventDefault();
+    document.getElementById('sidebar-search-input')?.focus();
+  }
+  // Escape → close modals/sheets
+  if (e.key === 'Escape') {
+    document.querySelector('.modal-close')?.click();
+    document.querySelector('.sheet-close')?.click();
+  }
+});
+
+/* ── v101: Sidebar search ── */
+(function initSidebarSearch() {
+  const sidebar = document.querySelector('.sidebar-nav') || document.querySelector('nav.sidebar');
+  if (!sidebar) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'sidebar-search';
+  wrap.innerHTML = '<span class="search-icon">🔍</span><input id="sidebar-search-input" type="search" placeholder="ابحث في القائمة... (Alt+/)" autocomplete="off" />';
+  sidebar.insertBefore(wrap, sidebar.firstChild);
+  const input = wrap.querySelector('input');
+  input.addEventListener('input', () => {
+    const q = input.value.trim().toLowerCase();
+    sidebar.querySelectorAll('.nav-link').forEach(link => {
+      const text = link.textContent.toLowerCase();
+      link.closest('li')
+        ? (link.closest('li').style.display = (!q || text.includes(q)) ? '' : 'none')
+        : (link.style.display = (!q || text.includes(q)) ? '' : 'none');
+    });
+    sidebar.querySelectorAll('.nav-section-label').forEach(label => {
+      const section = label.nextElementSibling;
+      const visible = section?.querySelectorAll('.nav-link:not([style*="none"])').length > 0;
+      label.style.display = (visible || !q) ? '' : 'none';
+    });
+  });
+})();
+
+/* ── v101: Ripple effect ── */
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.button');
+  if (!btn) return;
+  const rect = btn.getBoundingClientRect();
+  btn.style.setProperty('--x', `${((e.clientX - rect.left) / rect.width * 100).toFixed(1)}%`);
+  btn.style.setProperty('--y', `${((e.clientY - rect.top) / rect.height * 100).toFixed(1)}%`);
+}, { passive: true });
+
+/* ── v101: Count-up animation ── */
+function countUp(el, target, duration = 1000) {
+  const from = parseFloat(el.textContent.replace(/[^0-9.]/g, '')) || 0;
+  const to = parseFloat(String(target).replace(/[^0-9.]/g, '')) || 0;
+  const isFloat = String(target).includes('.');
+  const start = performance.now();
+  const step = (ts) => {
+    const p = Math.min((ts - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - p, 3);
+    const val = from + (to - from) * eased;
+    el.textContent = isFloat ? val.toFixed(1) : Math.round(val).toLocaleString('ar-EG');
+    if (p < 1) requestAnimationFrame(step);
+    else { el.classList.add('counting'); setTimeout(() => el.classList.remove('counting'), 300); }
+  };
+  requestAnimationFrame(step);
+}
+const countObsAdmin = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    const el = e.target;
+    if (el.dataset.count !== undefined) { countUp(el, el.dataset.count); countObsAdmin.unobserve(el); }
+  });
+}, { threshold: 0.3 });
+const appAdminEl = document.getElementById('app') || document.body;
+new MutationObserver(() => {
+  appAdminEl.querySelectorAll('[data-count]:not([data-counted])').forEach(el => {
+    el.dataset.counted = '1'; countObsAdmin.observe(el);
+  });
+}).observe(appAdminEl, { childList: true, subtree: true });
+
+/* ── v101: Scroll-to-top ── */
+(function() {
+  const btn = document.createElement('button');
+  btn.className = 'scroll-top';
+  btn.innerHTML = '↑';
+  btn.setAttribute('aria-label', 'العودة للأعلى');
+  document.body.appendChild(btn);
+  window.addEventListener('scroll', () => btn.classList.toggle('visible', window.scrollY > 300), { passive: true });
+  btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+})();
+
+/* ── v101: Table data-label auto-set ── */
+new MutationObserver(() => {
+  document.querySelectorAll('table.data-table').forEach(t => {
+    const headers = [...t.querySelectorAll('thead th')].map(th => th.textContent.trim());
+    t.querySelectorAll('tbody tr').forEach(tr => {
+      [...tr.querySelectorAll('td')].forEach((td, i) => {
+        if (!td.dataset.label && headers[i]) td.dataset.label = headers[i];
+      });
+    });
+  });
+}).observe(document.body, { childList: true, subtree: true });
+
 
 render();

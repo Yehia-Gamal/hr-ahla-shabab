@@ -1,4 +1,8 @@
-const SUPABASE_CDN = "https://esm.sh/@supabase/supabase-js@2";
+const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
+const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };
+const debugError = (...args) => { if (debugEnabled()) globalThis.console?.error?.(...args); };
+const debugInfo = (...args) => { if (debugEnabled()) globalThis.console?.info?.(...args); };
+const SUPABASE_CDN = "https://esm.sh/@supabase/supabase-js@2.105.1";
 const CONFIG = () => globalThis.HR_SUPABASE_CONFIG || {};
 const clone = (value) => JSON.parse(JSON.stringify(value ?? null));
 const now = () => new Date().toISOString();
@@ -111,22 +115,22 @@ async function safeCreateNotifications(client, rows, options = {}) {
   try {
     const { data, error } = await client.rpc("safe_create_notifications_bulk", { p_rows: list });
     if (!error) return { created: Array.isArray(data) ? data.length : list.length, ids: Array.isArray(data) ? data.map((row) => row.id || row) : [] };
-    console.warn("safe_create_notifications_bulk skipped; apply SQL Patch 079", error.message || error);
+    debugWarn("safe_create_notifications_bulk skipped; apply SQL Patch 079", error.message || error);
   } catch (error) {
-    console.warn("safe_create_notifications_bulk unavailable", error?.message || error);
+    debugWarn("safe_create_notifications_bulk unavailable", error?.message || error);
   }
 
   try {
     const { data, error } = await client.from("notifications").insert(list).select("id");
     if (error) {
       if (block) fail(error, fallbackMessage);
-      console.warn("notifications fallback insert skipped", error.message || error);
+      debugWarn("notifications fallback insert skipped", error.message || error);
       return { created: 0, ids: [] };
     }
     return { created: Array.isArray(data) ? data.length : list.length, ids: (data || []).map((row) => row.id) };
   } catch (error) {
     if (block) throw error;
-    console.warn("notifications fallback insert failed", error?.message || error);
+    debugWarn("notifications fallback insert failed", error?.message || error);
     return { created: 0, ids: [] };
   }
 }
@@ -171,7 +175,7 @@ async function selectAll(table, query = "*", options = {}) {
     rows.push(...(data || []));
     if ((data || []).length < (to - from + 1)) break;
   }
-  if (rows.length >= maxRows) console.warn(`[${table}] تم الوصول للحد الأقصى ${maxRows}. استخدم فلترة التاريخ لو الجدول كبير جدًا.`);
+  if (rows.length >= maxRows) debugWarn(`[${table}] تم الوصول للحد الأقصى ${maxRows}. استخدم فلترة التاريخ لو الجدول كبير جدًا.`);
   return rows;
 }
 
@@ -478,7 +482,7 @@ async function signedAttachmentUrl(item) {
   const expiresIn = Number(CONFIG().security?.attachmentSignedUrlSeconds || 3600);
   const { data, error } = await client.storage.from(bucket).createSignedUrl(path, expiresIn);
   if (error) {
-    console.warn("تعذر إنشاء رابط مرفق مؤقت", error.message || error);
+    debugWarn("تعذر إنشاء رابط مرفق مؤقت", error.message || error);
     return item.url || "";
   }
   return data?.signedUrl || item.url || "";
@@ -648,7 +652,7 @@ async function serverSharedDeviceFlags(client, employeeId, deviceFingerprintHash
     .neq("employee_id", employeeId)
     .limit(5);
   if (error) {
-    console.warn("تعذر فحص استخدام نفس الجهاز على الخادم", error);
+    debugWarn("تعذر فحص استخدام نفس الجهاز على الخادم", error);
     return [];
   }
   return (data || []).length ? ["SERVER_SHARED_DEVICE_RECENT"] : [];
@@ -850,7 +854,7 @@ async function tableRows(table, order = "created_at", ascending = false, options
     rows.push(...(data || []));
     if ((data || []).length < (to - from + 1)) break;
   }
-  if (rows.length >= maxRows) console.warn(`[${table}] تم الوصول للحد الأقصى ${maxRows}. استخدم فلترة التاريخ لو الجدول كبير جدًا.`);
+  if (rows.length >= maxRows) debugWarn(`[${table}] تم الوصول للحد الأقصى ${maxRows}. استخدم فلترة التاريخ لو الجدول كبير جدًا.`);
   return rows;
 }
 
@@ -939,7 +943,7 @@ async function resolveLoginEmail(identifier) {
   if (cooldownSeconds) throw new Error(`خدمة الدخول برقم الهاتف تم استدعاؤها بشكل متكرر. انتظر ${cooldownSeconds} ثانية أو استخدم البريد الإلكتروني.`);
   const { data, error } = await client.functions.invoke("resolve-login-identifier", { body: { identifier: phone } });
   if (error) {
-    console.warn("resolve-login-identifier function failed", error);
+    debugWarn("resolve-login-identifier function failed", error);
     setLoginResolveCooldown(phone);
     throw new Error("خدمة الدخول برقم الهاتف تواجه مشكلة أو تم تجاوز الحد المسموح. يرجى المحاولة باستخدام البريد الإلكتروني.");
   }
@@ -1004,6 +1008,100 @@ function decisionVisibleToSupabaseUser(decision, user) {
   const scope = decision.scope || 'ALL';
   const ids = Array.isArray(decision.targetEmployeeIds) ? decision.targetEmployeeIds : [];
   return scope === 'ALL' || scope === 'EMPLOYEES' || ids.includes(employeeId);
+}
+
+
+function clampKpiScore(value, max) {
+  const number = Number(value || 0);
+  if (!Number.isFinite(number)) return 0;
+  return Math.max(0, Math.min(Number(max || 100), Math.round(number * 10) / 10));
+}
+
+function canonicalKpiStatus(value = "", fallback = "DRAFT") {
+  const raw = String(value || fallback || "DRAFT").trim().toUpperCase().replace(/[\s-]+/g, "_");
+  const aliases = { EMPLOYEE_SUBMITTED: "SELF_SUBMITTED", SUBMITTED: "SELF_SUBMITTED", APPROVED: "EXECUTIVE_APPROVED", HR_APPROVED: "HR_REVIEWED", MANAGER_REVIEWED: "MANAGER_APPROVED", SECRETARY_APPROVED: "SECRETARY_REVIEWED" };
+  return aliases[raw] || raw || fallback || "DRAFT";
+}
+
+function kpiStageLabel(status = "") {
+  return { DRAFT: "مسودة", SELF_SUBMITTED: "مرسل من الموظف", MANAGER_APPROVED: "اعتماد المدير المباشر", HR_REVIEWED: "مراجعة HR", SECRETARY_REVIEWED: "مراجعة السكرتير التنفيذي", EXECUTIVE_APPROVED: "اعتماد المدير التنفيذي", REJECTED: "يحتاج تعديل" }[canonicalKpiStatus(status)] || status || "مسودة";
+}
+
+function expectedPreviousKpiStatus(nextStatus) {
+  return { MANAGER_APPROVED: "SELF_SUBMITTED", HR_REVIEWED: "MANAGER_APPROVED", SECRETARY_REVIEWED: "HR_REVIEWED", EXECUTIVE_APPROVED: "SECRETARY_REVIEWED" }[canonicalKpiStatus(nextStatus)] || "";
+}
+
+function scoreFromKpiBody(body, scoreKey, percentKey, max) {
+  if (body?.[scoreKey] !== undefined && body?.[scoreKey] !== "") return clampKpiScore(body[scoreKey], max);
+  if (body?.[percentKey] !== undefined && body?.[percentKey] !== "") return clampKpiScore(Number(body[percentKey] || 0) * Number(max || 0) / 100, max);
+  return 0;
+}
+
+function normalizeKpiPayload(body = {}, fallbackStatus = "DRAFT", existing = {}) {
+  const scores = {
+    targetScore: scoreFromKpiBody(body, "targetScore", "targetPercent", 40),
+    efficiencyScore: scoreFromKpiBody(body, "efficiencyScore", "efficiencyPercent", 20),
+    attendanceScore: body.attendanceScore === undefined || body.attendanceScore === "" ? Number(existing.attendanceScore || 0) : clampKpiScore(body.attendanceScore, 20),
+    conductScore: scoreFromKpiBody(body, "conductScore", "conductPercent", 5),
+    prayerScore: body.prayerScore === undefined || body.prayerScore === "" ? Number(existing.prayerScore || 0) : clampKpiScore(body.prayerScore, 5),
+    quranCircleScore: body.quranCircleScore === undefined || body.quranCircleScore === "" ? Number(existing.quranCircleScore || 0) : clampKpiScore(body.quranCircleScore, 5),
+    initiativesScore: scoreFromKpiBody(body, "initiativesScore", "initiativesPercent", 5),
+  };
+  const totalScore = Object.values(scores).reduce((sum, value) => sum + Number(value || 0), 0);
+  return {
+    ...body,
+    ...scores,
+    status: canonicalKpiStatus(body.status || fallbackStatus),
+    totalScore: Math.round(totalScore * 10) / 10,
+    rating: totalScore >= 90 ? "ممتاز" : totalScore >= 80 ? "جيد جدًا" : totalScore >= 70 ? "جيد" : totalScore >= 60 ? "مقبول" : "يحتاج تحسين",
+    updatedAt: now(),
+  };
+}
+
+function assertSupabaseKpiTransition({ user, employee, existing, nextStatus, accessMode }) {
+  nextStatus = canonicalKpiStatus(nextStatus);
+  const dayOfMonth = new Date().getDate();
+  if (["SELF_SUBMITTED", "MANAGER_APPROVED"].includes(nextStatus) && dayOfMonth > 25 && accessMode !== "all") throw new Error("تم قفل تعديل الموظف والمدير بعد يوم 25؛ تستكمل HR والسكرتير والتنفيذي فقط.");
+  const previousStatus = canonicalKpiStatus(existing?.status || "", existing ? "DRAFT" : "");
+  if (nextStatus === "SELF_SUBMITTED") {
+    if (employee?.id !== user?.employeeId && !user?.permissions?.includes?.("*")) throw new Error("لا يمكن رفع التقييم الذاتي إلا من حساب الموظف نفسه.");
+    if (existing && !["DRAFT", "REJECTED", "SELF_SUBMITTED"].includes(previousStatus)) throw new Error("تم انتقال هذا التقييم للمرحلة التالية ولا يمكن تعديله من الموظف.");
+    return;
+  }
+  const expected = expectedPreviousKpiStatus(nextStatus);
+  if (expected && !existing) throw new Error("لا يمكن بدء التقييم من هذه المرحلة. يجب أن يبدأ الموظف بتقييم نفسه أولًا.");
+  if (expected && previousStatus !== expected) throw new Error(`هذا التقييم في مرحلة ${kpiStageLabel(previousStatus)} ولا يمكن نقله إلى ${kpiStageLabel(nextStatus)} قبل اكتمال المرحلة السابقة.`);
+  if (nextStatus === "MANAGER_APPROVED" && accessMode !== "team" && accessMode !== "all") throw new Error("اعتماد المدير يتم من المدير المباشر فقط.");
+  if (nextStatus === "MANAGER_APPROVED" && accessMode === "team" && employee?.managerEmployeeId !== user?.employeeId) throw new Error("لا يمكنك اعتماد تقييم موظف خارج فريقك المباشر.");
+  if (nextStatus === "HR_REVIEWED" && !["hr", "all"].includes(accessMode)) throw new Error("مراجعة HR تتم من لوحة HR فقط.");
+  if (nextStatus === "SECRETARY_REVIEWED" && accessMode !== "all") throw new Error("تسليم السكرتير التنفيذي يحتاج صلاحية كاملة بعد مراجعة HR.");
+  if (nextStatus === "EXECUTIVE_APPROVED" && !["executive", "all"].includes(accessMode)) throw new Error("الاعتماد النهائي متاح للمدير التنفيذي فقط.");
+}
+
+async function notifySupabaseKpiStage({ employee, saved, nextStatus }) {
+  const status = canonicalKpiStatus(nextStatus || saved?.status);
+  const nextIds = status === "SELF_SUBMITTED" ? [employee?.managerEmployeeId || employee?.managerId || employee?.directManagerId]
+    : status === "MANAGER_APPROVED" ? ["emp-hr-manager"]
+    : status === "HR_REVIEWED" ? ["emp-executive-secretary"]
+    : status === "SECRETARY_REVIEWED" ? ["emp-executive-director"]
+    : [];
+  const ids = nextIds.filter(Boolean);
+  if (!ids.length) return { notified: 0, pushed: 0 };
+  const client = await sb();
+  const title = "تقييم KPI يحتاج متابعة";
+  const body = `${employee?.fullName || employee?.full_name || saved?.employeeId || "موظف"} — ${kpiStageLabel(status)}`;
+  await safeCreateNotifications(client, ids.map((employeeId) => ({ employee_id: employeeId, title, body, type: "ACTION_REQUIRED", status: "UNREAD", is_read: false, route: "kpi", data: { route: "kpi", kpiEvaluationId: saved?.id || "", status } }))).catch(() => null);
+  let pushed = 0;
+  await client.functions.invoke("send-push-notifications", { body: { title, body, tag: "kpi-stage", targetEmployeeIds: ids, data: { route: "kpi", kpiEvaluationId: saved?.id || "", status } } }).then(({ data, error }) => { if (!error) pushed = Number(data?.attempted || data?.sent || 0); }).catch(() => null);
+  return { notified: ids.length, pushed };
+}
+
+
+async function kpiAccessContext() {
+  const [employees, user] = await Promise.all([supabaseEndpoints.employees(), currentUser()]);
+  const rolePerms = new Set(user?.permissions || []);
+  const accessMode = rolePerms.has("*") || rolePerms.has("kpi:manage") ? "all" : rolePerms.has("kpi:hr") ? "hr" : rolePerms.has("kpi:team") ? "team" : (rolePerms.has("kpi:executive") || rolePerms.has("kpi:final-approve")) ? "executive" : "self";
+  return { employees, user, rolePerms, accessMode };
 }
 
 export const supabaseEndpoints = {
@@ -1535,7 +1633,7 @@ export const supabaseEndpoints = {
       rows.push(...(data || []));
       if ((data || []).length < (to - from + 1)) break;
     }
-    if (rows.length >= maxRows) console.warn("[attendance_events] تم الوصول للحد الأقصى، استخدم فلترة التاريخ لتخفيف الحمل.");
+    if (rows.length >= maxRows) debugWarn("[attendance_events] تم الوصول للحد الأقصى، استخدم فلترة التاريخ لتخفيف الحمل.");
     return rows.map((row) => { const { employee, ...event } = row; return { ...mapEvent(event), employee: employee ? enrichEmployee(employee) : null }; });
   },
   attendanceDaily: async (params = {}) => {
@@ -1598,6 +1696,187 @@ export const supabaseEndpoints = {
   exceptions: async () => tableRows("attendance_exceptions", "created_at", false).then(toCamel),
   updateException: async (id, action) => createOrUpdate("attendance_exceptions", { status: action === "reject" ? "REJECTED" : "APPROVED" }, id),
   notifications: async () => tableRows("notifications", "created_at", false).then(toCamel),
+  notificationMonitor: async () => {
+    const [notifications, employees, pushRows, liveRequests, liveResponses] = await Promise.all([
+      tableRows("notifications", "created_at", false, { limit: 1000, maxRows: 5000 }).then(toCamel).catch(() => []),
+      supabaseEndpoints.employees().catch(() => []),
+      maybeTableRows("push_subscriptions", "created_at", false).then(toCamel).catch(() => []),
+      maybeTableRows("live_location_requests", "created_at", false).then(toCamel).catch(() => []),
+      maybeTableRows("live_location_responses", "responded_at", false).then(toCamel).catch(() => []),
+    ]);
+    const byEmployee = new Map((employees || []).map((employee) => [employee.id, employee]));
+    const activePush = (pushRows || []).filter((row) => row.isActive !== false && !["EXPIRED", "DISABLED", "FAILED"].includes(String(row.status || "").toUpperCase()));
+    const pushByEmployee = new Map();
+    for (const row of pushRows || []) {
+      const key = row.employeeId || row.userId || "";
+      if (!key) continue;
+      if (!pushByEmployee.has(key)) pushByEmployee.set(key, []);
+      pushByEmployee.get(key).push(row);
+    }
+    const missingPush = (employees || []).filter((employee) => {
+      const rows = [...(pushByEmployee.get(employee.id) || []), ...(employee.userId ? (pushByEmployee.get(employee.userId) || []) : [])];
+      return !rows.some((row) => row.isActive !== false && !["EXPIRED", "DISABLED", "FAILED"].includes(String(row.status || "").toUpperCase()));
+    });
+    const unread = (notifications || []).filter((item) => !item.isRead && String(item.status || "").toUpperCase() !== "READ");
+    const actionRequired = (notifications || []).filter((item) => [item.type, item.status, item.priority].some((value) => /ACTION|LIVE_LOCATION|WARNING|HIGH/i.test(String(value || ""))));
+    const livePending = (liveRequests || []).filter((row) => String(row.status || "").toUpperCase() === "PENDING");
+    const responseByRequest = new Map((liveResponses || []).map((row) => [row.requestId, row]));
+    const locationFlow = (liveRequests || []).slice(0, 100).map((request) => ({
+      ...request,
+      employee: byEmployee.get(request.employeeId) || null,
+      response: responseByRequest.get(request.id) || null,
+    }));
+    return {
+      metrics: {
+        notifications: (notifications || []).length,
+        unread: unread.length,
+        actionRequired: actionRequired.length,
+        pushSubscriptions: pushRows.length,
+        activePush: activePush.length,
+        missingPush: missingPush.length,
+        livePending: livePending.length,
+      },
+      notifications: (notifications || []).map((item) => ({ ...item, employee: byEmployee.get(item.employeeId) || item.employee || null })),
+      unread,
+      actionRequired,
+      pushSubscriptions: pushRows,
+      employees,
+      missingPush,
+      locationFlow,
+      generatedAt: now(),
+    };
+  },
+  locationMonitor: async () => {
+    const [employees, executive, classicRequests, liveRequests, liveResponses, employeeLocations] = await Promise.all([
+      supabaseEndpoints.employees().catch(() => []),
+      supabaseEndpoints.executiveMobile().catch(() => ({ employees: [], counts: {} })),
+      maybeTableRows("location_requests", "created_at", false).then(toCamel).catch(() => []),
+      maybeTableRows("live_location_requests", "created_at", false).then(toCamel).catch(() => []),
+      maybeTableRows("live_location_responses", "responded_at", false).then(toCamel).catch(() => []),
+      maybeTableRows("employee_locations", "created_at", false).then(toCamel).catch(() => []),
+    ]);
+    const employeeRows = executive.employees?.length ? executive.employees : employees.map((employee) => ({ ...employee, today: {} }));
+    const byEmployee = new Map(employeeRows.map((employee) => [employee.id, employee]));
+    const latestLocationFor = (employeeId) => {
+      const fromExecutive = byEmployee.get(employeeId)?.today?.latestLocation || null;
+      const fromStored = [...(employeeLocations || []).filter((row) => row.employeeId === employeeId)].sort((a,b) => new Date(b.capturedAt || b.createdAt || 0) - new Date(a.capturedAt || a.createdAt || 0))[0] || null;
+      const fromResponse = [...(liveResponses || []).filter((row) => row.employeeId === employeeId && row.latitude && row.longitude)].sort((a,b) => new Date(b.capturedAt || b.respondedAt || 0) - new Date(a.capturedAt || a.respondedAt || 0))[0] || null;
+      return fromExecutive || fromStored || fromResponse || null;
+    };
+    const pendingFor = (employeeId) => [...(liveRequests || []).filter((row) => row.employeeId === employeeId && String(row.status || "").toUpperCase() === "PENDING")].sort((a,b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0] || null;
+    const rows = employeeRows.map((employee) => {
+      const latestLocation = latestLocationFor(employee.id);
+      const pendingLiveRequest = employee.today?.pendingLiveRequest || pendingFor(employee.id);
+      const accuracy = Number(latestLocation?.accuracyMeters || latestLocation?.accuracy || 0);
+      const locationAt = latestLocation?.capturedAt || latestLocation?.respondedAt || latestLocation?.createdAt || latestLocation?.date || "";
+      const ageMinutes = locationAt ? Math.round((Date.now() - new Date(locationAt).getTime()) / 60000) : null;
+      return {
+        employee,
+        employeeId: employee.id,
+        today: employee.today || {},
+        latestLocation,
+        pendingLiveRequest,
+        classicRequests: (classicRequests || []).filter((row) => row.employeeId === employee.id),
+        liveRequests: (liveRequests || []).filter((row) => row.employeeId === employee.id),
+        liveResponses: (liveResponses || []).filter((row) => row.employeeId === employee.id),
+        accuracyMeters: accuracy || null,
+        ageMinutes,
+        quality: !latestLocation ? "NO_GPS" : accuracy > 300 ? "LOW_ACCURACY" : ageMinutes != null && ageMinutes > 120 ? "STALE_GPS" : "GOOD",
+      };
+    });
+    const counts = rows.reduce((acc, row) => {
+      acc.total += 1;
+      if (row.pendingLiveRequest) acc.pending += 1;
+      if (!row.latestLocation) acc.noGps += 1;
+      if (row.quality === "LOW_ACCURACY") acc.lowAccuracy += 1;
+      if (row.quality === "STALE_GPS") acc.stale += 1;
+      if (row.quality === "GOOD") acc.good += 1;
+      return acc;
+    }, { total: 0, pending: 0, noGps: 0, lowAccuracy: 0, stale: 0, good: 0 });
+    return { counts, rows, liveRequests, liveResponses, classicRequests, employeeLocations, generatedAt: now() };
+  },
+  deviceCenter: async () => {
+    const [employees, passkeys, pushRows, approvals] = await Promise.all([
+      supabaseEndpoints.employees().catch(() => []),
+      supabaseEndpoints.trustedDevices().catch(() => []),
+      maybeTableRows("push_subscriptions", "created_at", false).then(toCamel).catch(() => []),
+      maybeTableRows("trusted_device_approval_requests", "created_at", false).then(toCamel).catch(() => []),
+    ]);
+    const byEmployee = new Map((employees || []).map((employee) => [employee.id, employee]));
+    const rows = (employees || []).map((employee) => {
+      const employeePasskeys = (passkeys || []).filter((row) => row.employeeId === employee.id || row.userId === employee.userId);
+      const employeePush = (pushRows || []).filter((row) => row.employeeId === employee.id || row.userId === employee.userId);
+      const pendingApprovals = (approvals || []).filter((row) => row.employeeId === employee.id && String(row.status || "").toUpperCase() === "PENDING");
+      const activePush = employeePush.filter((row) => row.isActive !== false && !["EXPIRED", "DISABLED", "FAILED"].includes(String(row.status || "").toUpperCase()));
+      return { employee, passkeys: employeePasskeys, pushSubscriptions: employeePush, pendingApprovals, activePush, deviceStatus: pendingApprovals.length ? "PENDING_APPROVAL" : activePush.length ? "PUSH_ACTIVE" : employeePasskeys.length ? "PASSKEY_ONLY" : "NO_DEVICE" };
+    });
+    const counts = rows.reduce((acc, row) => { acc.total++; acc[row.deviceStatus] = (acc[row.deviceStatus] || 0) + 1; return acc; }, { total: 0, PUSH_ACTIVE: 0, PASSKEY_ONLY: 0, PENDING_APPROVAL: 0, NO_DEVICE: 0 });
+    return { counts, rows, passkeys, pushSubscriptions: pushRows, approvals: (approvals || []).map((row) => ({ ...row, employee: byEmployee.get(row.employeeId) || null })), generatedAt: now() };
+  },
+  employeeDataQuality: async () => {
+    const [employees, users, roles, attendance, requests, pushRows] = await Promise.all([
+      supabaseEndpoints.employees().catch(() => []),
+      supabaseEndpoints.users().catch(() => []),
+      supabaseEndpoints.roles().catch(() => []),
+      supabaseEndpoints.attendanceEvents({ from: new Date(Date.now() - 30 * 86400000).toISOString().slice(0,10), to: now().slice(0,10), limit: 20000 }).catch(() => []),
+      supabaseEndpoints.requestCenter({}).catch(() => ({ rows: [] })),
+      maybeTableRows("push_subscriptions", "created_at", false).then(toCamel).catch(() => []),
+    ]);
+    const usersByEmployee = new Set((users || []).map((user) => user.employeeId).filter(Boolean));
+    const roleIds = new Set((roles || []).map((role) => role.id));
+    const pushEmployees = new Set((pushRows || []).filter((row) => row.isActive !== false).map((row) => row.employeeId).filter(Boolean));
+    const attendanceByEmployee = new Map();
+    for (const event of attendance || []) if (!attendanceByEmployee.has(event.employeeId) || new Date(event.eventAt || event.createdAt || 0) > new Date(attendanceByEmployee.get(event.employeeId).eventAt || attendanceByEmployee.get(event.employeeId).createdAt || 0)) attendanceByEmployee.set(event.employeeId, event);
+    const issues = [];
+    const rows = (employees || []).map((employee) => {
+      const employeeIssues = [];
+      if (!employee.phone) employeeIssues.push({ severity: "HIGH", title: "رقم الهاتف مفقود" });
+      if (!employee.managerEmployeeId && String(employee.role?.slug || "employee") === "employee") employeeIssues.push({ severity: "MEDIUM", title: "لا يوجد مدير مباشر" });
+      if (!employee.photoUrl && !employee.avatarUrl) employeeIssues.push({ severity: "LOW", title: "الصورة الشخصية غير مضافة" });
+      if (!employee.userId && !usersByEmployee.has(employee.id)) employeeIssues.push({ severity: "HIGH", title: "لا يوجد حساب دخول مرتبط" });
+      if (employee.roleId && !roleIds.has(employee.roleId)) employeeIssues.push({ severity: "HIGH", title: "الدور غير موجود في جدول الأدوار" });
+      if (!pushEmployees.has(employee.id)) employeeIssues.push({ severity: "MEDIUM", title: "لا يوجد Push نشط" });
+      const pendingItems = (requests.rows || []).filter((row) => row.employeeId === employee.id && ["PENDING", "OPEN", "IN_REVIEW"].includes(String(row.status || "").toUpperCase()));
+      if (pendingItems.length > 3) employeeIssues.push({ severity: "MEDIUM", title: `طلبات معلقة كثيرة (${pendingItems.length})` });
+      const lastEvent = attendanceByEmployee.get(employee.id) || null;
+      const row = { employee, issues: employeeIssues, issueCount: employeeIssues.length, highCount: employeeIssues.filter((x) => x.severity === "HIGH").length, lastAttendanceAt: lastEvent?.eventAt || lastEvent?.createdAt || "", pendingItems: pendingItems.length };
+      for (const issue of employeeIssues) issues.push({ ...issue, employeeId: employee.id, employee });
+      return row;
+    });
+    const score = Math.max(0, Math.round(100 - (issues.filter((i)=>i.severity==='HIGH').length * 7) - (issues.filter((i)=>i.severity==='MEDIUM').length * 3) - (issues.filter((i)=>i.severity==='LOW').length)));
+    return { score, grade: score >= 90 ? "ممتاز" : score >= 75 ? "جيد" : "يحتاج ضبط", rows, issues, counts: { employees: employees.length, issues: issues.length, high: issues.filter((i)=>i.severity==='HIGH').length, medium: issues.filter((i)=>i.severity==='MEDIUM').length, low: issues.filter((i)=>i.severity==='LOW').length }, generatedAt: now() };
+  },
+  executiveDailyReport: async () => {
+    const [mobile, requests, notifications, quality] = await Promise.all([
+      supabaseEndpoints.executiveMobile().catch(() => ({ counts: {}, employees: [] })),
+      supabaseEndpoints.requestCenter({}).catch(() => ({ summary: {}, rows: [] })),
+      supabaseEndpoints.notificationMonitor().catch(() => ({ metrics: {}, actionRequired: [] })),
+      supabaseEndpoints.employeeDataQuality().catch(() => ({ counts: {}, issues: [] })),
+    ]);
+    const employees = mobile.employees || [];
+    const critical = [
+      ...employees.filter((e) => e.today?.pendingLiveRequest).map((e) => ({ type: "LOCATION_PENDING", employee: e, title: "طلب موقع بانتظار الرد", route: `executive-mobile?employeeId=${e.id}` })),
+      ...employees.filter((e) => !e.today?.latestLocation?.latitude && ["PRESENT", "LATE"].includes(e.today?.status)).map((e) => ({ type: "GPS_MISSING", employee: e, title: "حاضر بدون GPS حديث", route: `executive-mobile?employeeId=${e.id}` })),
+      ...(quality.issues || []).filter((i) => i.severity === "HIGH").slice(0, 20).map((i) => ({ type: "DATA_QUALITY", employee: i.employee, title: i.title, route: `employee-archive?id=${i.employeeId}` })),
+    ];
+    return { day: now().slice(0,10), counts: mobile.counts || {}, requestSummary: requests.summary || {}, notificationMetrics: notifications.metrics || {}, quality: quality.counts || {}, critical, employees, generatedAt: now() };
+  },
+  permissionOverview: async () => {
+    const [roles, permissions, employees, users] = await Promise.all([
+      supabaseEndpoints.roles().catch(() => []),
+      supabaseEndpoints.permissions().catch(() => []),
+      supabaseEndpoints.employees().catch(() => []),
+      supabaseEndpoints.users().catch(() => []),
+    ]);
+    const rows = (roles || []).map((role) => {
+      const rolePerms = rolePermissions(role);
+      const employeeCount = (employees || []).filter((employee) => employee.roleId === role.id || employee.role?.id === role.id || employee.role?.slug === role.slug).length;
+      const userCount = (users || []).filter((user) => user.roleId === role.id || user.role?.id === role.id || user.role?.slug === role.slug).length;
+      const risk = rolePerms.includes("*") ? "FULL_ACCESS" : rolePerms.some((scope) => /users:manage|settings:manage|sensitive-actions:approve/i.test(scope)) ? "SENSITIVE" : "NORMAL";
+      return { ...role, permissions: rolePerms, employeeCount, userCount, risk };
+    });
+    return { roles: rows, permissions, employees, users, generatedAt: now() };
+  },
   createAnnouncement: async (body = {}) => {
     const client = await sb();
     const employees = await supabaseEndpoints.employees();
@@ -1688,8 +1967,44 @@ export const supabaseEndpoints = {
     ];
     return { accessMode, currentEmployeeId, policy, windowInfo, criteria, cycle: { id: new Date().toISOString().slice(0, 7), name: "تقييم الشهر الحالي", window: windowInfo }, evaluations: visible, pendingEmployees, progressMetrics, metrics: [{ label: "حالة نافذة KPI", value: windowInfo.label, helper: windowInfo.message }, { label: "التقييمات", value: visible.length }, { label: "بانتظار التقييم", value: pendingEmployees.length }] };
   },
-  saveKpiEvaluation: async (body = {}) => createOrUpdate("kpi_evaluations", body),
-  updateKpiEvaluation: async (id, body = {}) => createOrUpdate("kpi_evaluations", body, id),
+  saveKpiEvaluation: async (body = {}) => {
+    const { employees, user, accessMode } = await kpiAccessContext();
+    const currentEmployeeId = user?.employeeId || "";
+    const isSelfTarget = body.employeeId === currentEmployeeId;
+    const fallbackStatus = isSelfTarget || accessMode === "self" ? "SELF_SUBMITTED" : accessMode === "team" ? "MANAGER_APPROVED" : accessMode === "hr" ? "HR_REVIEWED" : accessMode === "executive" ? "EXECUTIVE_APPROVED" : "SECRETARY_REVIEWED";
+    const cycleId = body.cycleId || new Date().toISOString().slice(0, 7);
+    const existingRows = await tableRows("kpi_evaluations", "created_at", false).then(toCamel).catch(() => []);
+    const existing = existingRows.find((row) => row.employeeId === body.employeeId && String(row.cycleId || cycleId) === String(cycleId)) || null;
+    const employee = employees.find((item) => item.id === body.employeeId) || null;
+    const payload = normalizeKpiPayload({ ...body, cycleId, managerEmployeeId: body.managerEmployeeId || employee?.managerEmployeeId || "" }, fallbackStatus, existing || {});
+    if (accessMode === "team" && existing) {
+      payload.attendanceScore = Number(existing.attendanceScore || 0);
+      payload.prayerScore = Number(existing.prayerScore || 0);
+      payload.quranCircleScore = Number(existing.quranCircleScore || 0);
+      payload.hrNotes = existing.hrNotes || "";
+    }
+    if (accessMode === "hr" && existing) {
+      for (const key of ["targetScore", "efficiencyScore", "conductScore", "initiativesScore", "employeeNotes", "managerNotes"]) payload[key] = existing[key] ?? payload[key];
+    }
+    payload.status = canonicalKpiStatus(payload.status || fallbackStatus);
+    assertSupabaseKpiTransition({ user, employee, existing, nextStatus: payload.status, accessMode: isSelfTarget ? "self" : accessMode });
+    const saved = await createOrUpdate("kpi_evaluations", payload, existing?.id);
+    await notifySupabaseKpiStage({ employee, saved, nextStatus: payload.status }).catch(() => null);
+    return saved;
+  },
+  updateKpiEvaluation: async (id, body = {}) => {
+    const { employees, user, accessMode } = await kpiAccessContext();
+    const existingRows = await tableRows("kpi_evaluations", "created_at", false).then(toCamel).catch(() => []);
+    const existing = existingRows.find((row) => row.id === id);
+    if (!existing) throw new Error("التقييم غير موجود.");
+    const employee = employees.find((item) => item.id === existing.employeeId) || null;
+    const nextStatus = canonicalKpiStatus(body.status || existing.status);
+    assertSupabaseKpiTransition({ user, employee, existing, nextStatus, accessMode });
+    const payload = normalizeKpiPayload({ ...existing, ...body, status: nextStatus }, nextStatus, existing);
+    const saved = await createOrUpdate("kpi_evaluations", payload, id);
+    await notifySupabaseKpiStage({ employee, saved, nextStatus }).catch(() => null);
+    return saved;
+  },
   disputes: async () => tableRows("dispute_cases", "created_at", false).then(toCamel),
   createDispute: async (body = {}) => {
     const employeeId = body.employeeId || await selfEmployeeId();
@@ -1746,9 +2061,9 @@ export const supabaseEndpoints = {
           notificationId,
           data: { route: "location", type: "LOCATION_REQUEST", locationRequestId: request.id || "", url: "./employee/index.html#location" },
         },
-      }).catch((pushError) => console.warn("send-push-notifications for location request failed", pushError?.message || pushError));
+      }).catch((pushError) => debugWarn("send-push-notifications for location request failed", pushError?.message || pushError));
     } catch (error) {
-      console.warn("تعذر إنشاء إشعار الموقع، تم حفظ الطلب فقط.", error);
+      debugWarn("تعذر إنشاء إشعار الموقع، تم حفظ الطلب فقط.", error);
     }
     return request;
   },
@@ -1963,9 +2278,9 @@ export const supabaseEndpoints = {
     try {
       const { data, error } = await client.functions.invoke("send-attendance-reminders", { body: { source: "admin_manual", sendPush: true } });
       if (!error && data) return data;
-      if (error) console.warn("send-attendance-reminders failed; using local notification fallback", error.message || error);
+      if (error) debugWarn("send-attendance-reminders failed; using local notification fallback", error.message || error);
     } catch (error) {
-      console.warn("send-attendance-reminders unavailable; using local notification fallback", error);
+      debugWarn("send-attendance-reminders unavailable; using local notification fallback", error);
     }
     const [employees, events, existing] = await Promise.all([
       supabaseEndpoints.employees().catch(() => []),
@@ -2014,7 +2329,7 @@ export const supabaseEndpoints = {
         p_notes: action === "approve" ? "اعتماد يدوي من لوحة HR" : "رفض يدوي من لوحة HR",
       });
       if (!error) return toCamel(data || {});
-      console.warn("تعذر استخدام RPC review_attendance_identity_check؛ سيتم استخدام التحديث القديم", error);
+      debugWarn("تعذر استخدام RPC review_attendance_identity_check؛ سيتم استخدام التحديث القديم", error);
     }
     const payload = action === "approve"
       ? { status: "MANUAL_APPROVED", verification_status: "manual_approved", requires_review: false, review_decision: "APPROVED", reviewed_at: now() }
@@ -2375,7 +2690,7 @@ export const supabaseEndpoints = {
       p_data: { route: "location", type: "LIVE_LOCATION_REQUEST", liveLocationRequestId: data.id },
     });
     if (!notificationInsert.error && notificationInsert.data) notificationId = String(notificationInsert.data);
-    else console.warn("safe_create_notification skipped; run RUN_IN_SUPABASE_SQL_EDITOR.sql for internal notification rows", notificationInsert.error?.message || notificationInsert.error);
+    else debugWarn("safe_create_notification skipped; run RUN_IN_SUPABASE_SQL_EDITOR.sql for internal notification rows", notificationInsert.error?.message || notificationInsert.error);
     const pushResult = await client.functions.invoke("send-push-notifications", {
       body: {
         title: notificationTitle,
@@ -2387,7 +2702,7 @@ export const supabaseEndpoints = {
         data: { route: "location", url: "./employee/index.html#location", type: "LIVE_LOCATION_REQUEST", liveLocationRequestId: data.id },
       },
     }).catch((error) => {
-      console.warn("send-push-notifications failed; internal request was still created", error?.message || error);
+      debugWarn("send-push-notifications failed; internal request was still created", error?.message || error);
       return null;
     });
     await audit("live_location.request", "employee", targetEmployeeId, { ...payload, requestedEmployeeId: employeeId }).catch(() => null);
@@ -2407,24 +2722,29 @@ export const supabaseEndpoints = {
     const client = await sb();
     const user = await currentUser();
     const employeeId = user?.employeeId || user?.employee?.id;
-    const requestedStatus = String(body.status || "").toUpperCase();
-    const postponed = requestedStatus === "POSTPONED" || body.action === "postpone";
-    const rejected = requestedStatus === "REJECTED" || body.action === "reject";
-    const approved = !rejected && !postponed;
+    const requestedStatus = String(body.status || body.action || "").toUpperCase();
+    const hasCoordinates = body.latitude !== undefined && body.longitude !== undefined && body.latitude !== null && body.longitude !== null;
     const minutes = Number(body.postponeMinutes || 5);
-    const responseNote = body.note || body.reason || (postponed ? `طلب الموظف تأجيل إرسال الموقع ${minutes} دقائق` : "");
-    const update = { status: postponed ? "POSTPONED" : (approved ? "APPROVED" : "REJECTED"), responded_at: now(), response_note: responseNote, updated_at: now() };
+    const postponed = requestedStatus === "POSTPONED" || body.action === "postpone" || Number(body.postponeMinutes || 0) > 0;
+    const temporaryRejected = requestedStatus === "REJECTED_TEMPORARY" || requestedStatus === "TEMP_REJECT";
+    const rejected = requestedStatus === "REJECTED" || body.action === "reject" || temporaryRejected;
+    const approved = !rejected && !postponed && (requestedStatus === "APPROVED" || requestedStatus === "SEND" || requestedStatus === "SHARED" || hasCoordinates);
+    if (approved && !hasCoordinates) throw new Error("لا يمكن إرسال موافقة الموقع بدون إحداثيات فعلية. فعّل GPS ثم أعد المحاولة.");
+    const finalStatus = approved ? "APPROVED" : (postponed ? "POSTPONED" : "REJECTED_TEMPORARY");
+    const responseNote = body.note || body.reason || (postponed ? `طلب الموظف تأجيل إرسال الموقع ${minutes} دقائق` : rejected ? "رفض/تأجيل مؤقت" : "رد مؤقت بدون إحداثيات");
+    const update = { status: finalStatus, responded_at: now(), response_note: responseNote, updated_at: now() };
     const { data: request, error } = await client.from("live_location_requests").update(update).eq("id", id).eq("employee_id", employeeId).eq("status", "PENDING").select("*").maybeSingle();
     fail(error, "تعذر حفظ رد الموقع المباشر.");
     if (!request) throw new Error("طلب الموقع غير موجود أو لا يخص هذا الحساب.");
     const responsePayload = { request_id: id, employee_id: employeeId, requested_by_user_id: request.requested_by_user_id, status: update.status, latitude: approved ? Number(body.latitude) : null, longitude: approved ? Number(body.longitude) : null, accuracy_meters: approved ? Number(body.accuracyMeters || body.accuracy || 0) : null, captured_at: body.capturedAt || now(), responded_at: now(), note: approved ? (body.addressLabel || body.locationLabel || update.response_note || "") : update.response_note };
+    const hasValidResponseCoordinates = Number.isFinite(responsePayload.latitude) && Number.isFinite(responsePayload.longitude);
     const { data: response, error: rError } = await client.from("live_location_responses").insert(responsePayload).select("*").single();
     fail(rError, "تم تحديث الطلب لكن تعذر حفظ الاستجابة.");
     const employeeName = user?.fullName || user?.employee?.fullName || "الموظف";
-    if (approved && responsePayload.latitude && responsePayload.longitude) await ignoreSupabaseError(client.from("employee_locations").insert({ employee_id: employeeId, latitude: responsePayload.latitude, longitude: responsePayload.longitude, accuracy_meters: responsePayload.accuracy_meters, source: "live_location_request", status: "LIVE_SHARED", captured_at: responsePayload.captured_at, address_label: body.addressLabel || body.locationLabel || "", location_status: body.geofenceStatus || body.locationStatus || "", distance_from_branch: body.distanceFromBranchMeters ?? body.distanceFromBranch ?? null }));
+    if (approved && hasValidResponseCoordinates) await ignoreSupabaseError(client.from("employee_locations").insert({ employee_id: employeeId, latitude: responsePayload.latitude, longitude: responsePayload.longitude, accuracy_meters: responsePayload.accuracy_meters, source: "live_location_request", status: "LIVE_SHARED", captured_at: responsePayload.captured_at, address_label: body.addressLabel || body.locationLabel || "", location_status: body.geofenceStatus || body.locationStatus || "", distance_from_branch: body.distanceFromBranchMeters ?? body.distanceFromBranch ?? null }));
     if (request.requested_by_user_id) {
-      const title = approved ? "تم إرسال الموقع المباشر" : postponed ? "تم تأجيل طلب الموقع" : "تم رفض طلب الموقع";
-      const note = approved ? `${employeeName} أرسل موقعه الحالي${body.addressLabel ? `: ${body.addressLabel}` : ""}` : postponed ? `${employeeName} طلب تأجيل إرسال الموقع ${minutes} دقائق.` : `${employeeName} رفض إرسال الموقع.`;
+      const title = approved ? "تم إرسال الموقع المباشر" : postponed ? "تم تأجيل طلب الموقع" : "تم رفض/تأجيل طلب الموقع مؤقتًا";
+      const note = approved ? `${employeeName} أرسل موقعه الحالي${body.addressLabel ? `: ${body.addressLabel}` : ""}` : postponed ? `${employeeName} طلب تأجيل إرسال الموقع ${minutes} دقائق.` : `${employeeName} رفض/أجّل إرسال الموقع مؤقتًا: ${responseNote}`;
       await client.rpc("safe_create_notification", { p_user_id: request.requested_by_user_id, p_employee_id: request.requested_by_employee_id || null, p_title: title, p_body: note, p_type: "LIVE_LOCATION_RESPONSE", p_route: "employees", p_data: { route: "employees", type: "LIVE_LOCATION_RESPONSE", employeeId, requestId: id, status: update.status } }).catch(() => null);
     }
     await audit("live_location.respond", "live_location_request", id, { request, response }).catch(() => null);
@@ -2855,13 +3175,18 @@ export const supabaseEndpoints = {
       "078_precise_ahla_manil_location.sql",
       "079_v26_notification_reliability.sql",
       "080_live_location_alert_reliability.sql",
+      "088_final_audit_alignment.sql",
       "089_codex_full_deploy_alignment.sql",
-      "090_executive_location_selfie_live_request_hotfix.sql"
+      "090_executive_location_selfie_live_request_hotfix.sql",
+      "094_workflow_mobile_role_alignment.sql",
+      "095_kpi_workflow_polish.sql",
+      "096_kpi_automation_mobile_reports.sql",
+      "098_location_security_edge_hardening.sql"
     ];
     const applied = await maybeTableRows("database_migration_status", "applied_at", false).then(toCamel);
     const normalizeMigrationName = (name = "") => String(name).replace(/\.sql$/i, "");
     const appliedSet = new Set(applied.flatMap((row) => [row.name, normalizeMigrationName(row.name)]));
-    return { expectedPatch: "089_codex_full_deploy_alignment", rows: expected.map((name, index) => {
+    return { expectedPatch: "098_location_security_edge_hardening", rows: expected.map((name, index) => {
       const marker = normalizeMigrationName(name);
       const isApplied = appliedSet.has(name) || appliedSet.has(marker);
       return { name, marker, order: index + 1, status: isApplied ? "APPLIED" : "CHECK_MANUALLY" };
@@ -2923,6 +3248,104 @@ export const supabaseEndpoints = {
   },
   reset: async () => ({ ok: true, message: "إعادة الضبط في Supabase تتم من SQL Editor أو عبر حذف بيانات الجداول." }),
 };
+
+
+// 094: live binding between HR, employee mobile, managers, committee, and executive views.
+Object.assign(supabaseEndpoints, {
+  mobilePortalAlignment: async () => {
+    const [employees, users, roles, quality, devices] = await Promise.all([
+      supabaseEndpoints.employees().catch(() => []),
+      supabaseEndpoints.users?.().catch(() => []),
+      supabaseEndpoints.roles?.().catch(() => []),
+      supabaseEndpoints.qualityCenter?.().catch(() => ({ readiness: { issues: [] } })),
+      supabaseEndpoints.deviceCenter?.().catch(() => ({ rows: [] })),
+    ]);
+    const roleOf = (item = {}) => String(item.role || item.userRole || item.appRole || item.roleName || item.permissions?.__role || '').toUpperCase();
+    const usersByEmployee = new Map((users || []).map((u) => [u.employeeId || u.employee_id, u]));
+    const managers = (employees || []).filter((e) => (employees || []).some((x) => x.managerId === e.id || x.manager_id === e.id) || /MANAGER|DIRECT|EXECUTIVE|HR/.test(roleOf(usersByEmployee.get(e.id) || e)));
+    const committee = (employees || []).filter((e) => /DISPUTE|COMMITTEE|HR|EXECUTIVE|SECRETARY|TECH/.test(roleOf(usersByEmployee.get(e.id) || e)) || e.disputeCommittee === true || e.isDisputeCommittee === true);
+    const deviceRows = devices.rows || [];
+    const deviceByEmployee = new Map(deviceRows.map((row) => [row.employee?.id || row.employeeId, row]));
+    const rows = (employees || []).map((employee) => {
+      const user = usersByEmployee.get(employee.id) || null;
+      const device = deviceByEmployee.get(employee.id) || {};
+      const teamCount = (employees || []).filter((x) => x.managerId === employee.id || x.manager_id === employee.id).length;
+      const issues = [];
+      if (!user) issues.push('NO_LOGIN_ACCOUNT');
+      if (!employee.phone) issues.push('NO_PHONE');
+      if (teamCount && !/MANAGER|EXECUTIVE|HR/.test(roleOf(user || employee))) issues.push('MANAGER_ROLE_NEEDS_REVIEW');
+      if (!device.activePush) issues.push('PUSH_NOT_ENABLED');
+      return { employee, user, teamCount, isManager: teamCount > 0, isCommittee: committee.some((c) => c.id === employee.id), deviceStatus: device.deviceStatus || 'UNKNOWN', activePush: device.activePush || 0, issues };
+    });
+    return { rows, managers, committee, roles, qualityIssues: quality.readiness?.issues || [], generatedAt: now() };
+  },
+
+  managerMobileHub: async () => {
+    const user = await currentUser().catch(() => null);
+    const employeeId = user?.employeeId || user?.employee?.id || '';
+    const [employees, leaves, missions, kpiRows, notifications] = await Promise.all([
+      supabaseEndpoints.employees().catch(() => []),
+      supabaseEndpoints.leaves?.().catch(() => []),
+      supabaseEndpoints.missions?.().catch(() => []),
+      maybeTableRows('kpi_evaluations', 'updated_at', false).then(toCamel).catch(() => []),
+      supabaseEndpoints.notifications?.().catch(() => []),
+    ]);
+    const team = (employees || []).filter((e) => e.managerId === employeeId || e.managerEmployeeId === employeeId || e.directManagerId === employeeId || e.manager_id === employeeId || e.manager_employee_id === employeeId);
+    const ids = new Set(team.map((e) => e.id));
+    const pendingLeaves = (leaves || []).filter((r) => ids.has(r.employeeId || r.employee_id) && ['PENDING','MANAGER_REVIEW','SUBMITTED'].includes(String(r.status || '').toUpperCase()));
+    const pendingMissions = (missions || []).filter((r) => ids.has(r.employeeId || r.employee_id) && ['PENDING','MANAGER_REVIEW','SUBMITTED'].includes(String(r.status || '').toUpperCase()));
+    const kpiPending = (kpiRows || []).filter((r) => ids.has(r.employeeId || r.employee_id) && ['SELF_SUBMITTED','EMPLOYEE_SUBMITTED'].includes(String(r.status || '').toUpperCase())).map((r) => ({ ...r, employee: (employees || []).find((e) => e.id === (r.employeeId || r.employee_id)) || null }));
+    const unread = (notifications || []).filter((n) => !n.isRead && !n.is_read).slice(0, 20);
+    return { manager: user?.employee || null, team, pendingLeaves, pendingMissions, kpiPending, notifications: unread, totals: { team: team.length, pendingLeaves: pendingLeaves.length, pendingMissions: pendingMissions.length, kpiPending: kpiPending.length }, generatedAt: now() };
+  },
+
+  committeeMobileHub: async () => {
+    const user = await currentUser().catch(() => null);
+    const employeeId = user?.employeeId || user?.employee?.id || '';
+    const [disputes, notifications] = await Promise.all([
+      supabaseEndpoints.disputes?.().catch(() => []),
+      supabaseEndpoints.notifications?.().catch(() => []),
+    ]);
+    const visible = (disputes || []).filter((d) => {
+      const members = d.committeeMemberIds || d.committee_member_ids || d.assignedEmployeeIds || [];
+      const status = String(d.status || '').toUpperCase();
+      return members.includes?.(employeeId) || ['NEW','OPEN','ESCALATED','COMMITTEE_REVIEW','PENDING'].includes(status) || d.employeeId === employeeId || d.createdByEmployeeId === employeeId;
+    });
+    const urgent = visible.filter((d) => ['NEW','ESCALATED','HIGH','URGENT'].includes(String(d.priority || d.status || '').toUpperCase()));
+    const notes = (notifications || []).filter((n) => String(n.route || '').includes('dispute') || String(n.type || '').includes('DISPUTE')).slice(0, 20);
+    return { rows: visible, urgent, notifications: notes, totals: { total: visible.length, urgent: urgent.length, open: visible.filter((d) => !['CLOSED','RESOLVED','CANCELLED'].includes(String(d.status || '').toUpperCase())).length }, generatedAt: now() };
+  },
+
+  workflowAutomationCenter: async () => {
+    const [alignment, notificationCenter, locationCenter, quality] = await Promise.all([
+      supabaseEndpoints.mobilePortalAlignment().catch(() => ({ rows: [] })),
+      supabaseEndpoints.notificationCenter?.().catch(() => ({ unread: [], notPushReady: [] })),
+      supabaseEndpoints.locationMonitoringCenter?.().catch(() => ({ pendingRequests: [], weakAccuracy: [] })),
+      supabaseEndpoints.qualityCenter?.().catch(() => ({ readiness: { issues: [] } })),
+    ]);
+    const urgentFixes = [];
+    (alignment.rows || []).forEach((row) => row.issues?.forEach((code) => urgentFixes.push({ code, employee: row.employee, route: 'mobile-alignment', title: code === 'PUSH_NOT_ENABLED' ? 'Push غير مفعل' : 'مشكلة ربط مستخدم' })));
+    (locationCenter.pendingRequests || []).slice(0, 20).forEach((req) => urgentFixes.push({ code: 'PENDING_LOCATION_REQUEST', title: 'طلب موقع لم يتم الرد عليه', request: req, route: 'locations' }));
+    (quality.readiness?.issues || []).slice(0, 20).forEach((issue) => urgentFixes.push({ code: issue.code || 'QUALITY', title: issue.title || issue.label || 'مشكلة جودة بيانات', route: issue.route || 'quality-center', issue }));
+    return { alignment, notificationCenter, locationCenter, quality, urgentFixes, totals: { urgentFixes: urgentFixes.length, managers: alignment.managers?.length || 0, committee: alignment.committee?.length || 0 }, generatedAt: now() };
+  },
+
+  createWorkflowAutomationAlerts: async () => {
+    const client = await sb();
+    const center = await supabaseEndpoints.workflowAutomationCenter();
+    const rows = (center.urgentFixes || []).slice(0, 50).map((item) => ({
+      employeeId: item.employee?.id || item.request?.employeeId || null,
+      title: item.title || 'مطلوب متابعة تشغيلية',
+      body: item.code || 'راجع مركز الربط والتشغيل',
+      type: item.code?.includes('PUSH') ? 'PUSH_SETUP' : 'WORKFLOW_ALERT',
+      route: item.route || 'action-center',
+      data: { code: item.code || 'WORKFLOW_ALERT' },
+    }));
+    const created = await safeCreateNotifications(client, rows, { block: false });
+    try { await client.functions.invoke('send-push-notifications', { body: { reason: 'workflow-automation-094', notifications: rows } }); } catch (error) { debugWarn('workflow push dispatch skipped', error?.message || error); }
+    return { ok: true, created: created.created || rows.length, generatedAt: now() };
+  },
+});
 
 export async function subscribeSupabaseRealtime(onChange) {
   if (!shouldUseSupabase()) return () => {};

@@ -1,3 +1,7 @@
+const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
+const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };
+const debugError = (...args) => { if (debugEnabled()) globalThis.console?.error?.(...args); };
+const debugInfo = (...args) => { if (debugEnabled()) globalThis.console?.info?.(...args); };
 // Attendance Identity Guard V4
 // Operational controls for device policy, QR station, fallback workflow, and fraud snapshot.
 
@@ -17,7 +21,7 @@ export async function evaluateAttendanceV4Controls({ endpoints, employee, device
     if (state.requiresApproval || state.requires_approval) requiresReview = true;
     if (String(state.status || '').includes('REQUIRES')) requiresReview = true;
   } catch (error) {
-    console.warn('تعذر قراءة سياسة الجهاز المعتمد', error);
+    debugWarn('تعذر قراءة سياسة الجهاز المعتمد', error);
     flags.add('DEVICE_POLICY_CHECK_FAILED');
     requiresReview = true;
   }
@@ -32,7 +36,7 @@ export async function evaluateAttendanceV4Controls({ endpoints, employee, device
       requiresReview = true;
     }
   } catch (error) {
-    console.warn('تعذر قراءة مركز مكافحة التلاعب', error);
+    debugWarn('تعذر قراءة مركز مكافحة التلاعب', error);
   }
 
   const scoreBump = flags.has('DEVICE_LIMIT_REACHED') ? 75
@@ -78,7 +82,7 @@ export async function createFormalFallbackRequest({ endpoints, employee, action 
         accuracyMeters: location.accuracyMeters ?? location.accuracy,
       });
     } catch (error) {
-      console.warn('تعذر إنشاء طلب حضور احتياطي رسمي؛ سيتم استخدام مسار الرفض القديم', error);
+      debugWarn('تعذر إنشاء طلب حضور احتياطي رسمي؛ سيتم استخدام مسار الرفض القديم', error);
     }
   }
   return { ok: false, fallbackToLegacy: true };

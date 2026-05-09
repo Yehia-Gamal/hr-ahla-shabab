@@ -37,7 +37,7 @@ window.HR_SUPABASE_CONFIG = Object.freeze({
     gpsSampleWindowMs: 30000,
     gpsTargetAccuracyMeters: 15,
     gpsMaxAcceptableAccuracyMeters: 90,
-    gpsSafetyBufferMeters: 0,
+    gpsSafetyBufferMeters: 50,
     gpsUncertainReviewOnly: true,
     branchLocation: {
       name: "مجمع أحلى شباب",
@@ -45,7 +45,7 @@ window.HR_SUPABASE_CONFIG = Object.freeze({
       latitude: 29.95109939158933,
       longitude: 31.238741920853883,
       radiusMeters: 300,
-      safetyBufferMeters: 0,
+      safetyBufferMeters: 50,
       maxAccuracyMeters: 90,
     },
   },
@@ -82,15 +82,15 @@ window.HR_SUPABASE_CONFIG = Object.freeze({
     lockMinutes: 15,
   },
   deployment: {
-    expectedPatch: "089_codex_full_deploy_alignment",
-    packageVersion: "v31-production-hardening-089",
+    expectedPatch: "098_location_security_edge_hardening",
+    packageVersion: "v33-ui-ux-overhaul-101",
     hardeningLevel: "production-clean-secure-gate-csp-pwa",
   },
-  cacheVersion: "v31-production-hardening-089",
+  cacheVersion: "v33-ui-ux-overhaul-101",
 });
 
 window.__HR_SUPABASE_CONFIG_LOADED__ = true;
-window.__HR_SUPABASE_CONFIG_VERSION__ = "v31-production-hardening-089";
+window.__HR_SUPABASE_CONFIG_VERSION__ = "v33-ui-ux-overhaul-101";
 
 (function markSupabaseMode() {
   const cfg = window.HR_SUPABASE_CONFIG || {};

@@ -28,16 +28,16 @@ for (const rel of include) {
 }
 writeFileSync(join(out, 'PUBLIC_UPLOAD_README.txt'), `هذه حزمة رفع GitHub Pages فقط.\nلا تحتوي على .env أو .git أو supabase/.temp.\nارفع محتويات هذا المجلد إلى GitHub Pages بعد تشغيل RUN_IN_SUPABASE_SQL_EDITOR.sql ونشر Supabase Functions.\n`, 'utf8');
 try {
-  execFileSync('zip', ['-qr', join(root, 'HR_AHLA_SHABAB_PUBLIC_UPLOAD_089.zip'), '.'], { cwd: out, stdio: 'inherit' });
-  console.log('Public package created: HR_AHLA_SHABAB_PUBLIC_UPLOAD_089.zip');
+  execFileSync('zip', ['-qr', join(root, 'HR_AHLA_SHABAB_PUBLIC_UPLOAD_101.zip'), '.'], { cwd: out, stdio: 'inherit' });
+  console.log('Public package created: HR_AHLA_SHABAB_PUBLIC_UPLOAD_101.zip');
 } catch (error) {
   try {
     execFileSync('powershell', [
       '-NoProfile',
       '-Command',
-      `Compress-Archive -Path '${join(out, '*').replaceAll("'", "''")}' -DestinationPath '${join(root, 'HR_AHLA_SHABAB_PUBLIC_UPLOAD_089.zip').replaceAll("'", "''")}' -Force`,
+      `Compress-Archive -Path '${join(out, '*').replaceAll("'", "''")}' -DestinationPath '${join(root, 'HR_AHLA_SHABAB_PUBLIC_UPLOAD_101.zip').replaceAll("'", "''")}' -Force`,
     ], { stdio: 'inherit' });
-    console.log('Public package created: HR_AHLA_SHABAB_PUBLIC_UPLOAD_089.zip');
+    console.log('Public package created: HR_AHLA_SHABAB_PUBLIC_UPLOAD_101.zip');
   } catch {
     console.warn('zip command unavailable; dist_public_pages folder is ready.');
   }

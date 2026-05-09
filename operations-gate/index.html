@@ -3,19 +3,84 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; img-src 'self' data: blob: https:; media-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://esm.sh https://cdn.jsdelivr.net; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://esm.sh https://nominatim.openstreetmap.org https://api.github.com; frame-src https://www.openstreetmap.org https://maps.google.com;" />
   <meta name="robots" content="noindex,nofollow" />
   <meta name="theme-color" content="#050A1A" />
+  <link rel="manifest" href="../shared/pwa/manifest-admin.json" />
   <link rel="icon" href="../shared/images/favicon-64.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" />
-  <link rel="stylesheet" href="../shared/css/neon-admin-theme.css?v=v31-production-hardening-089-simple-login" />
-  <link rel="stylesheet" href="../shared/css/v10-private-deploy-theme.css?v=v31-production-hardening-089-simple-login" />
+  <link rel="stylesheet" href="../shared/css/neon-admin-theme.css?v=v33-ui-ux-overhaul-101" />
+  <link rel="stylesheet" href="../shared/css/v10-private-deploy-theme.css?v=v33-ui-ux-overhaul-101" />
   <title>بوابة تشغيل الإدارة والتنفيذي - أحلى شباب</title>
   <style>
-    :root{color-scheme:dark;--bg:#050b18;--panel:#0b1830;--line:rgba(56,189,248,.24);--cyan:#22d3ee;--blue:#2563eb;--purple:#8b5cf6;--red:#f43f5e;--green:#22c55e;--text:#f8fafc;--muted:#cbd5e1}
-    *{box-sizing:border-box}body{min-height:100vh;margin:0;display:grid;place-items:center;background:radial-gradient(circle at 18% 8%,rgba(34,211,238,.16),transparent 30%),radial-gradient(circle at 82% 22%,rgba(139,92,246,.16),transparent 28%),var(--bg);color:var(--text);font-family:Cairo,Tahoma,Arial,sans-serif;padding:20px;line-height:1.8}.gate{width:min(520px,100%);background:linear-gradient(180deg,rgba(14,34,58,.94),rgba(5,11,24,.98));border:1px solid var(--line);border-radius:26px;padding:26px;box-shadow:0 24px 60px rgba(0,0,0,.38)}.brand{display:grid;justify-items:center;text-align:center;gap:10px;margin-bottom:18px}.brand img{width:82px;height:82px;object-fit:contain;filter:drop-shadow(0 0 12px rgba(34,211,238,.28))}.kicker{display:none}.title{margin:0;font-size:30px;line-height:1.25}.lead{display:none}.target-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}.target{border:1px solid rgba(56,189,248,.24);background:rgba(11,24,48,.78);border-radius:18px;padding:13px;text-align:center;color:var(--text);cursor:pointer;transition:.18s ease}.target:hover{border-color:rgba(34,211,238,.52)}.target.is-active{background:linear-gradient(135deg,rgba(34,211,238,.18),rgba(37,99,235,.18));border-color:var(--cyan);box-shadow:0 0 0 4px rgba(34,211,238,.09)}.target strong{display:block;font-size:15px}.target small{display:none}.fields{display:grid;gap:13px;margin-top:10px}label{display:grid;gap:8px;color:var(--muted);font-weight:800}input{width:100%;border:1px solid rgba(148,163,184,.25);border-radius:16px;background:#071120;color:var(--text);padding:14px 15px;font-size:16px}input:focus{outline:0;border-color:var(--cyan);box-shadow:0 0 0 4px rgba(34,211,238,.12)}.submit{width:100%;border:0;border-radius:16px;padding:15px 20px;background:linear-gradient(135deg,var(--cyan),var(--blue));color:#06111e;font-weight:900;font-size:17px;cursor:pointer}.submit[disabled]{opacity:.55;cursor:not-allowed}.msg{margin-top:14px;border-radius:14px;padding:11px 12px;background:rgba(34,211,238,.1);color:#dff9ff;border:1px solid rgba(34,211,238,.2);font-size:13px}.msg.error{background:rgba(244,63,94,.12);color:#fecdd3;border-color:rgba(244,63,94,.3)}.msg.warn{background:rgba(245,158,11,.12);color:#fde68a;border-color:rgba(245,158,11,.3)}.foot,.badge{display:none}
-    body{height:100vh;height:100dvh;max-height:100vh;max-height:100dvh;overflow:hidden;padding:clamp(8px,2.5vw,18px)}.gate{max-height:calc(100vh - 16px);max-height:calc(100dvh - 16px);overflow:auto;padding:clamp(18px,3.2vw,26px)}.password-field{position:relative;display:block}.password-field input{padding-inline-end:82px}.password-toggle{position:absolute;inset-inline-end:8px;top:50%;transform:translateY(-50%);min-height:32px;border:1px solid rgba(34,211,238,.34);border-radius:999px;padding:0 12px;background:rgba(8,18,34,.92);color:var(--text);font:inherit;font-weight:900;line-height:1;cursor:pointer;box-shadow:none}@media(max-width:700px),(max-height:740px){.brand{margin-bottom:14px}.brand img{width:64px;height:64px}.title{font-size:clamp(24px,7vw,30px)}.target-grid{gap:8px;margin:14px 0}.target{padding:11px;border-radius:16px}.target strong{font-size:13px}.fields{gap:10px}input{padding:12px 14px;font-size:15px}.submit{padding:13px 16px}.msg{margin-top:10px;padding:10px 12px;font-size:12px;line-height:1.55}}
+    :root{color-scheme:dark;--bg:#050A1A;--panel:#0B1628;--line:rgba(0,194,255,.22);--cyan:#00C2FF;--blue:#1A6EFF;--purple:#8b5cf6;--red:#FF3B6B;--green:#00D68F;--text:#E8F0FF;--muted:#7A94C1;--soft:#9CB3D9}
+    *{box-sizing:border-box}
+    body{min-height:100vh;min-height:100dvh;margin:0;display:grid;place-items:center;
+      background:radial-gradient(circle at 18% 5%,rgba(0,194,255,.13),transparent 30%),
+        radial-gradient(circle at 82% 20%,rgba(26,110,255,.14),transparent 28%),var(--bg);
+      color:var(--text);font-family:Cairo,Tahoma,Arial,sans-serif;padding:clamp(8px,2.5vw,20px);line-height:1.75}
+    body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;
+      background-image:linear-gradient(rgba(0,194,255,.028) 1px,transparent 1px),linear-gradient(90deg,rgba(0,194,255,.028) 1px,transparent 1px);
+      background-size:44px 44px;mask-image:radial-gradient(circle at 50% 10%,rgba(0,0,0,.85),transparent 70%)}
+    .gate{width:min(520px,100%);background:linear-gradient(180deg,rgba(11,22,40,.96),rgba(5,10,26,.98));
+      border:1px solid var(--line);border-radius:24px;padding:clamp(20px,3.5vw,28px);
+      box-shadow:0 0 0 1px rgba(0,194,255,.04),0 24px 60px rgba(0,0,0,.42);
+      animation:gate-in .35s ease both}
+    @keyframes gate-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    .brand{display:grid;justify-items:center;text-align:center;gap:10px;margin-bottom:20px}
+    .brand img{width:80px;height:80px;object-fit:contain;filter:drop-shadow(0 0 14px rgba(0,194,255,.32));transition:filter .3s}
+    .brand img:hover{filter:drop-shadow(0 0 22px rgba(0,194,255,.5))}
+    .kicker{display:inline-block;padding:4px 14px;border:1px solid rgba(0,194,255,.38);border-radius:999px;
+      background:rgba(0,194,255,.1);color:var(--cyan);font-size:11px;font-weight:900;letter-spacing:.07em;margin-bottom:4px}
+    .title{margin:0;font-size:clamp(24px,5vw,30px);line-height:1.25;font-weight:900;
+      background:linear-gradient(90deg,var(--cyan),var(--blue));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+    .lead{display:block;margin:6px 0 0;color:var(--muted);font-size:13px;line-height:1.65}
+    .target-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:18px 0}
+    .target{border:1px solid var(--line);background:rgba(11,24,48,.72);border-radius:18px;padding:14px 12px;
+      text-align:center;color:var(--text);cursor:pointer;transition:border-color .18s,background .18s,transform .18s,box-shadow .18s}
+    .target:hover{border-color:rgba(0,194,255,.5);background:rgba(14,30,58,.88);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,100,255,.14)}
+    .target:focus-visible{outline:3px solid rgba(0,194,255,.4);outline-offset:2px}
+    .target.is-active{background:linear-gradient(135deg,rgba(0,194,255,.16),rgba(26,110,255,.18));
+      border-color:var(--cyan);box-shadow:0 0 0 4px rgba(0,194,255,.1),0 8px 24px rgba(0,100,255,.16)}
+    .target strong{display:block;font-size:14px;font-weight:900;margin-bottom:5px}
+    .target small{display:block;font-size:11px;color:var(--muted);line-height:1.55;text-align:center}
+    .target.is-active small{color:rgba(185,230,255,.85)}
+    .fields{display:grid;gap:13px;margin-top:10px}
+    label{display:grid;gap:8px;color:var(--soft);font-weight:800;font-size:13px}
+    input{width:100%;border:1px solid rgba(122,148,193,.28);border-radius:14px;
+      background:rgba(5,10,26,.72);color:var(--text);padding:14px 15px;font-size:16px;
+      font-family:inherit;transition:border-color .18s,box-shadow .18s;caret-color:var(--cyan)}
+    input:focus{outline:0;border-color:var(--cyan);box-shadow:0 0 0 4px rgba(0,194,255,.14),inset 0 1px 0 rgba(0,194,255,.05)}
+    input::placeholder{color:var(--muted)}
+    .submit{width:100%;border:1px solid rgba(0,194,255,.4);border-radius:14px;padding:15px 20px;
+      background:linear-gradient(135deg,var(--cyan),var(--blue));color:#031022;
+      font-weight:900;font-size:16px;font-family:inherit;cursor:pointer;
+      box-shadow:0 8px 22px rgba(0,100,255,.28);transition:transform .18s,box-shadow .18s,opacity .18s}
+    .submit:hover:not([disabled]){transform:translateY(-2px);box-shadow:0 12px 30px rgba(0,100,255,.36)}
+    .submit:active:not([disabled]){transform:translateY(0);box-shadow:0 4px 12px rgba(0,100,255,.2)}
+    .submit[disabled]{opacity:.5;cursor:not-allowed}
+    .msg{margin-top:14px;border-radius:13px;padding:12px 14px;
+      background:rgba(0,194,255,.1);color:#c3ecff;border:1px solid rgba(0,194,255,.24);font-size:13px;line-height:1.65}
+    .msg.error{background:rgba(255,59,107,.12);color:#ffd0dc;border-color:rgba(255,59,107,.36)}
+    .msg.warn{background:rgba(255,140,0,.12);color:#ffd8a6;border-color:rgba(255,140,0,.36)}
+    .foot,.badge{display:none}
+    body{height:100vh;height:100dvh;max-height:100vh;max-height:100dvh;overflow:hidden}
+    .gate{max-height:calc(100dvh - 16px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(0,194,255,.2) transparent}
+    .password-field{position:relative;display:block}
+    .password-field input{padding-inline-end:86px}
+    .password-toggle{position:absolute;inset-inline-end:8px;top:50%;transform:translateY(-50%);min-height:32px;
+      border:1px solid rgba(0,194,255,.36);border-radius:999px;padding:0 12px;
+      background:rgba(5,12,28,.92);color:var(--soft);font:inherit;font-weight:900;line-height:1;cursor:pointer;
+      transition:border-color .18s,color .18s}
+    .password-toggle:hover{border-color:var(--cyan);color:var(--cyan)}
+    @media(max-width:700px),(max-height:740px){
+      .brand{margin-bottom:14px}.brand img{width:64px;height:64px}
+      .target-grid{gap:8px;margin:14px 0}.target{padding:12px 10px;border-radius:16px}
+      .target strong{font-size:13px}.target small{font-size:10px}
+      .fields{gap:10px}input{padding:12px 14px;font-size:15px}
+      .submit{padding:13px 16px}.msg{margin-top:10px;padding:10px 12px;font-size:12px;line-height:1.55}}
   </style>
 </head>
 <body>
@@ -25,14 +90,13 @@
       <div>
         <div class="kicker">بوابة تشغيل خاصة</div>
         <h1 class="title" id="gate-title">بوابة الدخول</h1>
-        <p class="lead">الدخول يتم عبر كود تشغيل مُشفّر بالهاش + بريد أو هاتف مصرح.</p>
+        <p class="lead">الدخول عبر كود مشفّر + هوية مصرّح بها. لا كود افتراضي — الأمان طبقة إضافية فوق RLS.</p>
       </div>
     </div>
 
     <section class="target-grid" aria-label="اختيار البوابة">
       <button class="target is-active" type="button" data-target="admin"><strong>بوابة HR / الإدارة</strong><small>الموظفون، الحضور، الطلبات، الإعدادات، Backup.</small></button>
-      <button class="target" type="button" data-target="executive"><strong>بوابة المدير التنفيذي</strong><small>المتابعة التنفيذية، التقارير، المخاطر، القرارات.</small></button>
-    </section>
+      <button class="target" type="button" data-target="executive"><strong>بوابة المدير التنفيذي</strong><small>المتابعة التنفيذية، التقارير، المخاطر، القرارات.</small></button>    </section>
 
     <form id="gate-form" class="fields">
       <label>البريد أو رقم الهاتف المصرح له<input name="identity" type="text" inputmode="email" autocomplete="username" placeholder="name@example.com / 01xxxxxxxxx" required /></label>
@@ -48,8 +112,9 @@
     <p class="foot">تذكير: الكود لا يغني عن تسجيل الدخول وصلاحيات المستخدم داخل Supabase. منع الفتح المباشر هنا طبقة حماية إضافية وليست بديلًا عن RLS.</p>
   </main>
 
-  <script src="../shared/js/supabase-config.js?v=v31-production-hardening-089-simple-login"></script>
-  <script src="../shared/js/v10-private-deploy-fixes.js?v=v31-production-hardening-089-simple-login" defer></script>
+  <script src="../shared/js/supabase-config.js?v=v33-ui-ux-overhaul-101"></script>
+  <script src="../shared/js/v10-private-deploy-fixes.js?v=v33-ui-ux-overhaul-101" defer></script>
+  <script src="../shared/js/register-sw.js?v=v33-ui-ux-overhaul-101" defer></script>
   <script>
     const msg = document.getElementById('gate-msg');
     const submitBtn = document.querySelector('.submit');

@@ -1,0 +1,31 @@
+{
+  "version": "v31-production-hardening-098",
+  "expectedPatch": "098_location_security_edge_hardening",
+  "previousPatch": "097_live_location_push_smoothness_audit",
+  "buildDate": "2026-05-08T23:30:00+02:00",
+  "focus": [
+    "fix live-location approval precedence",
+    "harden Edge Function error JSON responses",
+    "sanitize employee location rendering",
+    "add CSP meta fallback",
+    "enable Service Worker registration for operations gate/admin login",
+    "gate production console logs behind HR_DEBUG_LOGS"
+  ],
+  "importantFiles": [
+    "shared/js/supabase-api.js",
+    "shared/js/api.js",
+    "shared/js/employee-app.js",
+    "shared/js/register-sw.js",
+    "supabase/functions/admin-create-user/index.ts",
+    "supabase/functions/admin-update-user/index.ts",
+    "supabase/migrations/20260508233000_098_location_security_edge_hardening.sql",
+    "supabase/sql/RUN_IN_SUPABASE_SQL_EDITOR.sql",
+    "supabase/sql/VERIFY_AFTER_SUPABASE_DEPLOY.sql"
+  ],
+  "checksRun": [],
+  "deployNotes": [
+    "Apply supabase/sql/RUN_IN_SUPABASE_SQL_EDITOR.sql before final testing.",
+    "Deploy Edge Functions admin-create-user and admin-update-user after this patch.",
+    "Test live-location rejection with GPS coordinates; it must remain REJECTED_TEMPORARY/POSTPONED, never APPROVED."
+  ]
+}

@@ -2,6 +2,15 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { options, json } from '../_shared/cors.ts';
 
 Deno.serve(async (req) => {
+  try {
+    return await handleRequest(req);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error ?? "Unexpected error");
+    return json(req, { ok: false, error: "INTERNAL_FUNCTION_ERROR", message }, 500);
+  }
+});
+
+async function handleRequest(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return options(req);
   if (req.method !== 'POST') return json(req, { error: 'METHOD_NOT_ALLOWED' }, 405);
 
@@ -69,4 +78,4 @@ Deno.serve(async (req) => {
   if (error) return json(req, { error: error.message }, 400);
   await client.from('profiles').update({ passkey_enabled: true }).eq('id', authData.user.id);
   return json(req, { ok: true, credential: data });
-});
+}

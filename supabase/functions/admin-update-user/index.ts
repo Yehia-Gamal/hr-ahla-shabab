@@ -15,7 +15,7 @@ function normalizePhone(value: unknown) {
   return String(value || '').replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/\D/g, '');
 }
 
-Deno.serve(async (req) => {
+async function handleRequest(req: Request) {
   if (req.method === 'OPTIONS') return options(req);
   if (req.method !== 'POST') return json(req, { error: 'METHOD_NOT_ALLOWED' }, 405);
 
@@ -103,4 +103,13 @@ Deno.serve(async (req) => {
   }
 
   return json(req, { ok: true, user: profile });
+}
+
+Deno.serve(async (req) => {
+  try {
+    return await handleRequest(req);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error || "Unexpected error");
+    return json(req, { ok: false, error: "INTERNAL_FUNCTION_ERROR", message }, 500);
+  }
 });

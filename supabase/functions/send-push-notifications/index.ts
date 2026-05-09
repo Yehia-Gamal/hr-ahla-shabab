@@ -90,6 +90,15 @@ async function callerCanSend(userClient: any, adminClient: any, userId: string) 
 }
 
 Deno.serve(async (req) => {
+  try {
+    return await handleRequest(req);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error ?? "Unexpected error");
+    return json(req, { ok: false, error: "INTERNAL_FUNCTION_ERROR", message }, 500);
+  }
+});
+
+async function handleRequest(req: Request): Promise<Response> {
   // Keep preflight dependency-free. This is the most important part for GitHub Pages CORS.
   if (req.method === 'OPTIONS') return options(req);
   if (req.method !== 'POST') return json(req, { error: 'METHOD_NOT_ALLOWED' }, 405);
@@ -209,4 +218,4 @@ Deno.serve(async (req) => {
   }
 
   return json(req, { ok: true, attempted: results.length, sent: results.filter((item) => item.status === 'SENT').length, results });
-});
+}

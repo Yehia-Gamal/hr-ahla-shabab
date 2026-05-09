@@ -1,0 +1,35 @@
+{
+  "version": "v31-production-hardening-099-fixes",
+  "expectedPatch": "099_pwa_manifest_sw_scope_cache_fixes",
+  "previousPatch": "098_location_security_edge_hardening",
+  "buildDate": "2026-05-09T00:00:00+02:00",
+  "focus": [
+    "CRITICAL: fix operations-gate SW scope from root / to ./",
+    "fix all PWA manifests: absolute paths + id field",
+    "fix manifest-executive name to Arabic",
+    "add admin/index.html to root sw.js ASSETS",
+    "add attendance-v3-security.js + attendance-v4-ops.js to sw caches",
+    "add database.js to sw-executive + sw-admin caches",
+    "pin supabase CDN to @2.105.1",
+    "clean redirect-only index.html"
+  ],
+  "importantFiles": [
+    "shared/js/register-sw.js",
+    "shared/pwa/manifest-admin.json",
+    "shared/pwa/manifest-employee.json",
+    "shared/pwa/manifest-executive.json",
+    "shared/pwa/manifest.json",
+    "sw.js",
+    "sw-employee.js",
+    "sw-executive.js",
+    "sw-admin.js",
+    "shared/js/supabase-api.js",
+    "index.html"
+  ],
+  "noSupabaseChanges": true,
+  "deployNotes": [
+    "لا يوجد SQL جديد ولا تعديل على Edge Functions.",
+    "يُنصح بمسح كاش المتصفح أو فتح في نافذة خاصة بعد الرفع لضمان تحميل SW الجديد.",
+    "فحص: افتح /health.html بعد الرفع وتحقق من نسبة الجاهزية."
+  ]
+}

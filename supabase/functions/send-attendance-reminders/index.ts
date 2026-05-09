@@ -67,6 +67,15 @@ async function callerAllowed(req: Request, adminClient: any, anonKey: string, su
 }
 
 Deno.serve(async (req) => {
+  try {
+    return await handleRequest(req);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error ?? "Unexpected error");
+    return json(req, { ok: false, error: "INTERNAL_FUNCTION_ERROR", message }, 500);
+  }
+});
+
+async function handleRequest(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return options(req);
   if (req.method !== 'POST') return json(req, { error: 'METHOD_NOT_ALLOWED' }, 405);
 
@@ -183,4 +192,4 @@ Deno.serve(async (req) => {
   }).catch(() => null);
 
   return json(req, { ok: true, date: today, created, pushed, failed, missing: missing.length, skipped: false });
-});
+}

@@ -3,7 +3,7 @@ import { join, relative } from 'node:path';
 import { Script } from 'node:vm';
 
 const root = process.cwd();
-const version = 'v31-production-hardening-089';
+const version = 'v33-ui-ux-overhaul-101';
 const failures = [];
 const read = (file) => readFileSync(join(root, file), 'utf8');
 const assert = (condition, message) => { if (!condition) failures.push(message); };
@@ -96,17 +96,17 @@ assert(read('supabase/sql/VERIFY_AFTER_SUPABASE_DEPLOY.sql').includes('check_nam
 for (const sw of ['sw.js', 'sw-admin.js', 'sw-employee.js', 'sw-executive.js']) {
   const text = read(sw);
   assert(text.includes('hostname.endsWith("supabase.co")') && text.includes('/functions/v1/'), `${sw} must bypass Supabase REST/functions.`);
-  assert(text.includes(version), `${sw} must use v31 cache version.`);
+  assert(text.includes(version), `${sw} must use current v33/v101 cache version.`);
 }
 assert(!read('sw-employee.js').includes('/admin/') && !read('sw-employee.js').includes('admin/index.html'), 'sw-employee.js must not fallback to admin.');
 assert(read('shared/js/register-sw.js').includes('try') && read('shared/js/register-sw.js').includes('catch'), 'register-sw.js must handle registration failures.');
 assert(read('shared/js/supabase-api.js').includes('async function core({ force = false } = {})') && read('shared/js/supabase-api.js').includes('sessionStorage.setItem("hr.core"'), 'core() must keep memory/session cache with force option.');
-assert(frontend.includes(version), 'Frontend must include v31 cache-busting version.');
+assert(frontend.includes(version), 'Frontend must include current v33/v101 cache-busting version.');
 assert(!/\bv2[1456789]\b|v30-final-verified-no-local-errors/.test(frontend), 'Final frontend runtime must not contain old v21/v24/v25/v26/v27/v28/v29/v30 version strings.');
 
 if (failures.length) {
-  console.error('v31 final check failed:');
+  console.error('current final compatibility check failed:');
   for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
-console.log('v31 final check passed.');
+console.log('current final compatibility check passed.');

@@ -1,12 +1,18 @@
+const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
+const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };
+const debugError = (...args) => { if (debugEnabled()) globalThis.console?.error?.(...args); };
+const debugInfo = (...args) => { if (debugEnabled()) globalThis.console?.info?.(...args); };
 // Service Worker registration is portal-scoped so employee devices do not cache admin UI.
-const HR_SW_CACHE_NAME = "hr-attendance-v31-production-hardening-089-simple-login";
-const HR_SW_VERSION = "v31-production-hardening-089-simple-login";
+const HR_SW_CACHE_NAME = "hr-attendance-v33-ui-ux-overhaul-101";
+const HR_SW_VERSION = "v33-ui-ux-overhaul-101";
 
 function portalServiceWorkerConfig() {
   const path = location.pathname.toLowerCase();
   if (path.includes("/admin/")) return { url: "../sw-admin.js", scope: "./" };
   if (path.includes("/executive/")) return { url: "../sw-executive.js", scope: "./" };
   if (path.includes("/employee/")) return { url: "../sw-employee.js", scope: "./" };
+  if (path.includes("/operations-gate/")) return { url: "../sw-admin.js", scope: "./" };
+  if (path.endsWith("/admin-login.html") || path.endsWith("admin-login.html")) return { url: "./sw-admin.js", scope: "./" };
   return { url: "./sw-employee.js", scope: "./employee/" };
 }
 
@@ -70,7 +76,7 @@ async function registerPortalServiceWorker(swUrl, scope) {
       await registration.update().catch(() => null);
       return registration;
     } catch (retryError) {
-      console.info("تأجيل تسجيل Service Worker لهذه الزيارة بعد تضارب تحديث مؤقت.", retryError?.message || retryError);
+      if (window.HR_DEBUG_LOGS) debugInfo("تأجيل تسجيل Service Worker لهذه الزيارة بعد تضارب تحديث مؤقت.", retryError?.message || retryError);
       return existing || null;
     }
   }
@@ -91,7 +97,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
       const registration = await registerPortalServiceWorker(swUrl, cfg.scope);
       watchServiceWorkerUpdates(registration);
     } catch (error) {
-      console.info("تعذر تحديث Service Worker مؤقتاً، سيعمل التطبيق بدون كاش محدث في هذه الزيارة.", error?.message || error);
+      if (window.HR_DEBUG_LOGS) debugInfo("تعذر تحديث Service Worker مؤقتاً، سيعمل التطبيق بدون كاش محدث في هذه الزيارة.", error?.message || error);
     }
   });
 }

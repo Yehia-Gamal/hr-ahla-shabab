@@ -1,4 +1,4 @@
-const DIAGNOSTICS_VERSION = "v31-production-hardening-089";
+const DIAGNOSTICS_VERSION = "v33-ui-ux-overhaul-101";
 const ok = (label, detail = "جاهز", extra = {}) => ({ label, ok: true, level: "ok", detail, ...extra });
 const warn = (label, detail = "يحتاج مراجعة", extra = {}) => ({ label, ok: false, level: "warn", detail, ...extra });
 const bad = (label, detail = "غير جاهز", extra = {}) => ({ label, ok: false, level: "bad", detail, ...extra });

@@ -3,7 +3,7 @@ set -euo pipefail
 
 PROJECT_REF="${SUPABASE_PROJECT_REF:-yemradvxmwadlldnxtpz}"
 
-printf '\n== v31-production-hardening-089 Supabase Production Deploy ==\n'
+printf '\n== v31-production-hardening-098 Supabase Production Deploy ==\n'
 printf 'Project ref: %s\n\n' "$PROJECT_REF"
 printf '1) Before running this script, apply:\n'
 printf '   supabase/sql/RUN_IN_SUPABASE_SQL_EDITOR.sql\n\n'

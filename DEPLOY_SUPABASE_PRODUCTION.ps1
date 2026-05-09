@@ -4,7 +4,7 @@ param(
 
 if (-not $ProjectRef) { $ProjectRef = "yemradvxmwadlldnxtpz" }
 
-Write-Host "`n== v31-production-hardening-089 Supabase Production Deploy =="
+Write-Host "`n== v31-production-hardening-098 Supabase Production Deploy =="
 Write-Host "Project ref: $ProjectRef`n"
 Write-Host "1) Before running this script, apply:"
 Write-Host "   supabase/sql/RUN_IN_SUPABASE_SQL_EDITOR.sql`n"

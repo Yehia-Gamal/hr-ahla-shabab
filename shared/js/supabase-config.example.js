@@ -29,7 +29,7 @@ window.HR_SUPABASE_CONFIG = Object.freeze({
     // مطلوب لتفعيل Web Push الحقيقي. اتركه فارغًا حتى تولد VAPID keys وتضيف المفتاح العام هنا.
     vapidPublicKey: "",
   },
-  cacheVersion: "v31-production-hardening-089",
+  cacheVersion: "v31-production-hardening-098",
 });
 
 window.__HR_SUPABASE_CONFIG_LOADED__ = true;

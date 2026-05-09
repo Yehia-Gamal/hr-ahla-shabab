@@ -1,0 +1,47 @@
+{
+  "version": "v31-production-hardening-098",
+  "expectedPatch": "098_location_security_edge_hardening",
+  "buildDate": "2026-05-08T20:30:00+03:00",
+  "focus": [
+    "strict KPI workflow: employee self evaluation first",
+    "manager review only after SELF_SUBMITTED",
+    "HR-only KPI fields preserved and completed after manager approval",
+    "executive secretary / technical review before executive approval",
+    "navbar, color, and KPI screen polish"
+  ],
+  "importantFiles": [
+    "shared/js/api.js",
+    "shared/js/supabase-api.js",
+    "shared/js/app-admin.js",
+    "shared/js/employee-app.js",
+    "shared/css/styles.css",
+    "shared/css/employee.css",
+    "supabase/migrations/20260508203000_098_location_security_edge_hardening.sql",
+    "supabase/sql/RUN_IN_SUPABASE_SQL_EDITOR.sql",
+    "supabase/sql/VERIFY_AFTER_SUPABASE_DEPLOY.sql",
+    "docs/FIX_REPORT_095.md"
+  ],
+  "checksRun": [
+    "npm run check",
+    "check:js",
+    "check:html",
+    "check:guards",
+    "check:prepublish",
+    "check:production",
+    "check:final",
+    "check:sanitization",
+    "check:kpi-policy",
+    "check:kpi-cycle",
+    "check:management-suite",
+    "check:sql",
+    "check:attendance-identity",
+    "check:theme",
+    "check:live-deploy-readiness",
+    "check:v13-production-polish",
+    "check:v31",
+    "check:release-security",
+    "check:runtime-diagnostics",
+    "check:release-artifact",
+    "build:public"
+  ]
+}

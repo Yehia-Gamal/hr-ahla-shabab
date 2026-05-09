@@ -1,5 +1,5 @@
 // Versioned cache name; bump when updating deployment.packageVersion or cacheVersion
-const CACHE_NAME = "hr-attendance-v31-production-hardening-089-simple-login";
+const CACHE_NAME = "hr-attendance-v33-ui-ux-overhaul-101";
 const DEFAULT_OPEN_URL = "./executive/index.html";
 const ASSETS = [
   "./health.html",
@@ -7,6 +7,7 @@ const ASSETS = [
   "./operations-gate/index.html",
   "./shared/offline.html",
   "./shared/js/executive-app.js",
+  "./shared/js/database.js",
   "./shared/pwa/manifest-executive.json",
   "./index.html",
   "./shared/css/styles.css",
@@ -28,7 +29,7 @@ const ASSETS = [
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).catch((error) => console.warn("HR cache install skipped", error)));
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).catch(() => undefined));
   self.skipWaiting();
 });
 

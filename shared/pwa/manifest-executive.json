@@ -1,6 +1,7 @@
 {
-  "name": "Executive Follow-up - Ahla Shabab",
-  "short_name": "Executive",
+  "name": "المتابعة التنفيذية — أحلى شباب",
+  "short_name": "التنفيذي",
+  "id": "/executive/",
   "start_url": "/executive/index.html",
   "scope": "/executive/",
   "display": "standalone",
@@ -8,14 +9,33 @@
   "theme_color": "#070f1e",
   "icons": [
     {
-      "src": "../images/icon-192.png",
+      "src": "/shared/images/icon-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "../images/icon-512.png",
+      "src": "/shared/images/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/shared/images/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
+    },
+    {
+      "src": "/shared/images/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
-  ]
+  ],
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
+  "lang": "ar",
+  "dir": "rtl"
 }

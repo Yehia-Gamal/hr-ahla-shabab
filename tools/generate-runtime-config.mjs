@@ -36,13 +36,13 @@ window.HR_SUPABASE_CONFIG = Object.freeze({
   },
   deployment: {
     expectedPatch: "089_codex_full_deploy_alignment",
-    packageVersion: "v31-production-hardening-089",
+    packageVersion: "v31-production-hardening-098",
     requiredPatches: ["051_attendance_identity_verification.sql"],
   },
-  cacheVersion: "v31-production-hardening-089",
+  cacheVersion: "v31-production-hardening-098",
 });
 window.__HR_SUPABASE_CONFIG_LOADED__ = true;
-window.__HR_SUPABASE_CONFIG_VERSION__ = "v31-production-hardening-089";
+window.__HR_SUPABASE_CONFIG_VERSION__ = "v31-production-hardening-098";
 (function markSupabaseMode() {
   const cfg = window.HR_SUPABASE_CONFIG || {};
   const configured = Boolean(cfg.enabled === true && /^https:\\/\\/[^\\s]+\\.supabase\\.co$/.test(String(cfg.url || "")) && String(cfg.anonKey || "").length > 20);

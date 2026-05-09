@@ -3,14 +3,59 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; img-src 'self' data: blob: https:; media-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://esm.sh https://cdn.jsdelivr.net; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://esm.sh https://nominatim.openstreetmap.org https://api.github.com; frame-src https://www.openstreetmap.org https://maps.google.com;" />
   <meta name="robots" content="noindex,nofollow" />
   <meta name="theme-color" content="#050A1A" />
   <title>مركز فحص وتشغيل أحلى شباب HR</title>
   <link rel="icon" href="shared/images/favicon-64.png" />
-  <link rel="stylesheet" href="shared/css/styles.css?v=v31-production-hardening-089" />
-  <link rel="stylesheet" href="shared/css/neon-admin-theme.css?v=v31-production-hardening-089" />
+  <link rel="stylesheet" href="shared/css/styles.css?v=v33-ui-ux-overhaul-101" />
+  <link rel="stylesheet" href="shared/css/neon-admin-theme.css?v=v33-ui-ux-overhaul-101" />
+  <link rel="stylesheet" href="shared/css/v10-private-deploy-theme.css?v=v33-ui-ux-overhaul-101" />
   <style>
-    body{min-height:100vh;margin:0;padding:24px;background:radial-gradient(circle at 20% 0%,rgba(37,99,235,.22),transparent 32%),#050b16;color:#eef5ff;font-family:Cairo,Tahoma,Arial,sans-serif}.health-shell{max-width:1120px;margin:auto;display:grid;gap:18px}.health-hero{border:1px solid rgba(56,199,244,.32);background:linear-gradient(135deg,rgba(8,19,35,.94),rgba(12,20,42,.88));border-radius:28px;padding:24px;box-shadow:0 24px 80px rgba(0,0,0,.35);display:grid;gap:16px}.health-title{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.score{width:108px;height:108px;border-radius:999px;display:grid;place-items:center;border:1px solid rgba(56,199,244,.42);background:rgba(255,255,255,.05)}.score strong{font-size:30px}.health-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}.health-card{grid-column:span 6;border:1px solid rgba(255,255,255,.1);background:rgba(8,19,35,.82);border-radius:22px;padding:18px}.health-card.full{grid-column:span 12}.check-row{display:grid;grid-template-columns:1.3fr auto 2fr;gap:12px;align-items:center;border-top:1px solid rgba(255,255,255,.08);padding:12px 0}.check-row:first-child{border-top:0}.pill-status{display:inline-flex;align-items:center;justify-content:center;min-width:82px;border-radius:999px;padding:6px 10px;font-weight:800}.pill-status.ok{background:rgba(34,197,94,.14);color:#86efac;border:1px solid rgba(34,197,94,.3)}.pill-status.warn{background:rgba(245,158,11,.13);color:#fbbf24;border:1px solid rgba(245,158,11,.3)}.pill-status.bad{background:rgba(251,113,133,.14);color:#fb7185;border:1px solid rgba(251,113,133,.32)}.muted{color:#9aa8bd}.toolbar{display:flex;gap:10px;flex-wrap:wrap}.button{cursor:pointer}.log-box{white-space:pre-wrap;direction:ltr;text-align:left;background:#071120;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:14px;max-height:300px;overflow:auto}.small-note{font-size:13px;color:#9aa8bd}.health-toast{position:fixed;left:18px;bottom:18px;z-index:99;max-width:min(420px,calc(100vw - 36px));padding:12px 14px;border-radius:16px;border:1px solid rgba(56,199,244,.34);background:rgba(7,17,32,.96);box-shadow:0 18px 50px rgba(0,0,0,.35);color:#eef5ff;font-weight:800;opacity:0;transform:translateY(10px);transition:.22s}.health-toast.show{opacity:1;transform:translateY(0)}.health-toast.bad{border-color:rgba(251,113,133,.45);color:#fecdd3}@media(max-width:800px){body{padding:14px}.health-card{grid-column:span 12}.check-row{grid-template-columns:1fr}.score{width:88px;height:88px}.score strong{font-size:24px}}
+    :root{--bg:#050A1A;--panel:#0B1628;--line:rgba(0,194,255,.20);--cyan:#00C2FF;--blue:#1A6EFF;--green:#00D68F;--amber:#FF8C00;--red:#FF3B6B;--text:#E8F0FF;--muted:#7A94C1}
+    *{box-sizing:border-box}
+    body{min-height:100vh;margin:0;padding:24px;background:radial-gradient(circle at 20% 0%,rgba(26,110,255,.16),transparent 32%),radial-gradient(circle at 80% 88%,rgba(0,194,255,.10),transparent 28%),var(--bg);color:var(--text);font-family:Cairo,Tahoma,Arial,system-ui,sans-serif;line-height:1.7}
+    body::before{content:"";position:fixed;inset:0;pointer-events:none;background-image:linear-gradient(rgba(0,194,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(0,194,255,.025) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(circle at 50% 10%,rgba(0,0,0,.8),transparent 68%);z-index:-1}
+    .health-shell{max-width:1160px;margin:auto;display:grid;gap:20px}
+    .health-hero{border:1px solid var(--line);background:linear-gradient(135deg,rgba(10,22,42,.96),rgba(8,18,34,.92));border-radius:28px;padding:26px;box-shadow:0 0 0 1px rgba(0,194,255,.04),0 28px 80px rgba(0,0,0,.38);display:grid;gap:18px;animation:fadeUp .35s ease both}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+    .health-title{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    .health-title h1{margin:0;font-size:clamp(22px,3vw,32px);font-weight:900;background:linear-gradient(90deg,var(--cyan),var(--blue));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+    .health-title p{margin:6px 0 0;color:var(--muted);font-size:14px}
+    .score{width:108px;height:108px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--line);background:radial-gradient(circle,rgba(0,194,255,.08),transparent 70%);position:relative}
+    .score::before{content:"";position:absolute;inset:-4px;border-radius:50%;border:2px solid rgba(0,194,255,.15);animation:scorePulse 2.5s ease-in-out infinite}
+    @keyframes scorePulse{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:.8;transform:scale(1.04)}}
+    .score strong{font-size:28px;font-weight:900;color:var(--cyan)}
+    .score small{display:block;font-size:11px;color:var(--muted);text-align:center}
+    .health-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+    .health-card{grid-column:span 6;border:1px solid var(--line);background:linear-gradient(180deg,rgba(11,22,40,.92),rgba(7,15,30,.88));border-radius:22px;padding:20px;transition:border-color .2s,box-shadow .2s;animation:fadeUp .35s ease both}
+    .health-card:hover{border-color:rgba(0,194,255,.36);box-shadow:0 0 24px rgba(0,80,200,.14)}
+    .health-card.full{grid-column:span 12}
+    .health-card h2{margin:0 0 14px;font-size:16px;font-weight:700;color:var(--text)}
+    .check-row{display:grid;grid-template-columns:1.4fr auto 2fr;gap:12px;align-items:center;border-top:1px solid rgba(255,255,255,.07);padding:12px 0;animation:fadeUp .3s ease both}
+    .check-row:first-child{border-top:0}
+    .check-row strong{color:var(--text);font-size:13px}
+    .check-row>span:last-child{color:var(--muted);font-size:13px}
+    .pill-status{display:inline-flex;align-items:center;justify-content:center;min-width:76px;border-radius:999px;padding:5px 10px;font-weight:800;font-size:11px;letter-spacing:.04em}
+    .pill-status.ok  {background:rgba(0,214,143,.12);color:#B9FFE9;border:1px solid rgba(0,214,143,.38)}
+    .pill-status.warn{background:rgba(255,140,0,.12);color:#FFD8A6;border:1px solid rgba(255,140,0,.38)}
+    .pill-status.bad {background:rgba(255,59,107,.12);color:#FFD0DC;border:1px solid rgba(255,59,107,.4)}
+    .muted{color:var(--muted)}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap}
+    .button{display:inline-flex;align-items:center;justify-content:center;padding:10px 18px;border-radius:10px;border:1px solid var(--line);background:rgba(11,22,40,.88);color:var(--text);cursor:pointer;font-family:inherit;font-size:14px;font-weight:700;transition:border-color .18s,background .18s,transform .18s,box-shadow .18s;text-decoration:none}
+    .button:hover{border-color:rgba(0,194,255,.44);background:rgba(14,30,58,.92);transform:translateY(-1px)}
+    .button.primary{background:linear-gradient(135deg,var(--cyan),var(--blue));color:#031022;border-color:rgba(0,194,255,.5);box-shadow:0 6px 18px rgba(0,80,200,.24)}
+    .button.primary:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,80,200,.34)}
+    .button.danger{background:rgba(255,59,107,.14);border-color:rgba(255,59,107,.42);color:#FFD0DC}
+    .button.danger:hover{background:rgba(255,59,107,.24)}
+    .log-box{white-space:pre-wrap;direction:ltr;text-align:left;background:rgba(3,8,22,.72);border:1px solid var(--line);border-radius:16px;padding:16px;max-height:320px;overflow:auto;font-size:12px;line-height:1.7;color:#9CB3D9;font-family:monospace}
+    .log-box::-webkit-scrollbar{width:6px}.log-box::-webkit-scrollbar-thumb{background:var(--line);border-radius:999px}
+    .small-note{font-size:12px;color:var(--muted);padding:8px 12px;border-radius:10px;background:rgba(0,0,0,.22);border:1px solid rgba(255,255,255,.06)}
+    .health-toast{position:fixed;left:18px;bottom:18px;z-index:9999;max-width:min(420px,calc(100vw - 36px));padding:13px 18px;border-radius:16px;border:1px solid rgba(0,194,255,.38);background:rgba(8,18,36,.97);box-shadow:0 18px 50px rgba(0,0,0,.40);color:var(--text);font-weight:700;font-size:14px;opacity:0;transform:translateY(10px);transition:.22s cubic-bezier(.34,1.56,.64,1)}
+    .health-toast.show{opacity:1;transform:translateY(0)}
+    .health-toast.bad{border-color:rgba(255,59,107,.48);color:#FFD0DC}
+    ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:#050A1A}::-webkit-scrollbar-thumb{background:#1A2A4A;border-radius:999px}::-webkit-scrollbar-thumb:hover{background:var(--blue)}
+    @media(max-width:800px){body{padding:14px}.health-card{grid-column:span 12}.check-row{grid-template-columns:1fr auto}.score{width:88px;height:88px}.score strong{font-size:24px}.toolbar{gap:8px}.button{padding:9px 14px;font-size:13px}}
   </style>
 </head>
 <body>
@@ -22,9 +67,9 @@
     </section>
     <section class="health-grid"><article class="health-card full"><h2>نتائج الفحص</h2><div id="results" class="muted">جاري الفحص...</div></article><article class="health-card"><h2>مشاكل مانعة</h2><div id="blockers" class="muted">--</div></article><article class="health-card"><h2>تحذيرات</h2><div id="warnings" class="muted">--</div></article><article class="health-card full"><h2>Raw report</h2><div id="raw" class="log-box">--</div></article></section>
   </main>
-  <script src="shared/js/supabase-config.js?v=v31-production-hardening-089"></script>
+  <script src="shared/js/supabase-config.js?v=v33-ui-ux-overhaul-101"></script>
   <script type="module">
-    import { runRuntimeDiagnostics, clearRuntimeCaches, testLocalNotification, downloadDiagnosticsReport } from './shared/js/runtime-diagnostics.js?v=v31-production-hardening-089';
+    import { runRuntimeDiagnostics, clearRuntimeCaches, testLocalNotification, downloadDiagnosticsReport } from './shared/js/runtime-diagnostics.js?v=v33-ui-ux-overhaul-101';
     let lastReport = null; const $ = (id) => document.getElementById(id);
     function notify(message, level = 'ok') { const el = document.createElement('div'); el.className = `health-toast ${level === 'bad' ? 'bad' : ''}`; el.textContent = message; document.body.appendChild(el); requestAnimationFrame(() => el.classList.add('show')); setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 240); }, 3800); }
     function label(level){ return level === 'ok' ? 'سليم' : level === 'bad' ? 'خطأ' : 'تحذير'; }

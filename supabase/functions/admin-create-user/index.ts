@@ -50,9 +50,7 @@ async function recreateBrokenRosterUser(adminClient: any, email: string, body: a
     .maybeSingle();
   const brokenUserId = employee?.user_id || profile?.id || null;
   if (brokenUserId) {
-    await adminClient.auth.admin.deleteUser(brokenUserId, true).catch((error: Error) => {
-      console.warn('delete broken roster user failed', error.message);
-    });
+    await adminClient.auth.admin.deleteUser(brokenUserId, true).catch(() => undefined);
   }
   const { data, error } = await adminClient.auth.admin.createUser({
     email,
@@ -64,7 +62,7 @@ async function recreateBrokenRosterUser(adminClient: any, email: string, body: a
   return data.user;
 }
 
-Deno.serve(async (req) => {
+async function handleRequest(req: Request) {
   if (req.method === 'OPTIONS') return options(req);
   if (req.method !== 'POST') return json(req, { error: 'METHOD_NOT_ALLOWED' }, 405);
 
@@ -110,17 +108,11 @@ Deno.serve(async (req) => {
   let authUser = created?.user || null;
   let action = 'created';
   if (createError) {
-    authUser = await recreateBrokenRosterUser(adminClient, email, body, password).catch((error: Error) => {
-      console.error('recreate roster user failed', error.message);
-      return null;
-    });
+    authUser = await recreateBrokenRosterUser(adminClient, email, body, password).catch(() => null);
     if (authUser) {
       action = 'recreated';
     } else {
-    const existing = await findUserByEmail(adminClient, email).catch((error) => {
-      console.error('listUsers failed', error.message);
-      return null;
-    });
+    const existing = await findUserByEmail(adminClient, email).catch(() => null);
     if (!existing) return json(req, { error: createError.message }, 400);
     const { data: updated, error: updateError } = await adminClient.auth.admin.updateUserById(existing.id, {
       email,
@@ -165,4 +157,13 @@ Deno.serve(async (req) => {
     },
     temporaryPasswordGenerated: !explicitPassword || isRosterPhonePassword,
   });
+}
+
+Deno.serve(async (req) => {
+  try {
+    return await handleRequest(req);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error || "Unexpected error");
+    return json(req, { ok: false, error: "INTERNAL_FUNCTION_ERROR", message }, 500);
+  }
 });

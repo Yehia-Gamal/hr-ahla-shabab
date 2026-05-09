@@ -22,11 +22,11 @@ function walk(dir) {
 walk(root);
 for (const file of requiredFiles) assert(existsSync(join(root, file)), `Required file missing: ${file}`);
 const config = readFileSync(join(root, 'shared/js/supabase-config.js'), 'utf8');
-assert(config.includes('packageVersion: "v31-production-hardening-089"'), 'Config packageVersion must be 089.');
-assert(config.includes('cacheVersion: "v31-production-hardening-089"'), 'Config cacheVersion must be 089.');
-assert(config.includes('expectedPatch: "089_codex_full_deploy_alignment"'), 'Config expectedPatch must be 089_codex_full_deploy_alignment.');
+assert(config.includes('packageVersion: "v33-ui-ux-overhaul-101"'), 'Config packageVersion must be 101.');
+assert(config.includes('cacheVersion: "v33-ui-ux-overhaul-101"'), 'Config cacheVersion must be 101.');
+assert(config.includes('expectedPatch: "098_location_security_edge_hardening"'), 'Config expectedPatch must be 098_location_security_edge_hardening.');
 const verifySql = readFileSync(join(root, 'supabase/sql/VERIFY_AFTER_SUPABASE_DEPLOY.sql'), 'utf8');
-assert(verifySql.includes('089_codex_full_deploy_alignment'), 'Supabase verify SQL must check 089_codex_full_deploy_alignment.');
+assert(verifySql.includes('098_location_security_edge_hardening'), 'Supabase verify SQL must check 098_location_security_edge_hardening.');
 const headers = readFileSync(join(root, '_headers'), 'utf8');
 const vercel = readFileSync(join(root, 'vercel.json'), 'utf8');
 assert(headers.includes("connect-src") && headers.includes('https://*.supabase.co') && headers.includes('https://esm.sh'), '_headers CSP must allow Supabase and esm.sh.');

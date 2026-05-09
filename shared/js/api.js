@@ -1,6 +1,10 @@
-import { seedDatabase } from "./database.js?v=v31-production-hardening-088";
-import { supabaseEndpoints, shouldUseSupabase, supabaseModeIsStrict } from "./supabase-api.js?v=v31-production-hardening-088";
+import { seedDatabase } from "./database.js?v=v33-ui-ux-overhaul-101";
+import { supabaseEndpoints, shouldUseSupabase, supabaseModeIsStrict } from "./supabase-api.js?v=v33-ui-ux-overhaul-101";
 
+const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
+const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };
+const debugError = (...args) => { if (debugEnabled()) globalThis.console?.error?.(...args); };
+const debugInfo = (...args) => { if (debugEnabled()) globalThis.console?.info?.(...args); };
 const STORAGE_KEY = "hr-attendance.local-db.v19-management-suite";
 const LEGACY_KEYS = ["hr-attendance.local-db.v14", "hr-attendance.local-db.v13", "hr-attendance.local-db.v12", "hr-attendance.local-db.v11", "hr-attendance.local-db.v10", "hr-attendance.local-db.v9", "hr-attendance.local-db.v8", "hr-attendance.local-db.v7", "hr-attendance.local-db.v6", "hr-attendance.local-db.v5", "hr-attendance.local-db.v4", "hr-attendance.local-db.v3"];
 const SESSION_KEY = "hr-attendance.session-user";
@@ -1249,19 +1253,82 @@ function attendanceScoreForEmployee(db, employeeId, cycle) {
   return clampScore(20 - latePenalty - absencePenalty - reviewPenalty, 20);
 }
 
+function scoreFromBody(body, scoreKey, percentKey, max) {
+  if (body[scoreKey] !== undefined && body[scoreKey] !== "") return clampScore(body[scoreKey], max);
+  if (body[percentKey] !== undefined && body[percentKey] !== "") return clampScore(Number(body[percentKey] || 0) * Number(max || 0) / 100, max);
+  return 0;
+}
+
+function canonicalKpiStatus(value = "", fallback = "DRAFT") {
+  const raw = String(value || fallback || "DRAFT").trim().toUpperCase().replace(/[\s-]+/g, "_");
+  const aliases = {
+    EMPLOYEE_SUBMITTED: "SELF_SUBMITTED",
+    SELF: "SELF_SUBMITTED",
+    SUBMITTED: "SELF_SUBMITTED",
+    MANAGER: "MANAGER_APPROVED",
+    MANAGER_REVIEWED: "MANAGER_APPROVED",
+    HR: "HR_REVIEWED",
+    HR_APPROVED: "HR_REVIEWED",
+    SECRETARY: "SECRETARY_REVIEWED",
+    SECRETARY_APPROVED: "SECRETARY_REVIEWED",
+    EXECUTIVE: "EXECUTIVE_APPROVED",
+    APPROVED: "EXECUTIVE_APPROVED",
+  };
+  return aliases[raw] || raw || fallback || "DRAFT";
+}
+
+function expectedPreviousKpiStatus(nextStatus) {
+  return {
+    MANAGER_APPROVED: "SELF_SUBMITTED",
+    HR_REVIEWED: "MANAGER_APPROVED",
+    SECRETARY_REVIEWED: "HR_REVIEWED",
+    EXECUTIVE_APPROVED: "SECRETARY_REVIEWED",
+  }[canonicalKpiStatus(nextStatus)] || "";
+}
+
+function recalculateKpiTotals(evaluation) {
+  const totalScore = ["targetScore", "efficiencyScore", "attendanceScore", "conductScore", "prayerScore", "quranCircleScore", "initiativesScore"].reduce((sum, key) => sum + Number(evaluation[key] || 0), 0);
+  evaluation.totalScore = Math.round(totalScore * 10) / 10;
+  evaluation.grade = kpiGrade(evaluation.totalScore);
+  evaluation.rating = kpiRating(evaluation.totalScore);
+  return evaluation;
+}
+
+function ensureKpiWorkflowTransition(db, previous, normalized, mode, user) {
+  const nextStatus = canonicalKpiStatus(normalized.status);
+  normalized.status = nextStatus;
+  const previousStatus = canonicalKpiStatus(previous?.status || "", previous ? "DRAFT" : "");
+  if (nextStatus === "SELF_SUBMITTED") {
+    if (normalized.employeeId !== user?.employeeId && !isFullAccessUser(db)) throw new Error("لا يمكن رفع التقييم الذاتي إلا من حساب الموظف نفسه.");
+    if (previous && !["DRAFT", "REJECTED", "SELF_SUBMITTED"].includes(previousStatus)) throw new Error("تم تسليم هذا التقييم بالفعل ولا يمكن للموظف تعديله بعد انتقاله للمدير/HR.");
+    return;
+  }
+  const expected = expectedPreviousKpiStatus(nextStatus);
+  if (expected && !previous) throw new Error("لا يمكن إنشاء تقييم من هذه المرحلة. يجب أن يبدأ الموظف بتقييم نفسه أولًا.");
+  if (expected && previousStatus !== expected) throw new Error(`هذا التقييم في مرحلة ${kpiStageLabel(previousStatus)}، ولا يمكن نقله إلى ${kpiStageLabel(nextStatus)} قبل اكتمال المرحلة السابقة.`);
+  if (nextStatus === "MANAGER_APPROVED") {
+    if (mode !== "manager" && !isFullAccessUser(db)) throw new Error("اعتماد المدير متاح للمدير المباشر فقط بعد رفع الموظف لنموذجه.");
+    const targetEmployee = findById(db.employees, normalized.employeeId);
+    if (mode === "manager" && targetEmployee?.managerEmployeeId !== user?.employeeId) throw new Error("لا يمكنك اعتماد تقييم موظف ليس ضمن فريقك المباشر.");
+  }
+  if (nextStatus === "HR_REVIEWED" && mode !== "hr" && !isFullAccessUser(db)) throw new Error("مراجعة HR لا تتم إلا من لوحة HR بعد اعتماد المدير.");
+  if (nextStatus === "SECRETARY_REVIEWED" && !isFullAccessUser(db)) throw new Error("تسليم السكرتير التنفيذي يحتاج صلاحية إدارية كاملة بعد مراجعة HR.");
+  if (nextStatus === "EXECUTIVE_APPROVED" && !hasLocalScope(db, "kpi:final-approve") && !hasLocalScope(db, "kpi:executive") && !isFullAccessUser(db)) throw new Error("الاعتماد النهائي متاح للمدير التنفيذي فقط.");
+}
+
 function normalizeKpiEvaluation(db, body = {}) {
   const cycle = currentKpiCycle(db);
   const employee = findById(db.employees, body.employeeId);
   const managerId = body.managerEmployeeId || employee?.managerEmployeeId || "";
   const attendanceScore = body.attendanceScore === undefined || body.attendanceScore === "" ? attendanceScoreForEmployee(db, body.employeeId, cycle) : body.attendanceScore;
   const scores = {
-    targetScore: clampScore(body.targetScore, 40),
-    efficiencyScore: clampScore(body.efficiencyScore, 20),
+    targetScore: scoreFromBody(body, "targetScore", "targetPercent", 40),
+    efficiencyScore: scoreFromBody(body, "efficiencyScore", "efficiencyPercent", 20),
     attendanceScore: clampScore(attendanceScore, 20),
-    conductScore: clampScore(body.conductScore, 5),
-    prayerScore: clampScore(body.prayerScore, 5),
-    quranCircleScore: clampScore(body.quranCircleScore, 5),
-    initiativesScore: clampScore(body.initiativesScore, 5),
+    conductScore: scoreFromBody(body, "conductScore", "conductPercent", 5),
+    prayerScore: scoreFromBody(body, "prayerScore", "prayerPercent", 5),
+    quranCircleScore: scoreFromBody(body, "quranCircleScore", "quranPercent", 5),
+    initiativesScore: scoreFromBody(body, "initiativesScore", "initiativesPercent", 5),
   };
   const totalScore = Object.values(scores).reduce((sum, value) => sum + Number(value || 0), 0);
   return {
@@ -1270,14 +1337,17 @@ function normalizeKpiEvaluation(db, body = {}) {
     managerEmployeeId: managerId,
     evaluationDate: body.evaluationDate || now().slice(0, 10),
     meetingHeld: body.meetingHeld === "on" || body.meetingHeld === true || body.meetingHeld === "true",
-    status: body.status || "DRAFT",
+    status: canonicalKpiStatus(body.status || "DRAFT"),
     ...scores,
     totalScore,
     grade: kpiGrade(totalScore),
     rating: kpiRating(totalScore),
     managerNotes: body.managerNotes || "",
     employeeNotes: body.employeeNotes || "",
-    submittedAt: ["SUBMITTED", "APPROVED"].includes(body.status) ? now() : body.submittedAt || "",
+    hrNotes: body.hrNotes || "",
+    secretaryNotes: body.secretaryNotes || "",
+    executiveNotes: body.executiveNotes || "",
+    submittedAt: ["SELF_SUBMITTED", "EXECUTIVE_APPROVED"].includes(canonicalKpiStatus(body.status)) ? now() : body.submittedAt || "",
   };
 }
 
@@ -2460,19 +2530,30 @@ const localEndpoints = {
     const item = findById(db.liveLocationRequests || [], id);
     if (!item || item.employeeId !== employeeId) throw new Error("طلب الموقع غير موجود أو لا يخص حسابك.");
     const before = clone(item);
-    const approved = body.status !== "REJECTED" && body.action !== "reject";
-    item.status = approved ? "APPROVED" : "REJECTED";
+    const requestedStatus = String(body.status || body.action || "").toUpperCase();
+    const hasCoordinates = body.latitude !== undefined && body.longitude !== undefined && body.latitude !== null && body.longitude !== null;
+    const postponed = requestedStatus === "POSTPONED" || body.action === "postpone" || Number(body.postponeMinutes || 0) > 0;
+    const temporaryRejected = requestedStatus === "REJECTED_TEMPORARY" || requestedStatus === "TEMP_REJECT";
+    const rejected = requestedStatus === "REJECTED" || body.action === "reject" || temporaryRejected;
+    const approved = !rejected && !postponed && (requestedStatus === "APPROVED" || requestedStatus === "SEND" || requestedStatus === "SHARED" || hasCoordinates);
+    if (approved && !hasCoordinates) throw new Error("لا يمكن إرسال موافقة الموقع بدون إحداثيات فعلية. فعّل GPS ثم أعد المحاولة.");
+    item.status = approved ? "APPROVED" : postponed ? "POSTPONED" : "REJECTED_TEMPORARY";
     item.respondedAt = now();
-    item.responseNote = body.note || body.reason || "";
+    item.responseNote = body.note || body.reason || (postponed ? "رفض/تأجيل مؤقت" : "رفض مؤقت");
+    item.postponeMinutes = postponed ? Number(body.postponeMinutes || 5) : 0;
     db.liveLocationResponses ||= [];
-    const response = { id: makeId("liveRes"), requestId: item.id, employeeId, requestedByUserId: item.requestedByUserId || "", status: item.status, latitude: approved ? Number(body.latitude) : null, longitude: approved ? Number(body.longitude) : null, accuracyMeters: approved ? Number(body.accuracyMeters || body.accuracy || 0) : null, capturedAt: body.capturedAt || now(), respondedAt: now(), note: item.responseNote };
+    const response = { id: makeId("liveRes"), requestId: item.id, employeeId, requestedByUserId: item.requestedByUserId || "", status: item.status, latitude: approved ? Number(body.latitude) : null, longitude: approved ? Number(body.longitude) : null, accuracyMeters: approved ? Number(body.accuracyMeters || body.accuracy || 0) : null, capturedAt: body.capturedAt || now(), respondedAt: now(), note: item.responseNote, postponeMinutes: item.postponeMinutes };
     db.liveLocationResponses.unshift(response);
-    if (approved && response.latitude && response.longitude) {
+    if (approved && Number.isFinite(response.latitude) && Number.isFinite(response.longitude)) {
       db.locations ||= [];
       db.locations.unshift({ id: makeId("loc"), employeeId, liveLocationRequestId: item.id, latitude: response.latitude, longitude: response.longitude, accuracyMeters: response.accuracyMeters, status: "LIVE_SHARED", date: response.capturedAt, source: "live_location_request" });
     }
     const requester = findById(db.users || [], item.requestedByUserId);
-    if (requester?.employeeId) notifyEmployee(db, requester.employeeId, approved ? "تم إرسال الموقع المباشر" : "تم رفض طلب الموقع", (user?.fullName || user?.name || "الموظف") + ": " + (approved ? "أرسل الموقع" : (item.responseNote || "رفض الطلب")), approved ? "SUCCESS" : "WARNING");
+    if (requester?.employeeId) {
+      const title = approved ? "تم إرسال الموقع المباشر" : "تم رفض/تأجيل طلب الموقع مؤقتًا";
+      const bodyText = (user?.fullName || user?.name || "الموظف") + ": " + (approved ? "أرسل الموقع" : (item.responseNote || "رفض/تأجيل مؤقت"));
+      notifyEmployee(db, requester.employeeId, title, bodyText, approved ? "SUCCESS" : "WARNING");
+    }
     audit(db, "live_location.respond", "live_location_request", id, before, { request: item, response });
     saveDb(db);
     return ok({ request: enrichByEmployee(db, item), response });
@@ -3233,6 +3314,125 @@ const localEndpoints = {
     return ok(enrichByEmployee(db, item));
   },
   notifications: async () => ok(loadDb().notifications),
+  notificationMonitor: async () => {
+    const db = loadDb();
+    const employees = visibleEmployees(db);
+    const notifications = db.notifications || [];
+    const pushRows = db.pushSubscriptions || [];
+    const liveRequests = db.liveLocationRequests || [];
+    const liveResponses = db.liveLocationResponses || [];
+    const activePush = pushRows.filter((row) => row.isActive !== false && !["EXPIRED", "DISABLED", "FAILED"].includes(String(row.status || "").toUpperCase()));
+    const pushByEmployee = new Map();
+    for (const row of pushRows) {
+      const key = row.employeeId || row.userId || "";
+      if (!key) continue;
+      if (!pushByEmployee.has(key)) pushByEmployee.set(key, []);
+      pushByEmployee.get(key).push(row);
+    }
+    const missingPush = employees.filter((employee) => {
+      const rows = [...(pushByEmployee.get(employee.id) || []), ...(employee.userId ? (pushByEmployee.get(employee.userId) || []) : [])];
+      return !rows.some((row) => row.isActive !== false && !["EXPIRED", "DISABLED", "FAILED"].includes(String(row.status || "").toUpperCase()));
+    });
+    const unread = notifications.filter((item) => !item.isRead && String(item.status || "").toUpperCase() !== "READ");
+    const actionRequired = notifications.filter((item) => [item.type, item.status, item.priority].some((value) => /ACTION|LIVE_LOCATION|WARNING|HIGH/i.test(String(value || ""))));
+    const byEmployee = new Map(employees.map((employee) => [employee.id, employee]));
+    const responseByRequest = new Map(liveResponses.map((row) => [row.requestId, row]));
+    return ok({
+      metrics: { notifications: notifications.length, unread: unread.length, actionRequired: actionRequired.length, pushSubscriptions: pushRows.length, activePush: activePush.length, missingPush: missingPush.length, livePending: liveRequests.filter((row) => row.status === "PENDING").length },
+      notifications: notifications.map((item) => ({ ...item, employee: byEmployee.get(item.employeeId) || null })),
+      unread,
+      actionRequired,
+      pushSubscriptions: pushRows,
+      employees,
+      missingPush,
+      locationFlow: liveRequests.slice(0, 100).map((request) => ({ ...request, employee: byEmployee.get(request.employeeId) || null, response: responseByRequest.get(request.id) || null })),
+      generatedAt: now(),
+    });
+  },
+  locationMonitor: async () => {
+    const db = loadDb();
+    const employees = visibleEmployees(db);
+    const liveRequests = db.liveLocationRequests || [];
+    const liveResponses = db.liveLocationResponses || [];
+    const stored = db.locations || [];
+    const latestLocationFor = (employeeId) => [...stored.filter((row) => row.employeeId === employeeId && row.latitude && row.longitude), ...liveResponses.filter((row) => row.employeeId === employeeId && row.latitude && row.longitude)].sort((a,b) => new Date(b.capturedAt || b.respondedAt || b.date || b.createdAt || 0) - new Date(a.capturedAt || a.respondedAt || a.date || a.createdAt || 0))[0] || null;
+    const pendingFor = (employeeId) => liveRequests.filter((row) => row.employeeId === employeeId && String(row.status || "").toUpperCase() === "PENDING").sort((a,b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0] || null;
+    const rows = employees.map((employee) => {
+      const latestLocation = latestLocationFor(employee.id);
+      const pendingLiveRequest = pendingFor(employee.id);
+      const accuracy = Number(latestLocation?.accuracyMeters || latestLocation?.accuracy || 0);
+      const locationAt = latestLocation?.capturedAt || latestLocation?.respondedAt || latestLocation?.date || latestLocation?.createdAt || "";
+      const ageMinutes = locationAt ? Math.round((Date.now() - new Date(locationAt).getTime()) / 60000) : null;
+      return { employee, employeeId: employee.id, latestLocation, pendingLiveRequest, classicRequests: (db.locationRequests || []).filter((row) => row.employeeId === employee.id), liveRequests: liveRequests.filter((row) => row.employeeId === employee.id), liveResponses: liveResponses.filter((row) => row.employeeId === employee.id), accuracyMeters: accuracy || null, ageMinutes, quality: !latestLocation ? "NO_GPS" : accuracy > 300 ? "LOW_ACCURACY" : ageMinutes != null && ageMinutes > 120 ? "STALE_GPS" : "GOOD" };
+    });
+    const counts = rows.reduce((acc, row) => { acc.total++; if (row.pendingLiveRequest) acc.pending++; if (!row.latestLocation) acc.noGps++; if (row.quality === "LOW_ACCURACY") acc.lowAccuracy++; if (row.quality === "STALE_GPS") acc.stale++; if (row.quality === "GOOD") acc.good++; return acc; }, { total: 0, pending: 0, noGps: 0, lowAccuracy: 0, stale: 0, good: 0 });
+    return ok({ counts, rows, liveRequests, liveResponses, classicRequests: db.locationRequests || [], employeeLocations: stored, generatedAt: now() });
+  },
+  deviceCenter: async () => {
+    const db = loadDb();
+    const employees = visibleEmployees(db);
+    const passkeys = db.passkeyCredentials || [];
+    const pushRows = db.pushSubscriptions || [];
+    const approvals = db.trustedDeviceApprovalRequests || [];
+    const rows = employees.map((employee) => {
+      const employeePasskeys = passkeys.filter((row) => row.employeeId === employee.id || row.userId === employee.userId);
+      const employeePush = pushRows.filter((row) => row.employeeId === employee.id || row.userId === employee.userId);
+      const pendingApprovals = approvals.filter((row) => row.employeeId === employee.id && String(row.status || "").toUpperCase() === "PENDING");
+      const activePush = employeePush.filter((row) => row.isActive !== false && !["EXPIRED", "DISABLED", "FAILED"].includes(String(row.status || "").toUpperCase()));
+      return { employee, passkeys: employeePasskeys, pushSubscriptions: employeePush, pendingApprovals, activePush, deviceStatus: pendingApprovals.length ? "PENDING_APPROVAL" : activePush.length ? "PUSH_ACTIVE" : employeePasskeys.length ? "PASSKEY_ONLY" : "NO_DEVICE" };
+    });
+    const counts = rows.reduce((acc, row) => { acc.total++; acc[row.deviceStatus] = (acc[row.deviceStatus] || 0) + 1; return acc; }, { total: 0, PUSH_ACTIVE: 0, PASSKEY_ONLY: 0, PENDING_APPROVAL: 0, NO_DEVICE: 0 });
+    return ok({ counts, rows, passkeys, pushSubscriptions: pushRows, approvals: approvals.map((row) => ({ ...row, employee: employees.find((employee) => employee.id === row.employeeId) || null })), generatedAt: now() });
+  },
+  employeeDataQuality: async () => {
+    const db = loadDb();
+    const employees = visibleEmployees(db);
+    const roleIds = new Set((db.roles || []).map((role) => role.id));
+    const pushEmployees = new Set((db.pushSubscriptions || []).filter((row) => row.isActive !== false).map((row) => row.employeeId).filter(Boolean));
+    const issues = [];
+    const rows = employees.map((employee) => {
+      const employeeIssues = [];
+      if (!employee.phone) employeeIssues.push({ severity: "HIGH", title: "رقم الهاتف مفقود" });
+      if (!employee.managerEmployeeId && String(employee.role?.slug || "employee") === "employee") employeeIssues.push({ severity: "MEDIUM", title: "لا يوجد مدير مباشر" });
+      if (!employee.photoUrl && !employee.avatarUrl) employeeIssues.push({ severity: "LOW", title: "الصورة الشخصية غير مضافة" });
+      if (!employee.userId) employeeIssues.push({ severity: "HIGH", title: "لا يوجد حساب دخول مرتبط" });
+      if (employee.roleId && !roleIds.has(employee.roleId)) employeeIssues.push({ severity: "HIGH", title: "الدور غير موجود في جدول الأدوار" });
+      if (!pushEmployees.has(employee.id)) employeeIssues.push({ severity: "MEDIUM", title: "لا يوجد Push نشط" });
+      const pendingItems = workflowItems(db).filter((row) => row.employeeId === employee.id && ["PENDING", "OPEN", "IN_REVIEW"].includes(String(row.status || "").toUpperCase())).length;
+      const lastEvent = (db.attendanceEvents || []).filter((event) => event.employeeId === employee.id).sort((a,b) => new Date(b.eventAt || 0) - new Date(a.eventAt || 0))[0];
+      for (const issue of employeeIssues) issues.push({ ...issue, employeeId: employee.id, employee });
+      return { employee, issues: employeeIssues, issueCount: employeeIssues.length, highCount: employeeIssues.filter((x) => x.severity === "HIGH").length, lastAttendanceAt: lastEvent?.eventAt || "", pendingItems };
+    });
+    const score = Math.max(0, Math.round(100 - (issues.filter((i)=>i.severity==='HIGH').length * 7) - (issues.filter((i)=>i.severity==='MEDIUM').length * 3) - (issues.filter((i)=>i.severity==='LOW').length)));
+    return ok({ score, grade: score >= 90 ? "ممتاز" : score >= 75 ? "جيد" : "يحتاج ضبط", rows, issues, counts: { employees: employees.length, issues: issues.length, high: issues.filter((i)=>i.severity==='HIGH').length, medium: issues.filter((i)=>i.severity==='MEDIUM').length, low: issues.filter((i)=>i.severity==='LOW').length }, generatedAt: now() });
+  },
+  executiveDailyReport: async () => {
+    const db = loadDb();
+    const mobile = unwrap(await localEndpoints.executiveMobile());
+    const req = { summary: workflowSummary(db), rows: workflowItems(db) };
+    const notes = unwrap(await localEndpoints.notificationMonitor());
+    const quality = unwrap(await localEndpoints.employeeDataQuality());
+    const employees = mobile.employees || [];
+    const critical = [
+      ...employees.filter((e) => e.today?.pendingLiveRequest).map((e) => ({ type: "LOCATION_PENDING", employee: e, title: "طلب موقع بانتظار الرد", route: `executive-mobile?employeeId=${e.id}` })),
+      ...employees.filter((e) => !e.today?.latestLocation?.latitude && ["PRESENT", "LATE"].includes(e.today?.status)).map((e) => ({ type: "GPS_MISSING", employee: e, title: "حاضر بدون GPS حديث", route: `executive-mobile?employeeId=${e.id}` })),
+      ...(quality.issues || []).filter((i) => i.severity === "HIGH").slice(0, 20).map((i) => ({ type: "DATA_QUALITY", employee: i.employee, title: i.title, route: `employee-archive?id=${i.employeeId}` })),
+    ];
+    return ok({ day: dateKey(), counts: mobile.counts || {}, requestSummary: req.summary, notificationMetrics: notes.metrics || {}, quality: quality.counts || {}, critical, employees, generatedAt: now() });
+  },
+  permissionOverview: async () => {
+    const db = loadDb();
+    const employees = visibleEmployees(db);
+    const users = db.users || [];
+    const rows = (db.roles || []).map((role) => {
+      const rolePerms = role.permissions || [];
+      const employeeCount = employees.filter((employee) => employee.roleId === role.id || employee.role?.id === role.id || employee.role?.slug === role.slug).length;
+      const userCount = users.filter((user) => user.roleId === role.id || user.role?.id === role.id || user.role?.slug === role.slug).length;
+      const risk = rolePerms.includes("*") ? "FULL_ACCESS" : rolePerms.some((scope) => /users:manage|settings:manage|sensitive-actions:approve/i.test(scope)) ? "SENSITIVE" : "NORMAL";
+      return { ...role, permissions: rolePerms, employeeCount, userCount, risk };
+    });
+    return ok({ roles: rows, permissions: db.permissions || [], employees, users, generatedAt: now() });
+  },
   createAnnouncement: async (body = {}) => {
     const db = loadDb();
     const audience = body.audience || "all";
@@ -3364,27 +3564,31 @@ const localEndpoints = {
     if (!body.employeeId) throw new Error("اختر الموظف أولًا.");
     if (!canSeeEmployee(db, body.employeeId)) throw new Error("لا يمكنك تقييم هذا الموظف.");
     const user = currentUser(db);
-    const selfOnly = !isFullAccessUser(db) && !hasLocalScope(db, "kpi:team") && !hasLocalScope(db, "kpi:hr");
-    const managerReview = hasLocalScope(db, "kpi:team") && !hasLocalScope(db, "kpi:hr") && !isFullAccessUser(db);
-    const hrReview = hasLocalScope(db, "kpi:hr") && !isFullAccessUser(db);
-    const defaultStatus = selfOnly ? "SELF_SUBMITTED" : managerReview ? "MANAGER_APPROVED" : hrReview ? "HR_REVIEWED" : (body.status || "SECRETARY_REVIEWED");
-    assertKpiSubmitAllowed(db, selfOnly ? "self" : managerReview ? "manager" : hrReview ? "hr" : "admin");
-    const normalized = normalizeKpiEvaluation(db, { ...body, status: body.status || defaultStatus });
+    const isSelfTarget = body.employeeId === user?.employeeId;
+    const selfOnly = isSelfTarget || (!isFullAccessUser(db) && !hasLocalScope(db, "kpi:team") && !hasLocalScope(db, "kpi:hr") && !hasLocalScope(db, "kpi:executive") && !hasLocalScope(db, "kpi:final-approve"));
+    const managerReview = !isSelfTarget && hasLocalScope(db, "kpi:team") && !hasLocalScope(db, "kpi:hr") && !isFullAccessUser(db);
+    const hrReview = !isSelfTarget && hasLocalScope(db, "kpi:hr") && !isFullAccessUser(db);
+    const executiveReview = !isSelfTarget && (hasLocalScope(db, "kpi:executive") || hasLocalScope(db, "kpi:final-approve")) && !isFullAccessUser(db);
+    const defaultStatus = selfOnly ? "SELF_SUBMITTED" : managerReview ? "MANAGER_APPROVED" : hrReview ? "HR_REVIEWED" : executiveReview ? "EXECUTIVE_APPROVED" : (body.status || "SECRETARY_REVIEWED");
+    const mode = selfOnly ? "self" : managerReview ? "manager" : hrReview ? "hr" : executiveReview ? "executive" : "secretary";
+    assertKpiSubmitAllowed(db, mode === "secretary" || mode === "executive" ? "admin" : mode);
+    const normalized = normalizeKpiEvaluation(db, { ...body, status: canonicalKpiStatus(body.status || defaultStatus) });
     let evaluation = (db.kpiEvaluations || []).find((item) => item.employeeId === normalized.employeeId && item.cycleId === normalized.cycleId);
-    const previous = evaluation || {};
+    const previous = evaluation || null;
+    ensureKpiWorkflowTransition(db, previous, normalized, mode, user);
     if (selfOnly || managerReview) {
-      normalized.attendanceScore = Number(previous.attendanceScore ?? attendanceScoreForEmployee(db, normalized.employeeId, currentKpiCycle(db)) ?? 0);
-      normalized.prayerScore = Number(previous.prayerScore ?? 0);
-      normalized.quranCircleScore = Number(previous.quranCircleScore ?? 0);
-      normalized.hrNotes = previous.hrNotes || "";
+      normalized.attendanceScore = Number(previous?.attendanceScore ?? attendanceScoreForEmployee(db, normalized.employeeId, currentKpiCycle(db)) ?? 0);
+      normalized.prayerScore = Number(previous?.prayerScore ?? 0);
+      normalized.quranCircleScore = Number(previous?.quranCircleScore ?? 0);
+      normalized.hrNotes = previous?.hrNotes || "";
     }
     if (hrReview) {
-      normalized.targetScore = Number(previous.targetScore ?? normalized.targetScore ?? 0);
-      normalized.efficiencyScore = Number(previous.efficiencyScore ?? normalized.efficiencyScore ?? 0);
-      normalized.conductScore = Number(previous.conductScore ?? normalized.conductScore ?? 0);
-      normalized.initiativesScore = Number(previous.initiativesScore ?? normalized.initiativesScore ?? 0);
-      normalized.employeeNotes = previous.employeeNotes || normalized.employeeNotes || "";
-      normalized.managerNotes = previous.managerNotes || normalized.managerNotes || "";
+      normalized.targetScore = Number(previous?.targetScore ?? normalized.targetScore ?? 0);
+      normalized.efficiencyScore = Number(previous?.efficiencyScore ?? normalized.efficiencyScore ?? 0);
+      normalized.conductScore = Number(previous?.conductScore ?? normalized.conductScore ?? 0);
+      normalized.initiativesScore = Number(previous?.initiativesScore ?? normalized.initiativesScore ?? 0);
+      normalized.employeeNotes = previous?.employeeNotes || normalized.employeeNotes || "";
+      normalized.managerNotes = previous?.managerNotes || normalized.managerNotes || "";
     }
     normalized.totalScore = ["targetScore", "efficiencyScore", "attendanceScore", "conductScore", "prayerScore", "quranCircleScore", "initiativesScore"].reduce((sum, key) => sum + Number(normalized[key] || 0), 0);
     normalized.grade = kpiGrade(normalized.totalScore);
@@ -3415,14 +3619,19 @@ const localEndpoints = {
     const before = clone(evaluation);
     if (!canSeeEmployee(db, evaluation.employeeId) || (!isFullAccessUser(db) && !hasLocalScope(db, "kpi:team") && !hasLocalScope(db, "kpi:hr") && !hasLocalScope(db, "kpi:manage") && !hasLocalScope(db, "kpi:executive") && !hasLocalScope(db, "kpi:final-approve"))) throw new Error("الاعتماد متاح للمدير المباشر أو HR أو الإدارة التنفيذية فقط.");
     const user = currentUser(db);
-    Object.assign(evaluation, body, { updatedAt: now(), managerEmployeeId: evaluation.managerEmployeeId || user?.employeeId || "" });
+    const nextStatus = body.status ? canonicalKpiStatus(body.status) : canonicalKpiStatus(evaluation.status);
+    const isSelfTarget = evaluation.employeeId === user?.employeeId;
+    const mode = nextStatus === "MANAGER_APPROVED" ? "manager" : nextStatus === "HR_REVIEWED" ? "hr" : nextStatus === "EXECUTIVE_APPROVED" ? "executive" : nextStatus === "SECRETARY_REVIEWED" ? "secretary" : isSelfTarget ? "self" : "admin";
+    ensureKpiWorkflowTransition(db, before, { ...evaluation, ...body, status: nextStatus }, mode, user);
+    Object.assign(evaluation, body, { status: nextStatus, updatedAt: now(), managerEmployeeId: evaluation.managerEmployeeId || user?.employeeId || "" });
+    recalculateKpiTotals(evaluation);
     evaluation.workflow ||= [];
-    if (body.status) evaluation.workflow.push({ at: now(), by: user?.name || "النظام", action: body.status, note: body.managerNotes || body.hrNotes || body.secretaryNotes || body.executiveNotes || kpiStageLabel(body.status) });
-    if (["APPROVED", "EXECUTIVE_APPROVED"].includes(body.status)) evaluation.approvedAt = now();
-    if (["SUBMITTED", "SELF_SUBMITTED"].includes(body.status)) evaluation.submittedAt = now();
+    if (body.status) evaluation.workflow.push({ at: now(), by: user?.name || "النظام", action: nextStatus, note: body.managerNotes || body.hrNotes || body.secretaryNotes || body.executiveNotes || kpiStageLabel(nextStatus) });
+    if (["APPROVED", "EXECUTIVE_APPROVED"].includes(nextStatus)) evaluation.approvedAt = now();
+    if (["SUBMITTED", "SELF_SUBMITTED"].includes(nextStatus)) evaluation.submittedAt = now();
     const targetEmployee = findById(db.employees, evaluation.employeeId);
-    const nextIds = body.status === "MANAGER_APPROVED" ? ["emp-hr-manager"] : body.status === "HR_REVIEWED" ? ["emp-executive-secretary"] : body.status === "SECRETARY_REVIEWED" ? ["emp-executive-director"] : [];
-    notifyManyEmployees(db, nextIds.filter(Boolean), "تقييم KPI تم رفعه", `${targetEmployee?.fullName || "موظف"} — ${kpiStageLabel(body.status)}`, "ACTION_REQUIRED");
+    const nextIds = nextStatus === "MANAGER_APPROVED" ? ["emp-hr-manager"] : nextStatus === "HR_REVIEWED" ? ["emp-executive-secretary"] : nextStatus === "SECRETARY_REVIEWED" ? ["emp-executive-director"] : [];
+    notifyManyEmployees(db, nextIds.filter(Boolean), "تقييم KPI تم رفعه", `${targetEmployee?.fullName || "موظف"} — ${kpiStageLabel(nextStatus)}`, "ACTION_REQUIRED");
     audit(db, "workflow", "kpi_evaluation", id, before, evaluation);
     saveDb(db);
     return ok(evaluation);
@@ -4452,12 +4661,18 @@ const localEndpoints = {
       "078_precise_ahla_manil_location.sql",
       "079_v26_notification_reliability.sql",
       "080_live_location_alert_reliability.sql",
-      "089_codex_full_deploy_alignment.sql"
+      "088_final_audit_alignment.sql",
+      "089_codex_full_deploy_alignment.sql",
+      "090_executive_location_selfie_live_request_hotfix.sql",
+      "094_workflow_mobile_role_alignment.sql",
+      "095_kpi_workflow_polish.sql",
+      "096_kpi_automation_mobile_reports.sql",
+      "098_location_security_edge_hardening.sql"
     ];
     db.migrationStatus ||= [];
     const normalizeMigrationName = (name = "") => String(name).replace(/\.sql$/i, "");
     const applied = new Set(db.migrationStatus.flatMap((item) => [item.name, normalizeMigrationName(item.name)]));
-    return ok({ expectedPatch: "089_codex_full_deploy_alignment", rows: expected.map((name, index) => {
+    return ok({ expectedPatch: "098_location_security_edge_hardening", rows: expected.map((name, index) => {
       const marker = normalizeMigrationName(name);
       const isApplied = applied.has(name) || applied.has(marker);
       return { name, marker, order: index + 1, status: isApplied ? "APPLIED" : (index === expected.length - 1 ? "NEW" : "CHECK_MANUALLY") };
@@ -4491,6 +4706,69 @@ const localEndpoints = {
   },
 };
 
+
+// 094: local fallback for mobile role alignment and workflow automation.
+Object.assign(localEndpoints, {
+  mobilePortalAlignment: async () => {
+    const db = loadDb();
+    const usersByEmployee = new Map((db.users || []).map((u) => [u.employeeId, u]));
+    const roleOf = (item = {}) => String(item.role || item.userRole || item.appRole || item.permissions?.__role || '').toUpperCase();
+    const deviceRows = db.pushSubscriptions || [];
+    const rows = (db.employees || []).map((employee) => {
+      const user = usersByEmployee.get(employee.id) || null;
+      const teamCount = (db.employees || []).filter((x) => x.managerId === employee.id).length;
+      const activePush = deviceRows.filter((d) => d.employeeId === employee.id && d.isActive !== false).length;
+      const issues = [];
+      if (!user) issues.push('NO_LOGIN_ACCOUNT');
+      if (!employee.phone) issues.push('NO_PHONE');
+      if (teamCount && !/MANAGER|EXECUTIVE|HR/.test(roleOf(user || employee))) issues.push('MANAGER_ROLE_NEEDS_REVIEW');
+      if (!activePush) issues.push('PUSH_NOT_ENABLED');
+      return { employee, user, teamCount, isManager: teamCount > 0, isCommittee: Boolean(employee.disputeCommittee || employee.isDisputeCommittee || /DISPUTE|COMMITTEE|HR|EXECUTIVE|SECRETARY|TECH/.test(roleOf(user || employee))), activePush, deviceStatus: activePush ? 'PUSH_ACTIVE' : 'NO_DEVICE', issues };
+    });
+    return ok({ rows, managers: rows.filter((r) => r.isManager).map((r) => r.employee), committee: rows.filter((r) => r.isCommittee).map((r) => r.employee), qualityIssues: [], generatedAt: now() });
+  },
+  managerMobileHub: async () => {
+    const db = loadDb(); const user = currentUser(db); const employeeId = user?.employeeId || user?.employee?.id || '';
+    const team = (db.employees || []).filter((e) => e.managerId === employeeId || e.managerEmployeeId === employeeId || e.directManagerId === employeeId);
+    const ids = new Set(team.map((e) => e.id));
+    const pendingLeaves = (db.leaveRequests || db.leaves || []).filter((r) => ids.has(r.employeeId) && ['PENDING','MANAGER_REVIEW','SUBMITTED'].includes(String(r.status || '').toUpperCase()));
+    const pendingMissions = (db.missions || []).filter((r) => ids.has(r.employeeId) && ['PENDING','MANAGER_REVIEW','SUBMITTED'].includes(String(r.status || '').toUpperCase()));
+    const kpiPending = (db.kpiEvaluations || []).filter((r) => ids.has(r.employeeId) && ['SELF_SUBMITTED','EMPLOYEE_SUBMITTED'].includes(String(r.status || '').toUpperCase())).map((r) => ({ ...r, employee: enrichEmployee(db, findById(db.employees, r.employeeId)), manager: enrichEmployee(db, findById(db.employees, r.managerEmployeeId || employeeId)) }));
+    const notifications = (db.notifications || []).filter((n) => !n.isRead).slice(0, 20);
+    return ok({ manager: user?.employee || null, team, pendingLeaves, pendingMissions, kpiPending, notifications, totals: { team: team.length, pendingLeaves: pendingLeaves.length, pendingMissions: pendingMissions.length, kpiPending: kpiPending.length }, generatedAt: now() });
+  },
+  committeeMobileHub: async () => {
+    const db = loadDb(); const user = currentUser(db); const employeeId = user?.employeeId || user?.employee?.id || '';
+    const rows = (db.disputeCases || db.disputes || []).filter((d) => {
+      const members = d.committeeMemberIds || d.assignedEmployeeIds || [];
+      const status = String(d.status || '').toUpperCase();
+      return members.includes?.(employeeId) || ['NEW','OPEN','ESCALATED','COMMITTEE_REVIEW','PENDING'].includes(status) || d.employeeId === employeeId || d.createdByEmployeeId === employeeId;
+    });
+    const urgent = rows.filter((d) => ['NEW','ESCALATED','HIGH','URGENT'].includes(String(d.priority || d.status || '').toUpperCase()));
+    const notifications = (db.notifications || []).filter((n) => String(n.route || '').includes('dispute') || String(n.type || '').includes('DISPUTE')).slice(0, 20);
+    return ok({ rows, urgent, notifications, totals: { total: rows.length, urgent: urgent.length, open: rows.filter((d) => !['CLOSED','RESOLVED','CANCELLED'].includes(String(d.status || '').toUpperCase())).length }, generatedAt: now() });
+  },
+  workflowAutomationCenter: async () => {
+    const alignment = unwrap(await localEndpoints.mobilePortalAlignment());
+    const quality = await localEndpoints.qualityCenter?.().then(unwrap).catch(() => ({ readiness: { issues: [] } }));
+    const notificationCenter = await localEndpoints.notificationCenter?.().then(unwrap).catch(() => ({ unread: [] }));
+    const locationCenter = await localEndpoints.locationMonitoringCenter?.().then(unwrap).catch(() => ({ pendingRequests: [] }));
+    const urgentFixes = [];
+    (alignment.rows || []).forEach((row) => row.issues?.forEach((code) => urgentFixes.push({ code, employee: row.employee, title: code === 'PUSH_NOT_ENABLED' ? 'Push غير مفعل' : 'مشكلة ربط مستخدم', route: 'mobile-alignment' })));
+    (locationCenter.pendingRequests || []).slice(0, 20).forEach((req) => urgentFixes.push({ code: 'PENDING_LOCATION_REQUEST', title: 'طلب موقع لم يتم الرد عليه', request: req, route: 'locations' }));
+    (quality.readiness?.issues || []).slice(0, 20).forEach((issue) => urgentFixes.push({ code: issue.code || 'QUALITY', title: issue.title || issue.label || 'مشكلة جودة بيانات', route: issue.route || 'quality-center', issue }));
+    return ok({ alignment, notificationCenter, locationCenter, quality, urgentFixes, totals: { urgentFixes: urgentFixes.length, managers: alignment.managers?.length || 0, committee: alignment.committee?.length || 0 }, generatedAt: now() });
+  },
+  createWorkflowAutomationAlerts: async () => {
+    const db = loadDb();
+    const center = unwrap(await localEndpoints.workflowAutomationCenter());
+    db.notifications ||= [];
+    const rows = (center.urgentFixes || []).slice(0, 50).map((item) => ({ id: makeId('note'), employeeId: item.employee?.id || item.request?.employeeId || null, title: item.title || 'مطلوب متابعة تشغيلية', body: item.code || 'راجع مركز الربط والتشغيل', type: item.code?.includes('PUSH') ? 'PUSH_SETUP' : 'WORKFLOW_ALERT', route: item.route || 'action-center', isRead: false, createdAt: now(), data: { code: item.code || 'WORKFLOW_ALERT' } }));
+    db.notifications.unshift(...rows); saveDb(db);
+    return ok({ ok: true, created: rows.length, generatedAt: now() });
+  },
+});
+
 export const endpoints = new Proxy(localEndpoints, {
   get(target, prop) {
     if (prop in supabaseEndpoints) {
@@ -4500,7 +4778,7 @@ export const endpoints = new Proxy(localEndpoints, {
             return await supabaseEndpoints[prop](...args);
           } catch (error) {
             if (supabaseModeIsStrict()) throw error;
-            console.warn("Supabase mode failed; falling back to localStorage:", error);
+            debugWarn("Supabase mode failed; falling back to localStorage:", error);
           }
         }
         if (prop in remoteEndpoints) {
@@ -4509,7 +4787,7 @@ export const endpoints = new Proxy(localEndpoints, {
               return await remoteEndpoints[prop](...args);
             } catch (error) {
               if (new URLSearchParams(location.search).get("api") && new URLSearchParams(location.search).get("api") !== "local") throw error;
-              console.warn("API mode failed; falling back to localStorage:", error);
+              debugWarn("API mode failed; falling back to localStorage:", error);
             }
           }
         }
@@ -4523,7 +4801,7 @@ export const endpoints = new Proxy(localEndpoints, {
             return await remoteEndpoints[prop](...args);
           } catch (error) {
             if (new URLSearchParams(location.search).get("api") && new URLSearchParams(location.search).get("api") !== "local") throw error;
-            console.warn("API mode failed; falling back to localStorage:", error);
+            debugWarn("API mode failed; falling back to localStorage:", error);
           }
         }
         return target[prop](...args);

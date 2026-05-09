@@ -1997,3 +1997,551 @@ body.employee-portal .live-location-alert-actions .button {
   body.employee-portal .live-location-alert-modal { padding: 20px; }
   body.employee-portal .live-location-alert-actions { grid-template-columns: 1fr; }
 }
+
+/* 094 employee mobile role addons */
+.manager-mobile-hub .accent-card,
+.committee-mobile-hub .disputes-hero-card {
+  background: linear-gradient(135deg, rgba(30, 64, 175, .88), rgba(124, 58, 237, .72));
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.16);
+}
+.employee-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: .75rem;
+  margin-top: 1rem;
+}
+.employee-metrics > div {
+  border-radius: 18px;
+  padding: .85rem;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.12);
+}
+.employee-metrics span { display: block; opacity: .82; font-size: .78rem; }
+.employee-metrics strong { display: block; font-size: 1.45rem; margin-top: .25rem; }
+.employee-table-wrap { overflow-x: auto; border-radius: 16px; border: 1px solid rgba(148, 163, 184, .18); }
+.employee-mini-table { width: 100%; border-collapse: collapse; min-width: 480px; }
+.employee-mini-table th,
+.employee-mini-table td { padding: .72rem .85rem; border-bottom: 1px solid rgba(148, 163, 184, .14); text-align: right; }
+.employee-mini-table th { font-size: .78rem; opacity: .78; }
+.employee-mini-table tr:last-child td { border-bottom: 0; }
+
+/* v095 mobile KPI workflow polish */
+.employee-portal .kpi-advanced .accent-card {
+  border-color: rgba(59, 130, 246, .34);
+  background: radial-gradient(circle at top right, rgba(37, 99, 235, .22), transparent 42%), linear-gradient(135deg, rgba(15, 23, 42, .98), rgba(17, 24, 39, .94));
+}
+.employee-portal .kpi-slider-field {
+  border: 1px solid rgba(148, 163, 184, .18);
+  border-radius: 1.15rem;
+  padding: .9rem;
+  background: rgba(15, 23, 42, .55);
+}
+.employee-portal .kpi-slider-field.is-readonly {
+  opacity: .78;
+  background: rgba(30, 41, 59, .5);
+}
+.employee-portal .kpi-progress {
+  height: .45rem;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(148, 163, 184, .18);
+  margin-top: .45rem;
+}
+.employee-portal .kpi-progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #38bdf8, #6366f1, #22c55e);
+}
+
+/* v31-production-hardening-098: manager KPI mobile review */
+.manager-kpi-mobile-page .accent-card{background:linear-gradient(135deg,rgba(37,99,235,.28),rgba(168,85,247,.18));border-color:rgba(96,165,250,.35)}.manager-kpi-review-card{border:1px solid rgba(96,165,250,.28);background:linear-gradient(180deg,rgba(15,23,42,.88),rgba(30,41,59,.72))}.kpi-mobile-score-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}.kpi-mobile-score-grid label{display:grid;gap:.35rem}.kpi-mobile-score-grid input,.manager-kpi-review-card textarea{width:100%;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(2,6,23,.42);color:#fff;padding:.75rem}.manager-kpi-review-card textarea{min-height:84px}@media(max-width:560px){.kpi-mobile-score-grid{grid-template-columns:1fr}.manager-kpi-review-card .panel-head{align-items:flex-start}}
+
+/* ============================================================
+   HR v099 Employee Portal — UX & Mobile Enhancements
+   ============================================================ */
+
+/* ── Smooth punch orb animation ── */
+body.employee-portal .punch-orb {
+  font-size: 64px;
+  line-height: 1;
+  text-align: center;
+  padding: 20px;
+  filter: drop-shadow(0 0 16px rgba(0,194,255,.32));
+  animation: emp-orb-breathe 2.8s ease-in-out infinite;
+}
+
+@keyframes emp-orb-breathe {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 12px rgba(0,194,255,.28)); }
+  50%       { transform: scale(1.06); filter: drop-shadow(0 0 22px rgba(0,194,255,.48)); }
+}
+
+/* ── Primary punch button ── */
+body.employee-portal .punch-primary-card .button.primary {
+  min-height: 60px;
+  font-size: 18px !important;
+  border-radius: 18px !important;
+  letter-spacing: 0 !important;
+  position: relative;
+  overflow: hidden;
+}
+
+body.employee-portal .punch-primary-card .button.primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);
+  transform: translateX(-100%);
+  animation: emp-shimmer 2.4s ease-in-out infinite;
+}
+
+@keyframes emp-shimmer {
+  0%   { transform: translateX(-100%); }
+  60%  { transform: translateX(100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ── Action cards on home screen ── */
+body.employee-portal .quick-action-card {
+  position: relative;
+  overflow: hidden;
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease !important;
+}
+
+body.employee-portal .quick-action-card:hover,
+body.employee-portal .quick-action-card:focus-visible {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 10px 28px rgba(0,80,200,.20) !important;
+  border-color: rgba(0,194,255,.40) !important;
+}
+
+body.employee-portal .quick-action-card:active {
+  transform: scale(.97) !important;
+  transition-duration: .08s !important;
+}
+
+/* ── GPS status indicator ── */
+body.employee-portal .gps-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  background: var(--emp-warning);
+}
+
+body.employee-portal .gps-status-dot.ok    { background: var(--emp-success); box-shadow: 0 0 0 4px rgba(73,211,154,.16); animation: emp-gps-pulse 2s ease-in-out infinite; }
+body.employee-portal .gps-status-dot.error { background: var(--emp-danger); box-shadow: 0 0 0 4px rgba(255,107,122,.14); }
+
+@keyframes emp-gps-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(73,211,154,.16); }
+  50%       { box-shadow: 0 0 0 8px rgba(73,211,154,.06); }
+}
+
+/* ── Result message box ── */
+body.employee-portal .message.compact {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--emp-line-strong);
+  background: rgba(17,29,51,.72);
+  color: var(--emp-text);
+  font-size: 13px;
+  line-height: 1.65;
+  animation: emp-msg-in .22s ease both;
+}
+
+body.employee-portal .message.compact.success { border-color: rgba(73,211,154,.42); background: rgba(73,211,154,.1); color: #b3f0d6; }
+body.employee-portal .message.compact.error   { border-color: rgba(255,107,122,.42); background: rgba(255,107,122,.1); color: #ffd5da; }
+
+@keyframes emp-msg-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Notification badge ── */
+body.employee-portal .notif-badge {
+  position: absolute;
+  top: 6px;
+  inset-inline-end: 6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--emp-danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--emp-bg);
+  animation: emp-notif-pop .3s cubic-bezier(.34,1.56,.64,1) both;
+}
+
+@keyframes emp-notif-pop {
+  from { transform: scale(0); }
+  to   { transform: scale(1); }
+}
+
+/* ── Loading state shimmer for employee cards ── */
+body.employee-portal .employee-card.is-loading * { animation: emp-skeleton 1.6s ease infinite !important; }
+
+body.employee-portal .emp-skeleton {
+  background: linear-gradient(90deg,rgba(26,42,74,.4) 25%,rgba(26,42,74,.7) 50%,rgba(26,42,74,.4) 75%);
+  background-size: 200% 100%;
+  border-radius: 8px;
+  animation: emp-skeleton 1.6s ease infinite;
+  color: transparent !important;
+  border-color: transparent !important;
+}
+
+@keyframes emp-skeleton {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Slide-up page transition ── */
+body.employee-portal .employee-main > * {
+  animation: emp-page-in .26s ease both;
+}
+
+@keyframes emp-page-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Leave status indicators ── */
+body.employee-portal .leave-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ── Profile avatar ring ── */
+body.employee-portal .avatar.profile-avatar {
+  box-shadow: 0 0 0 3px var(--emp-line-strong), 0 0 0 6px rgba(56,199,244,.1);
+}
+
+/* ── Punch type label text ── */
+body.employee-portal [data-punch-type="in"] {
+  background: linear-gradient(135deg,rgba(0,214,143,.9),rgba(0,194,255,.8)) !important;
+  color: #031022 !important;
+  border-color: rgba(0,214,143,.5) !important;
+}
+
+body.employee-portal [data-punch-type="out"] {
+  background: linear-gradient(135deg,rgba(255,59,107,.88),rgba(255,140,0,.8)) !important;
+  color: #fff !important;
+  border-color: rgba(255,59,107,.5) !important;
+}
+
+/* ── Responsive ── */
+@media (max-width: 380px) {
+  body.employee-portal .employee-topbar { min-height: 64px; padding-top: calc(8px + env(safe-area-inset-top)); }
+  body.employee-portal .employee-main { padding: 14px 12px 22px; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   v101 EMPLOYEE APP UX IMPROVEMENTS
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Login screen ── */
+.employee-login-wrap {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 20px 40px;
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(56,199,244,.10) 0%, transparent 65%),
+              var(--bg-deep);
+}
+.login-logo-ring {
+  width: 90px; height: 90px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(56,199,244,.18), rgba(87,218,245,.08));
+  border: 1px solid rgba(56,199,244,.28);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 40px;
+  margin-bottom: 20px;
+  box-shadow: 0 0 0 8px rgba(56,199,244,.06), 0 20px 50px rgba(0,0,0,.4);
+  animation: ringPulse 3s ease-in-out infinite;
+}
+@keyframes ringPulse {
+  0%,100% { box-shadow: 0 0 0 8px rgba(56,199,244,.06), 0 20px 50px rgba(0,0,0,.4); }
+  50%      { box-shadow: 0 0 0 16px rgba(56,199,244,.10), 0 20px 50px rgba(0,0,0,.4); }
+}
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  padding: 32px 28px 28px;
+  box-shadow: 0 32px 80px rgba(0,0,0,.45);
+  backdrop-filter: blur(20px);
+}
+.login-card h1 {
+  font-size: clamp(20px, 5vw, 26px);
+  margin: 0 0 6px;
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.login-subtitle {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 24px;
+}
+
+/* ── Hero home card ── */
+.hero-home-card {
+  background: linear-gradient(135deg,
+    rgba(56,199,244,.14) 0%,
+    rgba(87,218,245,.06) 50%,
+    rgba(13,23,41,.6) 100%);
+  border: 1px solid rgba(56,199,244,.22);
+  border-radius: var(--radius-xl);
+  padding: 24px 22px;
+  position: relative;
+  overflow: hidden;
+}
+.hero-home-card::before {
+  content: '';
+  position: absolute;
+  top: -40px; right: -30px;
+  width: 160px; height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(56,199,244,.12), transparent 70%);
+  pointer-events: none;
+}
+.hero-greeting {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+.hero-name {
+  font-size: clamp(20px, 5vw, 26px);
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 16px;
+}
+.hero-stats-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.hero-stat {
+  flex: 1 1 80px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 14px;
+  padding: 10px 12px;
+  text-align: center;
+}
+.hero-stat .stat-val {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--brand);
+  display: block;
+  line-height: 1.1;
+}
+.hero-stat .stat-lbl {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  display: block;
+  margin-top: 3px;
+}
+
+/* ── Quick actions grid ── */
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.quick-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 16px 8px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  cursor: pointer;
+  text-align: center;
+  transition: background .2s, border-color .2s, transform .15s;
+  color: var(--text);
+  text-decoration: none;
+}
+.quick-action-btn:hover {
+  background: var(--surface-raised);
+  border-color: var(--brand);
+  transform: translateY(-2px);
+}
+.quick-action-btn:active { transform: scale(.96); }
+.quick-action-btn .qa-icon {
+  font-size: 24px;
+  line-height: 1;
+  display: block;
+}
+.quick-action-btn .qa-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  line-height: 1.2;
+}
+.quick-action-btn.primary-action {
+  background: linear-gradient(135deg, rgba(56,199,244,.18), rgba(56,199,244,.08));
+  border-color: rgba(56,199,244,.35);
+}
+.quick-action-btn.primary-action .qa-label { color: var(--brand); }
+
+/* ── Punch orb improvements ── */
+.punch-orb-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 0;
+  gap: 20px;
+}
+.punch-orb {
+  width: 160px; height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%,
+    rgba(56,199,244,.40) 0%,
+    rgba(56,199,244,.15) 45%,
+    rgba(5,11,22,.8) 100%);
+  border: 2px solid rgba(56,199,244,.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: transform .2s, box-shadow .3s;
+  box-shadow:
+    0 0 0 8px rgba(56,199,244,.06),
+    0 0 0 20px rgba(56,199,244,.03),
+    0 24px 60px rgba(0,0,0,.5);
+}
+.punch-orb::before {
+  content: '';
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  border: 1px solid rgba(56,199,244,.18);
+  animation: orbRing 2.5s ease-in-out infinite;
+}
+.punch-orb::after {
+  content: '';
+  position: absolute;
+  inset: -24px;
+  border-radius: 50%;
+  border: 1px solid rgba(56,199,244,.08);
+  animation: orbRing 2.5s ease-in-out .5s infinite;
+}
+@keyframes orbRing {
+  0%,100% { transform: scale(1); opacity: .6; }
+  50%      { transform: scale(1.05); opacity: 1; }
+}
+.punch-orb:hover {
+  transform: scale(1.06);
+  box-shadow:
+    0 0 0 12px rgba(56,199,244,.10),
+    0 0 0 28px rgba(56,199,244,.04),
+    0 28px 70px rgba(0,0,0,.6);
+}
+.punch-orb.punched-in {
+  background: radial-gradient(circle at 35% 35%,
+    rgba(73,211,154,.35) 0%,
+    rgba(73,211,154,.12) 45%,
+    rgba(5,11,22,.8) 100%);
+  border-color: rgba(73,211,154,.4);
+  box-shadow:
+    0 0 0 8px rgba(73,211,154,.07),
+    0 0 0 20px rgba(73,211,154,.03),
+    0 24px 60px rgba(0,0,0,.5);
+}
+.punch-orb.punched-in::before,
+.punch-orb.punched-in::after { border-color: rgba(73,211,154,.2); }
+.punch-orb-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--brand);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  margin-top: 6px;
+}
+.punch-orb.punched-in .punch-orb-label { color: var(--success); }
+.punch-orb-time {
+  font-size: 28px;
+  font-weight: 900;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* ── GPS status indicator ── */
+.gps-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid;
+}
+.gps-status.acquiring {
+  background: rgba(247,199,107,.08);
+  border-color: rgba(247,199,107,.25);
+  color: var(--warning);
+}
+.gps-status.acquired {
+  background: rgba(73,211,154,.08);
+  border-color: rgba(73,211,154,.25);
+  color: var(--success);
+}
+.gps-status.error {
+  background: rgba(255,107,122,.08);
+  border-color: rgba(255,107,122,.25);
+  color: var(--danger);
+}
+.gps-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.gps-status.acquiring .gps-dot {
+  animation: gpsAcquire .9s ease-in-out infinite alternate;
+}
+@keyframes gpsAcquire {
+  from { opacity: .3; transform: scale(.8); }
+  to   { opacity: 1; transform: scale(1.2); }
+}
+
+/* ── Notification badge on nav ── */
+.nav-badge {
+  position: absolute;
+  top: -3px;
+  inset-inline-end: -3px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 900;
+  min-width: 16px; height: 16px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 4px;
+  border: 2px solid var(--bg);
+}
+

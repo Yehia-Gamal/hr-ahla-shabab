@@ -32,6 +32,15 @@ function minutesFromNow(minutes: number) {
 }
 
 Deno.serve(async (req) => {
+  try {
+    return await handleRequest(req);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error ?? "Unexpected error");
+    return json(req, { ok: false, error: "INTERNAL_FUNCTION_ERROR", message }, 500);
+  }
+});
+
+async function handleRequest(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return options(req);
   if (req.method !== 'POST') return json(req, { error: 'METHOD_NOT_ALLOWED' }, 405);
 
@@ -56,7 +65,6 @@ Deno.serve(async (req) => {
 
   const { data, error } = await adminClient.rpc('resolve_login_identifier', { login_identifier: phone });
   if (error) {
-    console.warn('resolve_login_identifier failed', error.message);
     return json(req, { error: 'RESOLVER_UNAVAILABLE' }, 503);
   }
 
@@ -94,4 +102,4 @@ Deno.serve(async (req) => {
 
   if (blockedUntil) return json(req, { error: 'RATE_LIMITED', retryAfterSeconds: blockMinutes * 60 }, 429);
   return json(req, { error: 'ACCOUNT_NOT_FOUND' }, 404);
-});
+}

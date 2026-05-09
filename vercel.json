@@ -5,7 +5,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://nominatim.openstreetmap.org https://esm.sh; font-src 'self' https://fonts.gstatic.com data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://esm.sh https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; media-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://nominatim.openstreetmap.org https://esm.sh https://api.github.com; font-src 'self' https://fonts.gstatic.com data:; frame-src https://www.openstreetmap.org https://maps.google.com; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         },
         {
           "key": "Strict-Transport-Security",
@@ -54,6 +54,14 @@
     {
       "source": "/operations-gate",
       "destination": "/operations-gate/index.html"
+    },
+    {
+      "source": "/health",
+      "destination": "/health.html"
+    },
+    {
+      "source": "/admin-login",
+      "destination": "/admin-login.html"
     }
   ]
 }

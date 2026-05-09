@@ -1,3 +1,7 @@
+const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
+const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };
+const debugError = (...args) => { if (debugEnabled()) globalThis.console?.error?.(...args); };
+const debugInfo = (...args) => { if (debugEnabled()) globalThis.console?.info?.(...args); };
 // Attendance Identity Guard V3
 // Adds policy acknowledgement, HR-approved devices, branch QR challenge, anti-GPS-spoofing signals,
 // browser install id, and fallback attendance request helpers.
@@ -70,7 +74,7 @@ export async function ensureAttendancePolicyAcknowledged({ endpoints, employee, 
       userAgent: navigator.userAgent || "",
     });
   } catch (error) {
-    console.warn("تعذر حفظ إقرار سياسة الحضور على الخادم؛ تم حفظه محليًا فقط", error);
+    debugWarn("تعذر حفظ إقرار سياسة الحضور على الخادم؛ تم حفظه محليًا فقط", error);
   }
   return { acknowledged: true, policyVersion: POLICY_VERSION, browserInstallId };
 }
@@ -105,7 +109,7 @@ export async function ensureTrustedDeviceApproval({ endpoints, employee, device 
       });
       requestId = response?.id || response?.requestId || response || "";
     } catch (error) {
-      console.warn("تعذر إرسال طلب اعتماد الجهاز", error);
+      debugWarn("تعذر إرسال طلب اعتماد الجهاز", error);
       flags.push("DEVICE_APPROVAL_REQUEST_FAILED");
     }
   }
@@ -224,7 +228,7 @@ export async function requestBranchQrChallenge({ endpoints, branchId = "", requi
       requiresReview: !valid,
     };
   } catch (error) {
-    console.warn("تعذر التحقق من QR الفرع", error);
+    debugWarn("تعذر التحقق من QR الفرع", error);
     return { valid: false, status: "VALIDATION_FAILED", riskFlags: ["BRANCH_QR_VALIDATION_FAILED"], requiresReview: true };
   }
 }
@@ -263,7 +267,7 @@ export async function submitFallbackAttendanceRequest({ endpoints, employee, act
     });
     return { ok: true };
   } catch (error) {
-    console.warn("تعذر تسجيل طلب الحضور الاحتياطي", error);
+    debugWarn("تعذر تسجيل طلب الحضور الاحتياطي", error);
     return { ok: false, error };
   }
 }

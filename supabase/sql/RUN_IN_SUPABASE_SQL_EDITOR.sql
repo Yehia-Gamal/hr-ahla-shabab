@@ -9544,3 +9544,243 @@ values ('release_089_codex_full_deploy_alignment', jsonb_build_object('version',
 on conflict (key) do update set value = excluded.value, description = excluded.description, updated_at = now();
 
 commit;
+
+-- =====================================================================
+-- 094 Workflow / mobile role alignment marker
+-- =====================================================================
+-- 095_kpi_workflow_polish
+-- Safe, idempotent marker for the mobile role / workflow binding release.
+
+create table if not exists public.database_migration_status (
+  name text primary key,
+  status text not null default 'APPLIED',
+  applied_at timestamptz not null default now(),
+  notes text
+);
+
+create table if not exists public.system_settings (
+  key text primary key,
+  value jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+insert into public.database_migration_status (name, status, applied_at, notes)
+values (
+  '095_kpi_workflow_polish',
+  'APPLIED',
+  now(),
+  'ربط تطبيق الموظف بصلاحيات المدير ولجنة الخلافات وربط HR/Executive/Technical dashboards ببيانات التشغيل.'
+)
+on conflict (name) do update set
+  status = excluded.status,
+  applied_at = now(),
+  notes = excluded.notes;
+
+insert into public.system_settings (key, value, updated_at)
+values (
+  'release_095_kpi_workflow_polish',
+  jsonb_build_object(
+    'version', 'v31-production-hardening-095',
+    'expectedPatch', '095_kpi_workflow_polish',
+    'features', jsonb_build_array(
+      'employee-mobile-manager-hub',
+      'dispute-committee-mobile-hub',
+      'workflow-automation-center',
+      'mobile-permission-alignment',
+      'cross-panel-live-binding'
+    )
+  ),
+  now()
+)
+on conflict (key) do update set
+  value = excluded.value,
+  updated_at = now();
+
+-- 095_kpi_workflow_polish
+-- Safe alignment for strict KPI workflow and UI polish.
+-- No destructive operations. This marker tells the app that the release expects:
+-- employee self evaluation -> direct manager -> HR -> executive secretary/technical -> executive director.
+
+create table if not exists public.database_migration_status (
+  name text primary key,
+  status text not null default 'APPLIED',
+  applied_at timestamptz not null default now(),
+  notes text
+);
+
+create table if not exists public.system_settings (
+  key text primary key,
+  value jsonb not null default '{}'::jsonb,
+  description text,
+  updated_at timestamptz not null default now()
+);
+
+insert into public.database_migration_status (name, status, applied_at, notes)
+values (
+  '095_kpi_workflow_polish',
+  'APPLIED',
+  now(),
+  'KPI workflow enforced: self evaluation first, then manager, HR, executive secretary/technical review, and executive approval. UI/navbar/color polish included.'
+)
+on conflict (name) do update set
+  status = excluded.status,
+  applied_at = now(),
+  notes = excluded.notes;
+
+insert into public.system_settings (key, value, description, updated_at)
+values (
+  'release_095_kpi_workflow_polish',
+  jsonb_build_object(
+    'version', 'v31-production-hardening-095',
+    'expectedPatch', '095_kpi_workflow_polish',
+    'workflow', jsonb_build_array(
+      'SELF_SUBMITTED',
+      'MANAGER_APPROVED',
+      'HR_REVIEWED',
+      'SECRETARY_REVIEWED',
+      'EXECUTIVE_APPROVED'
+    ),
+    'features', jsonb_build_array(
+      'strict-kpi-self-first',
+      'manager-review-after-self-only',
+      'hr-only-kpi-fields-preserved',
+      'secretary-executive-handoff',
+      'navbar-color-polish'
+    )
+  ),
+  'Release marker for KPI workflow polish 095.',
+  now()
+)
+on conflict (key) do update set
+  value = excluded.value,
+  description = excluded.description,
+  updated_at = now();
+-- 096_kpi_automation_mobile_reports
+-- Safe alignment for KPI automation, manager mobile review, HR monthly center,
+-- executive KPI report, and smart cycle locking.
+-- No destructive operations.
+
+create table if not exists public.database_migration_status (
+  name text primary key,
+  status text not null default 'APPLIED',
+  applied_at timestamptz not null default now(),
+  notes text
+);
+
+create table if not exists public.system_settings (
+  key text primary key,
+  value jsonb not null default '{}'::jsonb,
+  description text,
+  updated_at timestamptz not null default now()
+);
+
+insert into public.database_migration_status (name, status, applied_at, notes)
+values ('096_kpi_automation_mobile_reports','APPLIED',now(),'KPI 096: manager mobile KPI review, HR monthly KPI center, executive KPI report, stage reminders, and smart cycle lock after day 25.')
+on conflict (name) do update set status = excluded.status, applied_at = now(), notes = excluded.notes;
+
+insert into public.system_settings (key, value, description, updated_at)
+values ('release_096_kpi_automation_mobile_reports', jsonb_build_object('version','v31-production-hardening-096','expectedPatch','096_kpi_automation_mobile_reports','previousPatch','095_kpi_workflow_polish','workflow',jsonb_build_array('SELF_SUBMITTED','MANAGER_APPROVED','HR_REVIEWED','SECRETARY_REVIEWED','EXECUTIVE_APPROVED'),'features',jsonb_build_array('manager-mobile-kpi-center','hr-monthly-kpi-control-center','executive-kpi-pdf-csv-report','stage-based-kpi-notifications','smart-kpi-cycle-lock-after-day-25','navbar-color-polish-096'),'appliedAt',now()), 'Release marker for KPI automation/mobile/reporting 096.', now())
+on conflict (key) do update set value = excluded.value, description = excluded.description, updated_at = now();
+
+-- =====================================================================
+-- 097 Live-location / Push smoothness final audit
+-- =====================================================================
+-- Safe final audit marker for live-location response correctness, push smoothness,
+-- cache/version alignment, and migration marker cleanup.
+-- No destructive operations.
+
+create table if not exists public.database_migration_status (
+  name text primary key,
+  status text not null default 'APPLIED',
+  applied_at timestamptz not null default now(),
+  notes text
+);
+
+create table if not exists public.system_settings (
+  key text primary key,
+  value jsonb not null default '{}'::jsonb,
+  description text,
+  updated_at timestamptz not null default now()
+);
+
+insert into public.database_migration_status (name, status, applied_at, notes)
+values ('090_executive_location_selfie_live_request_hotfix', 'APPLIED', now(), 'Correct marker for executive phone, strict 300m GPS, mirrored selfie, and live-location cleanup release 090.')
+on conflict (name) do update set
+  status = excluded.status,
+  applied_at = coalesce(public.database_migration_status.applied_at, now()),
+  notes = excluded.notes;
+
+insert into public.database_migration_status (name, status, applied_at, notes)
+values ('098_location_security_edge_hardening', 'APPLIED', now(), '097 final audit: fixed temporary reject/postpone live-location status handling, deduplicated expected migration list, aligned cache/version markers, and preserved push/location diagnostics.')
+on conflict (name) do update set
+  status = excluded.status,
+  applied_at = now(),
+  notes = excluded.notes;
+
+insert into public.system_settings (key, value, description, updated_at)
+values (
+  'release_098_location_security_edge_hardening',
+  jsonb_build_object(
+    'version', 'v31-production-hardening-098',
+    'expectedPatch', '098_location_security_edge_hardening',
+    'previousPatch', '096_kpi_automation_mobile_reports',
+    'fixes', jsonb_build_array(
+      'live-location-temporary-reject-is-not-approved',
+      'live-location-postpone-remains-postponed',
+      'push-diagnostics-preserved',
+      'service-worker-cache-bumped',
+      'migration-status-list-deduplicated'
+    ),
+    'workflow', jsonb_build_array(
+      'executive-direct-live-location-request',
+      'employee-send-location-or-temporary-reject',
+      'executive-receives-response-status',
+      'kpi-self-manager-hr-secretary-executive'
+    ),
+    'appliedAt', now()
+  ),
+  'Release marker for live-location/push smoothness audit 097.',
+  now()
+)
+on conflict (key) do update set
+  value = excluded.value,
+  description = excluded.description,
+  updated_at = now();
+
+-- =====================================================================
+-- 098 Location security / Edge hardening
+-- =====================================================================
+-- Safe hardening marker; no destructive operations.
+
+create table if not exists public.database_migration_status (
+  name text primary key,
+  status text not null default 'APPLIED',
+  applied_at timestamptz not null default now(),
+  notes text
+);
+
+create table if not exists public.system_settings (
+  key text primary key,
+  value jsonb not null default '{}'::jsonb,
+  description text,
+  updated_at timestamptz not null default now()
+);
+
+insert into public.database_migration_status (name, status, applied_at, notes)
+values ('098_location_security_edge_hardening', 'APPLIED', now(), '098 hardening: reject/postpone beats coordinates in live-location responses, Edge Functions return JSON errors, CSP meta fallback added, operations gate SW enabled, location rendering sanitized, frontend logs gated.')
+on conflict (name) do update set status = excluded.status, applied_at = now(), notes = excluded.notes;
+
+insert into public.system_settings (key, value, description, updated_at)
+values (
+  'release_098_location_security_edge_hardening',
+  jsonb_build_object(
+    'version', 'v31-production-hardening-098',
+    'expectedPatch', '098_location_security_edge_hardening',
+    'previousPatch', '097_live_location_push_smoothness_audit',
+    'fixes', jsonb_build_array('live-location-rejected-temporary-coordinates-not-approved','edge-functions-json-error-wrapper','employee-location-xss-safe-rendering','operations-gate-service-worker','csp-meta-fallback','frontend-logs-gated'),
+    'appliedAt', now()
+  ),
+  'Release marker for security/smoothness hardening 098.',
+  now()
+)
+on conflict (key) do update set value = excluded.value, description = excluded.description, updated_at = now();

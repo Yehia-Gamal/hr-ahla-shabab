@@ -1,5 +1,9 @@
-import { endpoints, unwrap } from "./api.js?v=v31-production-hardening-089";
+import { endpoints, unwrap } from "./api.js?v=v33-ui-ux-overhaul-101";
 
+const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
+const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };
+const debugError = (...args) => { if (debugEnabled()) globalThis.console?.error?.(...args); };
+const debugInfo = (...args) => { if (debugEnabled()) globalThis.console?.info?.(...args); };
 const app = document.querySelector("#app");
 const EMPLOYEE_PORTAL = "../employee/index.html#home";
 const ADMIN_PORTAL = "../operations-gate/?next=../admin/";
@@ -829,7 +833,7 @@ async function render() {
       await renderEmployeeDetail(id);
     } else await renderHome();
   } catch (error) {
-    console.error(error);
+    debugError(error);
     setMessage("", error.message || "تعذر تحميل المتابعة التنفيذية.");
     shell(`<section class="panel"><h2>تعذر تحميل الصفحة</h2><p>${escapeHtml(error.message || "خطأ غير معروف")}</p><button class="button ghost" data-route="home">العودة للرئيسية</button></section>`, "خطأ", "راجع الاتصال أو أعد التحميل.");
   }
@@ -839,6 +843,48 @@ window.addEventListener("hashchange", () => {
   state.route = location.hash.replace("#", "") || "home";
   render();
 });
+
+/* ── v101: Ripple + count-up + scroll-top (executive) ── */
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.button');
+  if (!btn) return;
+  const r = btn.getBoundingClientRect();
+  btn.style.setProperty('--x', `${((e.clientX-r.left)/r.width*100).toFixed(1)}%`);
+  btn.style.setProperty('--y', `${((e.clientY-r.top)/r.height*100).toFixed(1)}%`);
+}, { passive: true });
+
+(function() {
+  const btn = document.createElement('button');
+  btn.className = 'scroll-top';
+  btn.textContent = '↑';
+  btn.setAttribute('aria-label', 'للأعلى');
+  document.body.appendChild(btn);
+  window.addEventListener('scroll', () => btn.classList.toggle('visible', window.scrollY > 280), { passive: true });
+  btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+})();
+
+const execCountObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (!e.isIntersecting) return;
+    const el = e.target;
+    const to = parseFloat(String(el.dataset.count || '').replace(/[^0-9.]/g,'')) || 0;
+    const from = 0, dur = 900, start = performance.now();
+    const isF = String(el.dataset.count||'').includes('.');
+    const step = ts => {
+      const p = Math.min((ts-start)/dur,1), v = from+(to-from)*(1-Math.pow(1-p,3));
+      el.textContent = isF ? v.toFixed(1) : Math.round(v).toLocaleString('ar-EG');
+      if(p<1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+    execCountObs.unobserve(el);
+  });
+}, { threshold: 0.3 });
+new MutationObserver(() => {
+  document.querySelectorAll('[data-count]:not([data-counted])').forEach(el => {
+    el.dataset.counted='1'; execCountObs.observe(el);
+  });
+}).observe(document.body, { childList: true, subtree: true });
+
 
 if (!location.hash) location.hash = "home";
 render();

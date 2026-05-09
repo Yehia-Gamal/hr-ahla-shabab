@@ -1,0 +1,31 @@
+{
+  "version": "100",
+  "packageVersion": "v32-enhanced-ux-bugfix-100",
+  "date": "2026-05-09",
+  "basedOn": "099",
+  "changes": [
+    "تصحيح: إضافة app-admin.js و database.js و manifest-admin.json إلى ASSETS في sw.js (كانت مفقودة)",
+    "تصحيح: تحديث دالة greeting() في employee-app لتغطي الصباح والظهيرة والمساء والليل",
+    "تصحيح: gpsSafetyBufferMeters في v10-private-deploy-fixes.js كان يتجاوز قيمة الكونفيج الرئيسية بشكل خاطئ",
+    "تطوير: إعادة كتابة كاملة لـ v10-private-deploy-theme.css مع CSS variables موحدة وتنسيق أفضل",
+    "تطوير: تحسينات UX كبيرة في styles.css (skeleton loading, toast, focus, empty states, error banners)",
+    "تطوير: تحسينات CSS للـ employee.css (punch orb animation, GPS indicator, result messages)",
+    "تطوير: إعادة تصميم بوابة العمليات operations-gate بتصميم احترافي مع عرض وصف البوابات",
+    "تطوير: إعادة تصميم كاملة لصفحة health.html بواجهة أوضح وأنظف",
+    "تطوير: إعادة بناء offline.html بتجربة مستخدم محسنة مع auto-reload عند عودة الاتصال",
+    "تطوير: إضافة display_override وmaskable icons لجميع PWA manifests",
+    "تطوير: تحسين executive tabs active state بتدرج لوني متسق مع v10",
+    "تطوير: تحسين renderLoadingSkeleton في employee-app باستخدام emp-skeleton CSS class",
+    "تحديث: رقم الإصدار v32-enhanced-ux-bugfix-100 لإلغاء الكاش القديم"
+  ],
+  "bugs_fixed": 8,
+  "improvements": 11,
+  "files_modified": [
+    "sw.js", "sw-admin.js", "sw-employee.js", "sw-executive.js",
+    "shared/js/employee-app.js", "shared/js/v10-private-deploy-fixes.js",
+    "shared/js/register-sw.js", "shared/js/runtime-diagnostics.js",
+    "shared/css/v10-private-deploy-theme.css", "shared/css/styles.css", "shared/css/employee.css",
+    "shared/pwa/manifest-employee.json", "shared/pwa/manifest-admin.json", "shared/pwa/manifest-executive.json",
+    "operations-gate/index.html", "health.html", "shared/offline.html"
+  ]
+}
