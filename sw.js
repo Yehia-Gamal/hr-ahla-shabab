@@ -1,4 +1,4 @@
-const CACHE_NAME = "hr-attendance-v39-consolidated-stable-110";
+const CACHE_NAME = "hr-attendance-v38-mobile-ui-stability-106";
 const DEFAULT_OPEN_URL = "./employee/index.html#notifications";
 const ASSETS = [
   "./health.html",
@@ -24,10 +24,12 @@ const ASSETS = [
   "./shared/js/executive-app.js",
   "./shared/js/register-sw.js",
   "./shared/js/v104-ux-enhancements.js",
+  "shared/css/v106-mobile-stability.css",
   "./shared/js/v106-mobile-stability.js",
   "./shared/js/v107-final-ui-polish.js",
   "./shared/js/v108-final-bugfix.js",
   "./shared/js/v109-final-system-fixes.js",
+  "shared/css/v105-ui-fixes.css",
   "./shared/js/v105-ui-fixes.js",
   "./shared/js/runtime-diagnostics.js",
   "./shared/js/v9-hardening.js",

@@ -2124,6 +2124,9 @@ create index if not exists idx_profiles_phone_normalized on public.profiles (pub
 -- =========================================================
 
 -- Keep high precision for the exact Google Maps coordinates supplied by operations.
+drop view if exists public.executive_presence_live;
+drop view if exists public.attendance_risk_dashboard;
+
 alter table if exists public.branches
   alter column latitude type numeric(18,15) using latitude::numeric,
   alter column longitude type numeric(18,15) using longitude::numeric;
@@ -2227,8 +2230,53 @@ grant execute on function public.resolve_login_identifier(text) to service_role;
 drop policy if exists "audit_insert_auth" on public.audit_logs;
 revoke insert on public.audit_logs from authenticated;
 
+drop view if exists public.executive_presence_live;
+
 alter table if exists public.attendance_events
   alter column passkey_credential_id type text using passkey_credential_id::text;
+
+create or replace view public.executive_presence_live as
+select
+  e.id as employee_id,
+  e.full_name,
+  e.job_title,
+  e.phone,
+  e.photo_url,
+  e.manager_employee_id,
+  m.full_name as manager_name,
+  latest_event.event_at as last_attendance_at,
+  latest_event.type as last_attendance_type,
+  latest_event.status as last_attendance_status,
+  latest_event.geofence_status,
+  latest_event.requires_review,
+  latest_location.latitude,
+  latest_location.longitude,
+  latest_location.accuracy_meters,
+  latest_location.captured_at as last_location_at,
+  case
+    when latest_event.event_at is null then 'ABSENT'
+    when coalesce(latest_event.status, '') ilike '%LATE%' then 'LATE'
+    when latest_event.type = 'CHECK_OUT' then 'CHECKED_OUT'
+    else 'PRESENT'
+  end as today_status
+from public.employees e
+left join public.employees m on m.id = e.manager_employee_id
+left join lateral (
+  select ae.*
+  from public.attendance_events ae
+  where ae.employee_id = e.id
+    and ae.event_at::date = current_date
+  order by ae.event_at desc nulls last, ae.created_at desc nulls last
+  limit 1
+) latest_event on true
+left join lateral (
+  select llr.employee_id, llr.latitude, llr.longitude, llr.accuracy_meters, coalesce(llr.captured_at, llr.responded_at, llr.created_at) as captured_at
+  from public.live_location_responses llr
+  where llr.employee_id = e.id
+  order by coalesce(llr.captured_at, llr.responded_at, llr.created_at) desc nulls last
+  limit 1
+) latest_location on true
+where coalesce(e.is_deleted, false) = false;
 
 
 -- Phone login resolver rate-limit storage. Edge Function writes with service_role only.
@@ -6324,7 +6372,7 @@ begin
     raise warning 'app.vault_key is not set; encrypted_password migration skipped. Set the secret and re-run this patch.';
   else
     update public.credential_vault
-    set encrypted_password = pgp_sym_encrypt(coalesce(temporary_password, ''), vault_key)
+    set encrypted_password = extensions.pgp_sym_encrypt(coalesce(temporary_password, ''), vault_key)
     where temporary_password is not null
       and temporary_password <> ''
       and encrypted_password is null;
@@ -6344,7 +6392,7 @@ as $$
   select
     cv.id::text,
     cv.created_at,
-    pgp_sym_decrypt(cv.encrypted_password, current_setting('app.vault_key', true)) as decrypted_password
+    extensions.pgp_sym_decrypt(cv.encrypted_password, current_setting('app.vault_key', true)) as decrypted_password
   from public.credential_vault cv
   where cv.encrypted_password is not null
     and (public.current_can_view_password_vault())
@@ -7329,7 +7377,7 @@ select
   e.requires_review,
   coalesce(e.risk_score, c.risk_score, 0) as risk_score,
   coalesce(e.risk_level, c.risk_level, 'LOW') as risk_level,
-  coalesce(e.risk_flags, c.risk_flags, '{}'::text[]) as risk_flags,
+  coalesce((select array_agg(flag) from jsonb_array_elements_text(coalesce(e.risk_flags, '[]'::jsonb)) as flag), c.risk_flags, '{}'::text[]) as risk_flags,
   coalesce(e.anti_spoofing_flags, c.anti_spoofing_flags, '{}'::text[]) as anti_spoofing_flags,
   coalesce(e.selfie_url, c.selfie_url, '') as selfie_url,
   coalesce(e.device_fingerprint_hash, c.device_fingerprint_hash, '') as device_fingerprint_hash,
@@ -7359,7 +7407,7 @@ select
   array_remove(array_agg(distinct flag), null) as risk_flags
 from public.attendance_events e
 left join public.employees emp on emp.id = e.employee_id
-left join lateral unnest(coalesce(e.risk_flags, '{}'::text[])) flag on true
+left join lateral unnest(coalesce((select array_agg(flag) from jsonb_array_elements_text(coalesce(e.risk_flags, '[]'::jsonb)) as flag), '{}'::text[])) flag on true
 group by 1,2,3
 order by month desc, high_risk_count desc, max_risk_score desc;
 
@@ -7857,7 +7905,7 @@ select
 from public.attendance_events e
 left join public.attendance_identity_checks c on c.attendance_event_id = e.id
 left join public.employees emp on emp.id = e.employee_id
-left join lateral unnest(coalesce(e.risk_flags, '{}'::text[]) || coalesce(c.risk_flags, '{}'::text[])) flag on true
+left join lateral unnest(coalesce((select array_agg(flag) from jsonb_array_elements_text(coalesce(e.risk_flags, '[]'::jsonb)) as flag), '{}'::text[]) || coalesce(c.risk_flags, '{}'::text[])) flag on true
 where coalesce(e.device_fingerprint_hash, c.device_fingerprint_hash, '') <> ''
   and e.event_at >= now() - interval '30 days'
 group by 1
@@ -8057,6 +8105,8 @@ commit;
 -- Patch 065: Live Operations Center views and summaries
 begin;
 
+drop view if exists public.live_operations_center;
+
 create or replace view public.live_operations_center as
 select
   now() as generated_at,
@@ -8127,6 +8177,9 @@ create table if not exists public.smart_alert_events (
   created_at timestamptz not null default now(),
   sent_at timestamptz null
 );
+
+alter table if exists public.smart_alert_events
+  add column if not exists sent_at timestamptz null;
 
 insert into public.smart_alert_rules(code,title,description,target_role,severity,schedule_hint)
 values
@@ -10124,6 +10177,22 @@ create table if not exists public.decision_acknowledgments (
   unique(decision_id, employee_id)
 );
 
+alter table if exists public.announcement_reads
+  add column if not exists announcement_id uuid references public.announcements(id) on delete cascade,
+  add column if not exists employee_id uuid references public.employees(id) on delete cascade,
+  add column if not exists user_id uuid references auth.users(id),
+  add column if not exists read_at timestamptz not null default now(),
+  add column if not exists created_at timestamptz not null default now();
+
+alter table if exists public.decision_acknowledgments
+  add column if not exists decision_id uuid references public.admin_decisions(id) on delete cascade,
+  add column if not exists employee_id uuid references public.employees(id) on delete cascade,
+  add column if not exists user_id uuid references auth.users(id),
+  add column if not exists acked_at timestamptz not null default now(),
+  add column if not exists device_info text default '',
+  add column if not exists ip_hash text default '',
+  add column if not exists created_at timestamptz not null default now();
+
 create table if not exists public.attendance_points (
   id uuid primary key default gen_random_uuid(),
   employee_id uuid not null references public.employees(id) on delete cascade,
@@ -10161,6 +10230,39 @@ create table if not exists public.employee_analytics_monthly (
   unique(employee_id, cycle)
 );
 
+alter table if exists public.attendance_points
+  add column if not exists employee_id uuid references public.employees(id) on delete cascade,
+  add column if not exists cycle text not null default to_char(now(), 'YYYY-MM'),
+  add column if not exists cycle_type text not null default 'MONTHLY',
+  add column if not exists points integer not null default 0,
+  add column if not exists on_time_days integer not null default 0,
+  add column if not exists late_days integer not null default 0,
+  add column if not exists absent_days integer not null default 0,
+  add column if not exists perfect_weeks integer not null default 0,
+  add column if not exists rank integer,
+  add column if not exists badge text default '',
+  add column if not exists computed_at timestamptz not null default now(),
+  add column if not exists created_at timestamptz not null default now();
+
+alter table if exists public.employee_analytics_monthly
+  add column if not exists employee_id uuid references public.employees(id) on delete cascade,
+  add column if not exists cycle text not null default to_char(now(), 'YYYY-MM'),
+  add column if not exists working_days integer not null default 0,
+  add column if not exists present_days integer not null default 0,
+  add column if not exists late_days integer not null default 0,
+  add column if not exists absent_days integer not null default 0,
+  add column if not exists leave_days integer not null default 0,
+  add column if not exists mission_days integer not null default 0,
+  add column if not exists total_late_minutes integer not null default 0,
+  add column if not exists total_work_minutes integer not null default 0,
+  add column if not exists attendance_pct numeric(5,2) not null default 0,
+  add column if not exists punctuality_pct numeric(5,2) not null default 0,
+  add column if not exists kpi_total_score numeric(5,2),
+  add column if not exists location_requests_answered integer not null default 0,
+  add column if not exists decisions_acked integer not null default 0,
+  add column if not exists computed_at timestamptz not null default now(),
+  add column if not exists created_at timestamptz not null default now();
+
 create table if not exists public.offline_sync_queue (
   id uuid primary key default gen_random_uuid(),
   employee_id uuid references public.employees(id) on delete cascade,
@@ -10174,6 +10276,18 @@ create table if not exists public.offline_sync_queue (
   processed_at timestamptz,
   created_at timestamptz not null default now()
 );
+
+alter table if exists public.offline_sync_queue
+  add column if not exists employee_id uuid references public.employees(id) on delete cascade,
+  add column if not exists user_id uuid references auth.users(id),
+  add column if not exists action text not null default 'PUNCH_IN',
+  add column if not exists payload jsonb not null default '{}'::jsonb,
+  add column if not exists status text not null default 'PENDING',
+  add column if not exists retry_count integer not null default 0,
+  add column if not exists error_message text default '',
+  add column if not exists queued_at timestamptz not null default now(),
+  add column if not exists processed_at timestamptz,
+  add column if not exists created_at timestamptz not null default now();
 
 create table if not exists public.attendance_risk_scores (
   id uuid primary key default gen_random_uuid(),
@@ -10196,6 +10310,25 @@ create table if not exists public.attendance_risk_scores (
   created_at timestamptz not null default now()
 );
 
+alter table if exists public.attendance_risk_scores
+  add column if not exists attendance_event_id uuid references public.attendance_events(id) on delete set null,
+  add column if not exists employee_id uuid references public.employees(id) on delete cascade,
+  add column if not exists risk_level text not null default 'LOW',
+  add column if not exists risk_score integer not null default 0,
+  add column if not exists flags text[] not null default '{}'::text[],
+  add column if not exists gps_accuracy_risk boolean not null default false,
+  add column if not exists distance_risk boolean not null default false,
+  add column if not exists new_device_risk boolean not null default false,
+  add column if not exists rapid_punch_risk boolean not null default false,
+  add column if not exists location_spoofing_risk boolean not null default false,
+  add column if not exists off_hours_risk boolean not null default false,
+  add column if not exists outside_geofence boolean not null default false,
+  add column if not exists reviewed_by uuid references auth.users(id),
+  add column if not exists reviewed_at timestamptz,
+  add column if not exists review_note text default '',
+  add column if not exists review_action text default '',
+  add column if not exists created_at timestamptz not null default now();
+
 create table if not exists public.push_notification_log (
   id uuid primary key default gen_random_uuid(),
   notification_id uuid references public.notifications(id) on delete set null,
@@ -10213,6 +10346,37 @@ create table if not exists public.push_notification_log (
   opened_at timestamptz
 );
 
+alter table if exists public.announcements
+  add column if not exists type text not null default 'INFO',
+  add column if not exists priority text not null default 'NORMAL',
+  add column if not exists target_scope text not null default 'ALL',
+  add column if not exists target_branch_id uuid references public.branches(id),
+  add column if not exists target_role_slug text,
+  add column if not exists target_employee_id uuid references public.employees(id),
+  add column if not exists requires_ack boolean not null default false,
+  add column if not exists ack_deadline timestamptz,
+  add column if not exists is_pinned boolean not null default false,
+  add column if not exists expires_at timestamptz,
+  add column if not exists sent_by uuid references auth.users(id),
+  add column if not exists sent_at timestamptz not null default now(),
+  add column if not exists is_deleted boolean not null default false,
+  add column if not exists updated_at timestamptz not null default now();
+
+alter table if exists public.push_notification_log
+  add column if not exists notification_id uuid references public.notifications(id) on delete set null,
+  add column if not exists employee_id uuid references public.employees(id) on delete set null,
+  add column if not exists user_id uuid references auth.users(id) on delete set null,
+  add column if not exists endpoint_hash text default '',
+  add column if not exists title text not null default '',
+  add column if not exists body text default '',
+  add column if not exists type text default 'INFO',
+  add column if not exists status text not null default 'SENT',
+  add column if not exists error_code text default '',
+  add column if not exists error_message text default '',
+  add column if not exists sent_at timestamptz not null default now(),
+  add column if not exists delivered_at timestamptz,
+  add column if not exists opened_at timestamptz;
+
 create table if not exists public.monthly_pdf_reports (
   id uuid primary key default gen_random_uuid(),
   cycle text not null,
@@ -10227,6 +10391,19 @@ create table if not exists public.monthly_pdf_reports (
   generated_at timestamptz,
   created_at timestamptz not null default now()
 );
+
+alter table if exists public.monthly_pdf_reports
+  add column if not exists cycle text not null default to_char(now(), 'YYYY-MM'),
+  add column if not exists report_type text not null default 'ATTENDANCE',
+  add column if not exists scope text not null default 'ALL',
+  add column if not exists scope_id uuid,
+  add column if not exists status text not null default 'QUEUED',
+  add column if not exists file_url text default '',
+  add column if not exists file_size bigint default 0,
+  add column if not exists error_message text default '',
+  add column if not exists generated_by uuid references auth.users(id),
+  add column if not exists generated_at timestamptz,
+  add column if not exists created_at timestamptz not null default now();
 
 -- =========================================================
 -- 3) Indexes — after all compatibility columns exist
@@ -10294,6 +10471,20 @@ alter table public.employee_analytics_monthly enable row level security;
 alter table public.offline_sync_queue enable row level security;
 alter table public.attendance_risk_scores enable row level security;
 alter table public.push_notification_log enable row level security;
+create table if not exists public.monthly_pdf_reports (
+  id uuid primary key default gen_random_uuid(),
+  cycle text not null default to_char(now(), 'YYYY-MM'),
+  report_type text not null default 'ATTENDANCE',
+  scope text not null default 'ALL',
+  scope_id uuid,
+  status text not null default 'QUEUED',
+  file_url text default '',
+  file_size bigint default 0,
+  error_message text default '',
+  generated_by uuid references auth.users(id),
+  generated_at timestamptz,
+  created_at timestamptz not null default now()
+);
 alter table public.monthly_pdf_reports enable row level security;
 
 -- Recreate policies idempotently. These use existing project helpers where available.
@@ -10345,6 +10536,21 @@ drop policy if exists "v104_push_log_view" on public.push_notification_log;
 create policy "v104_push_log_view" on public.push_notification_log
   for select to authenticated
   using (public.current_is_full_access() or public.has_any_permission(array['notifications:manage','executive:report']));
+
+create table if not exists public.monthly_pdf_reports (
+  id uuid primary key default gen_random_uuid(),
+  cycle text not null default to_char(now(), 'YYYY-MM'),
+  report_type text not null default 'ATTENDANCE',
+  scope text not null default 'ALL',
+  scope_id uuid,
+  status text not null default 'QUEUED',
+  file_url text default '',
+  file_size bigint default 0,
+  error_message text default '',
+  generated_by uuid references auth.users(id),
+  generated_at timestamptz,
+  created_at timestamptz not null default now()
+);
 
 drop policy if exists "v104_monthly_pdf_view" on public.monthly_pdf_reports;
 create policy "v104_monthly_pdf_view" on public.monthly_pdf_reports
@@ -10542,4 +10748,3 @@ on conflict (patch_key) do update
       notes = excluded.notes;
 
 notify pgrst, 'reload schema';
-

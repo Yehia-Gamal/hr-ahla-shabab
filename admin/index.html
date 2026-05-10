@@ -24,10 +24,10 @@
     (function() {
       try {
         var until  = Number(sessionStorage.getItem('hr.opsGatewayUnlockedUntil') || 0);
-        var target = sessionStorage.getItem('hr.opsGatewayUnlockedTarget') || '';
+        var unlockedTarget = sessionStorage.getItem('hr.opsGatewayUnlockedTarget') || '';
         var token  = sessionStorage.getItem('hr.opsGatewayToken') || '';
         var tToken = sessionStorage.getItem('hr.opsGatewayToken.admin') || '';
-        if (until > Date.now() && target === 'admin' && token && tToken && token === tToken) return;
+        if (until > Date.now() && unlockedTarget === 'admin' && token && tToken && token === tToken) return;
         ['hr.opsGatewayUnlockedUntil','hr.opsGatewayUnlockedTarget','hr.opsGatewayToken'].forEach(function(k){sessionStorage.removeItem(k);});
         location.replace('../operations-gate/?target=admin&next=' + encodeURIComponent(location.pathname + location.search + location.hash));
       } catch(e) { location.replace('../operations-gate/?target=admin'); }
