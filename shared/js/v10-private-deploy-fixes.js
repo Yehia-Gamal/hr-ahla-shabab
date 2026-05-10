@@ -393,7 +393,6 @@
 (function initPWAInstall() {
   let deferredPrompt = null;
   window.addEventListener('beforeinstallprompt', e => {
-    e.preventDefault();
     deferredPrompt = e;
     // Show install banner after 8 seconds if not already installed
     setTimeout(() => {
