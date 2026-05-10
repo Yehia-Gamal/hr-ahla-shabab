@@ -2563,7 +2563,7 @@ export const supabaseEndpoints = {
     if (localCorsFallbackActive("employee_tasks")) return [];
     try {
       const client = await sb();
-      let query = client.from("employee_tasks").select("*, employee:employees(*)").order("created_at", { ascending: false }).limit(1000);
+      let query = client.from("employee_tasks").select("*, employee:employees!employee_tasks_employee_id_fkey(*)").order("created_at", { ascending: false }).limit(1000);
       if (filters.status) query = query.eq("status", filters.status);
       if (filters.employeeId) query = query.eq("employee_id", filters.employeeId);
       const { data, error } = await query;
@@ -2585,7 +2585,7 @@ export const supabaseEndpoints = {
     const client = await sb();
     const user = await currentUser();
     const payload = { employee_id: body.employeeId || user?.employeeId || user?.employee?.id, assigned_by_employee_id: user?.employeeId || null, title: body.title || "مهمة جديدة", description: body.description || "", priority: body.priority || "MEDIUM", status: body.status || "OPEN", due_date: body.dueDate || null, created_at: now(), updated_at: now() };
-    const { data, error } = await client.from("employee_tasks").insert(payload).select("*, employee:employees(*)").single();
+    const { data, error } = await client.from("employee_tasks").insert(payload).select("*, employee:employees!employee_tasks_employee_id_fkey(*)").single();
     fail(error, "تعذر إنشاء المهمة.");
     await safeCreateNotification(client, { employee_id: payload.employee_id, title: "مهمة جديدة", body: payload.title, type: "ACTION_REQUIRED", route: "tasks", data: { route: "tasks", taskId: data?.id || "" } }).catch(() => null);
     await audit("task.create", "employee_task", data.id, payload).catch(() => null);
@@ -2595,7 +2595,7 @@ export const supabaseEndpoints = {
   updateTask: async (id, body = {}) => {
     const client = await sb();
     const payload = compact({ status: body.status, title: body.title, description: body.description, priority: body.priority, due_date: body.dueDate || body.due_date, updated_at: now(), completed_at: body.status === "DONE" ? now() : undefined });
-    const { data, error } = await client.from("employee_tasks").update(payload).eq("id", id).select("*, employee:employees(*)").single();
+    const { data, error } = await client.from("employee_tasks").update(payload).eq("id", id).select("*, employee:employees!employee_tasks_employee_id_fkey(*)").single();
     fail(error, "تعذر تعديل المهمة.");
     await audit("task.update", "employee_task", id, payload).catch(() => null);
     const { employee, ...row } = data;
