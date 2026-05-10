@@ -6657,6 +6657,28 @@ body.employee-portal .employee-card-wrap {
 }
 body.is-offline .offline-banner { display: block; }
 
+/* v111 mobile bottom-nav fix: keep the More drawer fully hidden when closed. */
+body.employee-portal .more-drawer:not(.is-open),
+body.employee-portal .employee-more-sheet.hidden,
+body.employee-portal .employee-more-sheet:not(.is-open) {
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transform: translateX(-50%) translateY(calc(100% + 140px)) !important;
+}
+
+body.employee-portal .more-drawer.is-open {
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transform: translateX(-50%) translateY(0) !important;
+}
+
+body.employee-portal .more-drawer-overlay:not(.is-open),
+body.employee-portal .employee-more-backdrop.hidden {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 /* Pull-to-refresh indicator */
 .ptr-indicator {
   position: fixed;
@@ -6678,6 +6700,212 @@ body.is-offline .offline-banner { display: block; }
     gap: 8px;
   }
   .form-actions .button { width: 100%; justify-content: center; }
+}
+
+/* v111 mobile polish: login, header, drawer, and duplicate float controls. */
+body.employee-portal .employee-topbar {
+  display: grid !important;
+  grid-template-columns: minmax(128px, 1fr) minmax(0, auto) !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-height: 58px !important;
+}
+
+body.employee-portal .employee-brand {
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+body.employee-portal .employee-brand img {
+  width: 44px !important;
+  height: 44px !important;
+  flex: 0 0 44px !important;
+}
+
+body.employee-portal .employee-brand strong {
+  font-size: 14px !important;
+  line-height: 1.2 !important;
+}
+
+body.employee-portal .employee-brand span {
+  font-size: 10px !important;
+  line-height: 1.2 !important;
+}
+
+body.employee-portal .employee-user {
+  width: min(46vw, 180px) !important;
+  max-width: min(46vw, 180px) !important;
+  gap: 6px !important;
+  padding: 5px 7px !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+}
+
+body.employee-portal .employee-user .avatar {
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  flex: 0 0 34px !important;
+}
+
+body.employee-portal .employee-user strong {
+  font-size: 11.5px !important;
+  line-height: 1.25 !important;
+}
+
+body.employee-portal .employee-user small {
+  font-size: 9px !important;
+  line-height: 1.25 !important;
+}
+
+@media (max-width: 380px) {
+  body.employee-portal .employee-topbar {
+    grid-template-columns: minmax(116px, 1fr) minmax(0, auto) !important;
+  }
+
+  body.employee-portal .employee-user {
+    width: min(42vw, 152px) !important;
+    max-width: min(42vw, 152px) !important;
+  }
+
+  body.employee-portal .employee-user small {
+    display: none !important;
+  }
+}
+
+body.employee-portal .employee-login-screen {
+  min-height: 100svh !important;
+  height: 100svh !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px calc(env(safe-area-inset-bottom, 0px) + 10px) !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+body.employee-portal:has(.employee-login-screen) {
+  height: 100svh !important;
+  min-height: 100svh !important;
+  overflow: hidden !important;
+  padding-bottom: 0 !important;
+}
+
+body.employee-portal:has(.employee-login-screen) #app {
+  height: 100svh !important;
+  overflow: hidden !important;
+}
+
+body.employee-portal:has(.employee-login-screen) .v10-scroll-top {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+body.employee-portal .employee-login-card {
+  width: min(100%, 430px) !important;
+  height: min(100%, calc(100svh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 20px)) !important;
+  max-height: none !important;
+  display: grid !important;
+  align-content: center !important;
+  gap: clamp(12px, 2.4svh, 22px) !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+body.employee-portal .login-brand-row {
+  width: 100% !important;
+  display: grid !important;
+  justify-items: center !important;
+  text-align: center !important;
+}
+
+body.employee-portal .login-brand-row img {
+  margin-inline: auto !important;
+}
+
+@media (max-height: 720px) {
+  body.employee-portal .employee-login-card {
+    padding: 18px !important;
+    gap: 10px !important;
+  }
+
+  body.employee-portal .login-brand-row img {
+    width: 72px !important;
+    height: 72px !important;
+  }
+
+  body.employee-portal .employee-login-card input {
+    min-height: 48px !important;
+  }
+
+  body.employee-portal .employee-login-card .button {
+    min-height: 48px !important;
+  }
+}
+
+body.employee-portal .v101-scroll-top,
+body.employee-portal .v105-scroll-top,
+body.employee-portal .hr-scroll-top,
+body.employee-portal .scroll-top:not(.v10-scroll-top) {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+body.employee-portal .v10-scroll-top {
+  left: 12px !important;
+  right: auto !important;
+  bottom: calc(var(--v108-nav-h) + 14px + env(safe-area-inset-bottom, 0px)) !important;
+  z-index: 940 !important;
+}
+
+body.employee-portal .more-drawer {
+  bottom: calc(var(--v108-nav-h) + 8px + env(safe-area-inset-bottom, 0px)) !important;
+  max-height: calc(100svh - var(--v108-nav-h) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 18px) !important;
+  border-radius: 22px !important;
+}
+
+body.employee-portal .more-drawer-body {
+  overflow: hidden !important;
+  max-height: none !important;
+  padding: 2px 10px 10px !important;
+}
+
+body.employee-portal .more-drawer-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+  margin-bottom: 4px !important;
+}
+
+body.employee-portal .more-drawer-item {
+  min-height: clamp(42px, 7.4svh, 50px) !important;
+  padding: 5px 4px !important;
+  border-radius: 12px !important;
+  gap: 2px !important;
+}
+
+body.employee-portal .more-drawer-item .di-icon {
+  font-size: 17px !important;
+}
+
+body.employee-portal .more-drawer-item .di-label {
+  font-size: 8.8px !important;
+  line-height: 1.15 !important;
+}
+
+body.employee-portal .more-drawer-section-label {
+  font-size: 8px !important;
+  padding: 4px 2px 2px !important;
+  line-height: 1.1 !important;
+}
+
+body.employee-portal .more-drawer-header {
+  padding: 7px 12px 4px !important;
+}
+
+body.employee-portal .more-drawer-handle {
+  margin-top: 6px !important;
+  margin-bottom: 2px !important;
 }
 
 /* Fix: data tables - prevent overflow on small screens */
@@ -6722,4 +6950,3 @@ img.user-avatar[src=""], img.user-avatar:not([src]) {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-

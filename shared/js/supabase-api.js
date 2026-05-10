@@ -18,6 +18,28 @@ const DEFAULT_COMPLEX = {
   maxAccuracyMeters: 90,
 };
 
+function installLocalEmployeeTasksCorsGuard() {
+  try {
+    if (globalThis.__HR_EMPLOYEE_TASKS_CORS_GUARD__ || typeof globalThis.fetch !== "function") return;
+    const host = globalThis.location?.hostname || "";
+    const port = globalThis.location?.port || "";
+    if (!/^(127\.0\.0\.1|localhost)$/.test(host) || port === "5502") return;
+    const nativeFetch = globalThis.fetch.bind(globalThis);
+    globalThis.__HR_EMPLOYEE_TASKS_CORS_GUARD__ = true;
+    globalThis.fetch = (input, init) => {
+      const url = typeof input === "string" ? input : String(input?.url || "");
+      if (/supabase\.co\/rest\/v1\/employee_tasks\b/i.test(url)) {
+        localCorsCooldown.set("employee_tasks", Date.now() + 30000);
+        try {
+          globalThis.dispatchEvent?.(new CustomEvent("hr:local-cors-warning", { detail: { table: "employee_tasks", message: "employee_tasks disabled on this local port to avoid Supabase CORS noise." } }));
+        } catch {}
+        return Promise.resolve(new Response("[]", { status: 200, headers: { "Content-Type": "application/json" } }));
+      }
+      return nativeFetch(input, init);
+    };
+  } catch {}
+}
+
 let clientPromise = null;
 let realtimeChannels = [];
 
@@ -42,6 +64,8 @@ function localCorsFallback(table, error, fallbackValue) {
 function localCorsFallbackActive(table) {
   return isLocalhostRuntime() && Number(localCorsCooldown.get(table) || 0) > Date.now();
 }
+
+installLocalEmployeeTasksCorsGuard();
 
 
 export function shouldUseSupabase() {
@@ -2848,7 +2872,18 @@ export const supabaseEndpoints = {
     if (request.requested_by_user_id) {
       const title = approved ? "تم إرسال الموقع المباشر" : postponed ? "تم تأجيل طلب الموقع" : "تم رفض/تأجيل طلب الموقع مؤقتًا";
       const note = approved ? `${employeeName} أرسل موقعه الحالي${body.addressLabel ? `: ${body.addressLabel}` : ""}` : postponed ? `${employeeName} طلب تأجيل إرسال الموقع ${minutes} دقائق.` : `${employeeName} رفض/أجّل إرسال الموقع مؤقتًا: ${responseNote}`;
-      await client.rpc("safe_create_notification", { p_user_id: request.requested_by_user_id, p_employee_id: request.requested_by_employee_id || null, p_title: title, p_body: note, p_type: "LIVE_LOCATION_RESPONSE", p_route: "employees", p_data: { route: "employees", type: "LIVE_LOCATION_RESPONSE", employeeId, requestId: id, status: update.status } }).catch(() => null);
+      const executiveNotification = await client.rpc("safe_create_notification", { p_user_id: request.requested_by_user_id, p_employee_id: request.requested_by_employee_id || null, p_title: title, p_body: note, p_type: "LIVE_LOCATION_RESPONSE", p_route: "employees", p_data: { route: "employees", type: "LIVE_LOCATION_RESPONSE", employeeId, requestId: id, status: update.status, latitude: responsePayload.latitude, longitude: responsePayload.longitude } }).catch(() => null);
+      await client.functions.invoke("send-push-notifications", {
+        body: {
+          title,
+          body: note,
+          tag: `live-location-response-${id}`,
+          targetUserIds: [request.requested_by_user_id],
+          targetEmployeeIds: request.requested_by_employee_id ? [request.requested_by_employee_id] : [],
+          notificationId: executiveNotification?.data ? String(executiveNotification.data) : "",
+          data: { route: "employees", url: "./executive/index.html#employees", type: "LIVE_LOCATION_RESPONSE", employeeId, requestId: id, responseId: response?.id || "", status: update.status, latitude: responsePayload.latitude, longitude: responsePayload.longitude },
+        },
+      }).catch((pushError) => debugWarn("send-push-notifications response failed", pushError?.message || pushError));
     }
     await audit("live_location.respond", "live_location_request", id, { request, response }).catch(() => null);
     return { request: toCamel(request), response: toCamel(response) };

@@ -1,4 +1,4 @@
-import { endpoints, unwrap } from "./api.js?v=v39-consolidated-stable-110";
+import { endpoints, unwrap } from "./api.js?v=v111-mobile-location-polish";
 import { enableWebPushSubscription } from "./push.js?v=v39-consolidated-stable-110";
 import { getDeviceFingerprintHash, requestEmployeePasskey, filterEmployeePasskeys, calculateAttendanceRisk, rememberDevicePunch, capturePunchSelfie } from "./attendance-identity.js?v=v39-consolidated-stable-110";
 import { ensureAttendancePolicyAcknowledged, ensureTrustedDeviceApproval, requestBranchQrChallenge, analyzeLocationTrust, mergeRiskSignals, submitFallbackAttendanceRequest } from "./attendance-v3-security.js?v=v39-consolidated-stable-110";
@@ -908,7 +908,15 @@ function isAdminUser(user = state.user) {
 }
 
 function employeeSubject() {
-  return state.user?.employee || state.user || {};
+  const user = state.user || {};
+  const employee = user?.employee || {};
+  if (!employee || !Object.keys(employee).length) return user;
+  const freshAvatar = user.avatarUrl || user.photoUrl || employee.avatarUrl || employee.photoUrl || "";
+  return {
+    ...employee,
+    avatarUrl: freshAvatar,
+    photoUrl: freshAvatar,
+  };
 }
 
 
@@ -1143,32 +1151,18 @@ function shell(content, title = "تطبيق الموظف", subtitle = "") {
           ? `<button class="${isMoreRoute(current) ? "is-active" : ""}" type="button" data-more-menu aria-expanded="false"><strong>${icon}</strong><span>${escapeHtml(label)}</span></button>`
           : `<button class="${current === key ? "is-active" : ""}" type="button" data-route="${key}"><strong>${icon}</strong><span>${escapeHtml(label)}</span></button>`).join("")}
       </nav>
-      <div class="employee-more-backdrop hidden" data-more-backdrop></div>
-      <section class="employee-more-sheet hidden" data-more-sheet aria-label="قائمة المزيد">
-        <div class="more-sheet-handle"></div>
-        <div class="more-sheet-head"><strong>المزيد</strong><button type="button" class="icon-button" data-close-more aria-label="إغلاق">×</button></div>
-        <div class="more-sheet-grid">
-          ${moreEmployeeRoutes.map(([key, label, icon]) => `<button class="${current === key ? "is-active" : ""}" type="button" data-route="${key}"><strong>${icon}</strong><span>${escapeHtml(label)}</span></button>`).join("")}
-        </div>
-      </section>
     </div>
   `;
   const moreButton = app.querySelector("[data-more-menu]");
-  const moreSheet = app.querySelector("[data-more-sheet]");
-  const moreBackdrop = app.querySelector("[data-more-backdrop]");
   const closeMore = () => {
-    moreSheet?.classList.add("hidden");
-    moreBackdrop?.classList.add("hidden");
     moreButton?.setAttribute("aria-expanded", "false");
+    closeMoreDrawer();
   };
   const openMore = () => {
-    moreSheet?.classList.remove("hidden");
-    moreBackdrop?.classList.remove("hidden");
     moreButton?.setAttribute("aria-expanded", "true");
+    openMoreDrawer();
   };
   moreButton?.addEventListener("click", openMore);
-  moreBackdrop?.addEventListener("click", closeMore);
-  app.querySelector("[data-close-more]")?.addEventListener("click", closeMore);
   document.onkeydown = (event) => { if (event.key === "Escape") closeMore(); };
   app.querySelectorAll("[data-route]").forEach((button) => button.addEventListener("click", () => { closeMore(); location.hash = button.dataset.route; }));
 
