@@ -5634,6 +5634,38 @@ $$;
 
 grant execute on function public.current_can_view_password_vault() to authenticated;
 
+-- Ensure credential_vault exists before legacy/encryption patches reference it.
+-- The previous merged SQL only handled older deployments where the table already existed;
+-- fresh Supabase projects could fail at patch 044 because COMMENT/FUNCTION statements referenced a missing table.
+create table if not exists public.credential_vault (
+  id text primary key,
+  user_id uuid references auth.users(id) on delete cascade,
+  employee_id uuid references public.employees(id) on delete set null,
+  email text default '',
+  phone text default '',
+  temporary_password text,
+  temp_password text,
+  encrypted_password bytea,
+  encrypted_temporary_password bytea,
+  status text not null default 'PHONE_LOGIN_READY',
+  note text default '',
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.credential_vault enable row level security;
+create index if not exists idx_credential_vault_user on public.credential_vault(user_id);
+create index if not exists idx_credential_vault_employee on public.credential_vault(employee_id);
+create index if not exists idx_credential_vault_status on public.credential_vault(status);
+
+insert into public.database_migration_status (name, status, applied_at, notes)
+values ('104_credential_vault_sql_alignment', 'APPLIED', now(), 'Ensures credential_vault exists for fresh project SQL runs')
+on conflict (name) do update
+  set status = excluded.status,
+      applied_at = now(),
+      notes = excluded.notes;
+
 -- Upgrade older deployments that may still have public.credential_vault with plaintext fields.
 do $$
 declare
@@ -6378,12 +6410,18 @@ commit;
 -- Patch 046: Performance indexes for frequently queried columns
 begin;
 
--- Attendance indexes
-create index if not exists idx_attendance_employee_date
-  on public.attendance(employee_id, punch_date desc);
+-- Attendance indexes (QC4: guard legacy public.attendance table; current schema uses attendance_events/attendance_daily)
+do $$
+begin
+  if to_regclass('public.attendance') is not null then
+    create index if not exists idx_attendance_employee_date
+      on public.attendance(employee_id, punch_date desc);
 
-create index if not exists idx_attendance_status_date
-  on public.attendance(status, punch_date desc);
+    create index if not exists idx_attendance_status_date
+      on public.attendance(status, punch_date desc);
+  end if;
+end;
+$$;
 
 -- Notifications unread
 create index if not exists idx_notifications_user_unread
@@ -6394,9 +6432,19 @@ create index if not exists idx_notifications_user_unread
 create index if not exists idx_kpi_evaluations_cycle
   on public.kpi_evaluations(cycle_id, employee_id, status);
 
--- Audit log ordering by created date
-create index if not exists idx_audit_log_created
-  on public.audit_log(created_at desc);
+-- Audit log ordering by created date (QC4: support both legacy audit_log and current audit_logs)
+do $$
+begin
+  if to_regclass('public.audit_log') is not null then
+    create index if not exists idx_audit_log_created
+      on public.audit_log(created_at desc);
+  end if;
+  if to_regclass('public.audit_logs') is not null then
+    create index if not exists idx_audit_logs_created_qc4
+      on public.audit_logs(created_at desc);
+  end if;
+end;
+$$;
 
 -- Pending leave requests
 create index if not exists idx_leave_requests_pending
@@ -6466,17 +6514,40 @@ alter table if exists public.audit_log
   add column if not exists severity text default 'INFO'
     check (severity in ('INFO', 'WARNING', 'CRITICAL'));
 
--- Promote sensitive actions to CRITICAL severity
-update public.audit_log
-set severity = 'CRITICAL'
-where action in (
-  'USER_CREATED', 'USER_DELETED', 'ROLE_CHANGED',
-  'PASSWORD_RESET', 'ADMIN_LOGIN', 'BULK_EXPORT'
-);
+-- Promote sensitive actions to CRITICAL severity (QC4: guard legacy/current audit table names)
+do $$
+begin
+  if to_regclass('public.audit_log') is not null then
+    update public.audit_log
+    set severity = 'CRITICAL'
+    where action in (
+      'USER_CREATED', 'USER_DELETED', 'ROLE_CHANGED',
+      'PASSWORD_RESET', 'ADMIN_LOGIN', 'BULK_EXPORT'
+    );
 
-create index if not exists idx_audit_log_severity
-  on public.audit_log(severity, created_at desc)
-  where severity in ('WARNING', 'CRITICAL');
+    create index if not exists idx_audit_log_severity
+      on public.audit_log(severity, created_at desc)
+      where severity in ('WARNING', 'CRITICAL');
+  end if;
+
+  if to_regclass('public.audit_logs') is not null then
+    alter table public.audit_logs
+      add column if not exists severity text default 'INFO'
+        check (severity in ('INFO', 'WARNING', 'CRITICAL'));
+
+    update public.audit_logs
+    set severity = 'CRITICAL'
+    where action in (
+      'USER_CREATED', 'USER_DELETED', 'ROLE_CHANGED',
+      'PASSWORD_RESET', 'ADMIN_LOGIN', 'BULK_EXPORT'
+    );
+
+    create index if not exists idx_audit_logs_severity_qc4
+      on public.audit_logs(severity, created_at desc)
+      where severity in ('WARNING', 'CRITICAL');
+  end if;
+end;
+$$;
 
 commit;
 -- =========================================================
@@ -6492,15 +6563,20 @@ begin;
 
 create or replace function public.cleanup_old_reports()
 returns void
-language sql
+language plpgsql
 security definer
 set search_path = public
 as $$
-  delete from public.report_snapshots
-  where created_at < now() - interval '6 months';
+begin
+  -- QC4: these archival tables exist only in some deployments; keep cleanup safe on fresh installs.
+  if to_regclass('public.report_snapshots') is not null then
+    execute 'delete from public.report_snapshots where created_at < now() - interval ''6 months''';
+  end if;
 
-  delete from public.kpi_cycle_archives
-  where archived_at < now() - interval '12 months';
+  if to_regclass('public.kpi_cycle_archives') is not null then
+    execute 'delete from public.kpi_cycle_archives where archived_at < now() - interval ''12 months''';
+  end if;
+end;
 $$;
 
 -- Schedule weekly cleanup via pg_cron if available
@@ -7988,7 +8064,7 @@ select
   (select count(*) from public.attendance_events where created_at::date = current_date) as today_attendance_events,
   (select count(*) from public.attendance_identity_checks where requires_review = true and coalesce(review_status,'PENDING') = 'PENDING') as pending_identity_reviews,
   (select count(*) from public.leave_requests where status in ('pending_manager_review','pending_hr_review','PENDING')) as pending_leave_requests,
-  (select count(*) from public.mission_requests where status in ('pending_manager_review','pending_hr_review','PENDING')) as pending_mission_requests;
+  (select count(*) from public.missions where status in ('pending_manager_review','pending_hr_review','PENDING')) as pending_mission_requests;
 
 comment on view public.live_operations_center is 'Live command center counters for HR/admin/executive dashboards.';
 commit;
@@ -9784,3 +9860,686 @@ values (
   now()
 )
 on conflict (key) do update set value = excluded.value, description = excluded.description, updated_at = now();
+
+
+-- =========================================================
+-- BEGIN SECTION: 104 Royal Blue Complete SAFE Migration
+-- SOURCE: supabase/sql/104_royal_blue_complete_safe_migration.sql
+-- NOTE: merged after review of HR_104_COMPLETE_SQL_MIGRATION.zip
+-- =========================================================
+
+-- =========================================================
+-- HR Ahla Shabab — SQL v104 Royal Blue Complete SAFE Migration
+-- جمعية خواطر أحلى شباب الخيرية — رقم التسجيل 6004/2016
+-- =========================================================
+-- الغرض:
+--   دمج حزمة SQL v104 داخل مشروع HR 104 بطريقة آمنة وقابلة للتكرار.
+--   هذا الملف مُراجع بدلاً من تشغيل الملف الأصلي مباشرة، لأن الملف الأصلي
+--   كان يحتوي تعارضات CREATE TABLE ثم CREATE VIEW بنفس الاسم.
+--
+-- آمن للتشغيل المتكرر:
+--   create table if not exists / add column if not exists / create or replace function
+--
+-- ترتيب التشغيل:
+--   1) RUN_IN_SUPABASE_SQL_EDITOR.sql لقاعدة جديدة، أو آخر ملف base لديك.
+--   2) هذا الملف.
+--   3) VERIFY_AFTER_SUPABASE_DEPLOY.sql.
+-- =========================================================
+
+begin;
+
+create extension if not exists pgcrypto;
+create extension if not exists pg_trgm;
+
+-- =========================================================
+-- 0) Migration/status foundations
+-- =========================================================
+create table if not exists public.database_migration_status (
+  id text primary key default gen_random_uuid()::text,
+  name text unique not null,
+  status text not null default 'APPLIED',
+  applied_at timestamptz not null default now(),
+  applied_by_user_id uuid,
+  notes text not null default ''
+);
+
+alter table if exists public.database_migration_status
+  alter column id set default gen_random_uuid()::text,
+  add column if not exists applied_at timestamptz not null default now(),
+  add column if not exists applied_by_user_id uuid,
+  add column if not exists notes text not null default '';
+
+create table if not exists public.system_settings (
+  key text primary key,
+  value jsonb not null default '{}'::jsonb,
+  description text not null default '',
+  updated_at timestamptz not null default now()
+);
+
+alter table if exists public.system_settings
+  add column if not exists description text not null default '',
+  add column if not exists updated_at timestamptz not null default now();
+
+-- =========================================================
+-- 1) Safe compatibility columns for existing production tables
+-- =========================================================
+alter table if exists public.employees
+  add column if not exists total_points integer not null default 0,
+  add column if not exists current_badge text default '',
+  add column if not exists best_month_attendance text default '',
+  add column if not exists best_week_attendance text default '',
+  add column if not exists consecutive_on_time_days integer not null default 0;
+
+alter table if exists public.notifications
+  add column if not exists priority text not null default 'NORMAL',
+  add column if not exists action_url text default '',
+  add column if not exists action_label text default '',
+  add column if not exists expires_at timestamptz,
+  add column if not exists ack_required boolean not null default false,
+  add column if not exists acked_at timestamptz,
+  add column if not exists sent_via_push boolean not null default false,
+  add column if not exists sent_via_in_app boolean not null default true,
+  add column if not exists route text default '',
+  add column if not exists data jsonb not null default '{}'::jsonb,
+  add column if not exists push_status text default '',
+  add column if not exists push_error text default '',
+  add column if not exists push_sent_at timestamptz;
+
+alter table if exists public.push_subscriptions
+  add column if not exists employee_id uuid references public.employees(id) on delete cascade,
+  add column if not exists keys jsonb not null default '{}'::jsonb,
+  add column if not exists p256dh text default '',
+  add column if not exists auth text default '',
+  add column if not exists endpoint_hash text default '',
+  add column if not exists user_agent text default '',
+  add column if not exists platform text default '',
+  add column if not exists is_active boolean not null default true,
+  add column if not exists updated_at timestamptz not null default now();
+
+alter table if exists public.live_location_requests
+  add column if not exists urgency text not null default 'NORMAL',
+  add column if not exists group_request_id uuid,
+  add column if not exists push_sent boolean not null default false,
+  add column if not exists push_sent_at timestamptz,
+  add column if not exists employee_notified boolean not null default false,
+  add column if not exists retry_count integer not null default 0,
+  add column if not exists timeout_at timestamptz,
+  add column if not exists rejection_reason text default '',
+  add column if not exists accuracy_meters numeric(10,2),
+  add column if not exists altitude numeric(10,2),
+  add column if not exists heading numeric(6,2),
+  add column if not exists speed numeric(8,2),
+  add column if not exists geofence_status text default 'unknown',
+  add column if not exists geofence_distance_meters integer;
+
+alter table if exists public.live_location_responses
+  add column if not exists altitude numeric(10,2),
+  add column if not exists heading numeric(6,2),
+  add column if not exists speed numeric(8,2),
+  add column if not exists geofence_status text default 'unknown',
+  add column if not exists geofence_distance_meters integer,
+  add column if not exists payload jsonb not null default '{}'::jsonb;
+
+alter table if exists public.attendance_events
+  add column if not exists risk_score integer,
+  add column if not exists risk_level text default 'LOW',
+  add column if not exists offline_queued boolean not null default false,
+  add column if not exists offline_queued_at timestamptz,
+  add column if not exists device_fingerprint text default '',
+  add column if not exists device_name text default '';
+
+alter table if exists public.admin_decisions
+  add column if not exists decision_number text,
+  add column if not exists effective_date date,
+  add column if not exists target_scope text not null default 'ALL',
+  add column if not exists target_branch_id uuid,
+  add column if not exists target_department_id uuid,
+  add column if not exists target_employee_id uuid,
+  add column if not exists requires_ack boolean not null default true,
+  add column if not exists ack_deadline timestamptz,
+  add column if not exists attachment_url text default '',
+  add column if not exists issued_by uuid,
+  add column if not exists is_deleted boolean not null default false;
+
+update public.admin_decisions
+set issued_by = issued_by_user_id
+where issued_by is null and issued_by_user_id is not null;
+
+alter table if exists public.admin_decision_acknowledgements
+  add column if not exists device_info text default '',
+  add column if not exists ip_hash text default '';
+
+update public.admin_decision_acknowledgements
+set device_info = coalesce(nullif(device_info, ''), user_agent, ''),
+    ip_hash = coalesce(nullif(ip_hash, ''), ip_hint, '')
+where true;
+
+alter table if exists public.notification_delivery_log
+  add column if not exists endpoint_hash text default '',
+  add column if not exists opened_at timestamptz,
+  add column if not exists error_code text default '';
+
+alter table if exists public.trusted_devices
+  add column if not exists employee_id uuid references public.employees(id) on delete cascade,
+  add column if not exists device_type text default 'mobile',
+  add column if not exists platform text default '',
+  add column if not exists browser text default '',
+  add column if not exists user_agent_hash text default '',
+  add column if not exists screen_size text default '',
+  add column if not exists trust_status text not null default 'PENDING',
+  add column if not exists trusted_by uuid references auth.users(id),
+  add column if not exists last_seen_at timestamptz not null default now(),
+  add column if not exists is_primary boolean not null default false,
+  add column if not exists notes text default '',
+  add column if not exists updated_at timestamptz not null default now();
+
+alter table if exists public.offline_attendance_sync_queue
+  add column if not exists action text not null default 'PUNCH_IN',
+  add column if not exists retry_count integer not null default 0,
+  add column if not exists error_message text default '',
+  add column if not exists processed_at timestamptz;
+
+alter table if exists public.monthly_pdf_report_runs
+  add column if not exists cycle text,
+  add column if not exists report_type text not null default 'ATTENDANCE',
+  add column if not exists scope text not null default 'ALL',
+  add column if not exists scope_id uuid,
+  add column if not exists file_url text default '',
+  add column if not exists file_size bigint default 0,
+  add column if not exists error_message text default '',
+  add column if not exists generated_by uuid;
+
+update public.monthly_pdf_report_runs
+set cycle = month
+where cycle is null and month is not null;
+
+alter table if exists public.employee_announcements
+  add column if not exists type text not null default 'INFO',
+  add column if not exists priority text not null default 'NORMAL',
+  add column if not exists target_scope text not null default 'ALL',
+  add column if not exists requires_ack boolean not null default false,
+  add column if not exists ack_deadline timestamptz,
+  add column if not exists is_pinned boolean not null default false,
+  add column if not exists expires_at timestamptz,
+  add column if not exists sent_by uuid,
+  add column if not exists is_deleted boolean not null default false;
+
+alter table if exists public.attendance_risk_events
+  add column if not exists risk_score integer not null default 0,
+  add column if not exists risk_level text not null default 'LOW',
+  add column if not exists flags text[] not null default '{}'::text[],
+  add column if not exists gps_weak boolean not null default false,
+  add column if not exists distance_far boolean not null default false,
+  add column if not exists new_device boolean not null default false,
+  add column if not exists rapid_punch boolean not null default false,
+  add column if not exists off_hours boolean not null default false,
+  add column if not exists outside_geofence boolean not null default false,
+  add column if not exists reviewed_by uuid,
+  add column if not exists reviewed_at timestamptz,
+  add column if not exists review_note text default '',
+  add column if not exists review_action text default '';
+
+-- =========================================================
+-- 2) New v104 tables — additive only
+-- =========================================================
+create table if not exists public.announcements (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  body text default '',
+  type text not null default 'INFO',
+  priority text not null default 'NORMAL',
+  target_scope text not null default 'ALL',
+  target_branch_id uuid references public.branches(id),
+  target_role_slug text,
+  target_employee_id uuid references public.employees(id),
+  requires_ack boolean not null default false,
+  ack_deadline timestamptz,
+  is_pinned boolean not null default false,
+  expires_at timestamptz,
+  sent_by uuid references auth.users(id),
+  sent_at timestamptz not null default now(),
+  is_deleted boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.announcement_reads (
+  id uuid primary key default gen_random_uuid(),
+  announcement_id uuid not null references public.announcements(id) on delete cascade,
+  employee_id uuid not null references public.employees(id) on delete cascade,
+  user_id uuid references auth.users(id),
+  read_at timestamptz not null default now(),
+  unique(announcement_id, employee_id)
+);
+
+create table if not exists public.decision_acknowledgments (
+  id uuid primary key default gen_random_uuid(),
+  decision_id uuid not null references public.admin_decisions(id) on delete cascade,
+  employee_id uuid not null references public.employees(id) on delete cascade,
+  user_id uuid references auth.users(id),
+  acked_at timestamptz not null default now(),
+  device_info text default '',
+  ip_hash text default '',
+  created_at timestamptz not null default now(),
+  unique(decision_id, employee_id)
+);
+
+create table if not exists public.attendance_points (
+  id uuid primary key default gen_random_uuid(),
+  employee_id uuid not null references public.employees(id) on delete cascade,
+  cycle text not null,
+  cycle_type text not null default 'MONTHLY',
+  points integer not null default 0,
+  on_time_days integer not null default 0,
+  late_days integer not null default 0,
+  absent_days integer not null default 0,
+  perfect_weeks integer not null default 0,
+  rank integer,
+  badge text default '',
+  computed_at timestamptz not null default now(),
+  unique(employee_id, cycle, cycle_type)
+);
+
+create table if not exists public.employee_analytics_monthly (
+  id uuid primary key default gen_random_uuid(),
+  employee_id uuid not null references public.employees(id) on delete cascade,
+  cycle text not null,
+  working_days integer not null default 0,
+  present_days integer not null default 0,
+  late_days integer not null default 0,
+  absent_days integer not null default 0,
+  leave_days integer not null default 0,
+  mission_days integer not null default 0,
+  total_late_minutes integer not null default 0,
+  total_work_minutes integer not null default 0,
+  attendance_pct numeric(5,2) not null default 0,
+  punctuality_pct numeric(5,2) not null default 0,
+  kpi_total_score numeric(5,2),
+  location_requests_answered integer not null default 0,
+  decisions_acked integer not null default 0,
+  computed_at timestamptz not null default now(),
+  unique(employee_id, cycle)
+);
+
+create table if not exists public.offline_sync_queue (
+  id uuid primary key default gen_random_uuid(),
+  employee_id uuid references public.employees(id) on delete cascade,
+  user_id uuid references auth.users(id),
+  action text not null default 'PUNCH_IN',
+  payload jsonb not null default '{}'::jsonb,
+  status text not null default 'PENDING',
+  retry_count integer not null default 0,
+  error_message text default '',
+  queued_at timestamptz not null default now(),
+  processed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.attendance_risk_scores (
+  id uuid primary key default gen_random_uuid(),
+  attendance_event_id uuid references public.attendance_events(id) on delete set null,
+  employee_id uuid not null references public.employees(id) on delete cascade,
+  risk_level text not null default 'LOW',
+  risk_score integer not null default 0,
+  flags text[] not null default '{}'::text[],
+  gps_accuracy_risk boolean not null default false,
+  distance_risk boolean not null default false,
+  new_device_risk boolean not null default false,
+  rapid_punch_risk boolean not null default false,
+  location_spoofing_risk boolean not null default false,
+  off_hours_risk boolean not null default false,
+  outside_geofence boolean not null default false,
+  reviewed_by uuid references auth.users(id),
+  reviewed_at timestamptz,
+  review_note text default '',
+  review_action text default '',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.push_notification_log (
+  id uuid primary key default gen_random_uuid(),
+  notification_id uuid references public.notifications(id) on delete set null,
+  employee_id uuid references public.employees(id) on delete set null,
+  user_id uuid references auth.users(id) on delete set null,
+  endpoint_hash text default '',
+  title text not null default '',
+  body text default '',
+  type text default 'INFO',
+  status text not null default 'SENT',
+  error_code text default '',
+  error_message text default '',
+  sent_at timestamptz not null default now(),
+  delivered_at timestamptz,
+  opened_at timestamptz
+);
+
+create table if not exists public.monthly_pdf_reports (
+  id uuid primary key default gen_random_uuid(),
+  cycle text not null,
+  report_type text not null default 'ATTENDANCE',
+  scope text not null default 'ALL',
+  scope_id uuid,
+  status text not null default 'QUEUED',
+  file_url text default '',
+  file_size bigint default 0,
+  error_message text default '',
+  generated_by uuid references auth.users(id),
+  generated_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+-- =========================================================
+-- 3) Indexes — after all compatibility columns exist
+-- =========================================================
+create index if not exists idx_announcements_scope on public.announcements(target_scope, sent_at desc);
+create index if not exists idx_announcements_branch on public.announcements(target_branch_id);
+create index if not exists idx_announcements_pinned on public.announcements(is_pinned, sent_at desc);
+create index if not exists idx_announcement_reads_ann on public.announcement_reads(announcement_id);
+create index if not exists idx_announcement_reads_emp on public.announcement_reads(employee_id);
+create index if not exists idx_admin_decisions_status_v104 on public.admin_decisions(status, created_at desc);
+create index if not exists idx_admin_decisions_category_v104 on public.admin_decisions(category);
+create index if not exists idx_decision_acks_decision on public.decision_acknowledgments(decision_id);
+create index if not exists idx_decision_acks_employee on public.decision_acknowledgments(employee_id);
+create index if not exists idx_attendance_points_cycle on public.attendance_points(cycle, cycle_type);
+create index if not exists idx_attendance_points_emp on public.attendance_points(employee_id);
+create index if not exists idx_emp_analytics_cycle on public.employee_analytics_monthly(cycle desc);
+create index if not exists idx_emp_analytics_employee on public.employee_analytics_monthly(employee_id);
+create index if not exists idx_offline_queue_status on public.offline_sync_queue(status, queued_at desc);
+create index if not exists idx_risk_scores_employee on public.attendance_risk_scores(employee_id, created_at desc);
+create index if not exists idx_trusted_devices_emp_v104 on public.trusted_devices(employee_id, trust_status);
+create index if not exists idx_trusted_devices_status_v104 on public.trusted_devices(trust_status);
+create index if not exists idx_push_log_emp on public.push_notification_log(employee_id, sent_at desc);
+create index if not exists idx_push_log_status on public.push_notification_log(status, sent_at desc);
+create index if not exists idx_monthly_pdf_cycle on public.monthly_pdf_reports(cycle desc, report_type);
+create index if not exists idx_notifications_user_unread_v104 on public.notifications(user_id, is_read, created_at desc);
+create index if not exists idx_notifications_employee_type_v104 on public.notifications(employee_id, type, created_at desc);
+
+-- =========================================================
+-- 4) Permissions helper
+-- =========================================================
+create or replace function public.has_any_permission(scopes text[])
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  s text;
+begin
+  if coalesce(public.current_is_full_access(), false) then
+    return true;
+  end if;
+  foreach s in array coalesce(scopes, '{}'::text[]) loop
+    if coalesce(public.has_permission(s), false) then
+      return true;
+    end if;
+  end loop;
+  return false;
+exception when undefined_function then
+  return false;
+end;
+$$;
+
+grant execute on function public.has_any_permission(text[]) to authenticated;
+
+-- =========================================================
+-- 5) RLS for new additive tables
+-- =========================================================
+alter table public.announcements enable row level security;
+alter table public.announcement_reads enable row level security;
+alter table public.decision_acknowledgments enable row level security;
+alter table public.attendance_points enable row level security;
+alter table public.employee_analytics_monthly enable row level security;
+alter table public.offline_sync_queue enable row level security;
+alter table public.attendance_risk_scores enable row level security;
+alter table public.push_notification_log enable row level security;
+alter table public.monthly_pdf_reports enable row level security;
+
+-- Recreate policies idempotently. These use existing project helpers where available.
+drop policy if exists "v104_announcements_select" on public.announcements;
+create policy "v104_announcements_select" on public.announcements
+  for select to authenticated
+  using (not coalesce(is_deleted, false));
+
+drop policy if exists "v104_announcements_write" on public.announcements;
+create policy "v104_announcements_write" on public.announcements
+  for all to authenticated
+  using (public.current_is_full_access() or public.has_any_permission(array['announcements:manage','notifications:manage','executive:report']))
+  with check (public.current_is_full_access() or public.has_any_permission(array['announcements:manage','notifications:manage','executive:report']));
+
+drop policy if exists "v104_announcement_reads_own" on public.announcement_reads;
+create policy "v104_announcement_reads_own" on public.announcement_reads
+  for all to authenticated
+  using (user_id = auth.uid() or public.current_is_full_access())
+  with check (user_id = auth.uid() or public.current_is_full_access());
+
+drop policy if exists "v104_decision_acks_own" on public.decision_acknowledgments;
+create policy "v104_decision_acks_own" on public.decision_acknowledgments
+  for all to authenticated
+  using (user_id = auth.uid() or public.current_is_full_access())
+  with check (user_id = auth.uid() or public.current_is_full_access());
+
+drop policy if exists "v104_att_points_view" on public.attendance_points;
+create policy "v104_att_points_view" on public.attendance_points
+  for select to authenticated
+  using (public.current_is_full_access() or employee_id = public.current_employee_id());
+
+drop policy if exists "v104_emp_analytics_view" on public.employee_analytics_monthly;
+create policy "v104_emp_analytics_view" on public.employee_analytics_monthly
+  for select to authenticated
+  using (public.current_is_full_access() or employee_id = public.current_employee_id());
+
+drop policy if exists "v104_offline_queue_own" on public.offline_sync_queue;
+create policy "v104_offline_queue_own" on public.offline_sync_queue
+  for all to authenticated
+  using (user_id = auth.uid() or public.current_is_full_access())
+  with check (user_id = auth.uid() or public.current_is_full_access());
+
+drop policy if exists "v104_risk_scores_view" on public.attendance_risk_scores;
+create policy "v104_risk_scores_view" on public.attendance_risk_scores
+  for select to authenticated
+  using (public.current_is_full_access() or public.has_any_permission(array['attendance:review','reports:export','executive:report']));
+
+drop policy if exists "v104_push_log_view" on public.push_notification_log;
+create policy "v104_push_log_view" on public.push_notification_log
+  for select to authenticated
+  using (public.current_is_full_access() or public.has_any_permission(array['notifications:manage','executive:report']));
+
+drop policy if exists "v104_monthly_pdf_view" on public.monthly_pdf_reports;
+create policy "v104_monthly_pdf_view" on public.monthly_pdf_reports
+  for select to authenticated
+  using (public.current_is_full_access() or public.has_any_permission(array['reports:export','executive:report']));
+
+-- =========================================================
+-- 6) Optional RPCs from v104 package, implemented safely
+-- =========================================================
+create or replace function public.reject_live_location_request(
+  p_request_id uuid,
+  p_reason text default ''
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  update public.live_location_requests
+  set status = 'REJECTED_TEMPORARY',
+      rejection_reason = coalesce(p_reason, ''),
+      responded_at = now(),
+      updated_at = now()
+  where id = p_request_id
+    and (employee_id = public.current_employee_id() or public.current_is_full_access());
+
+  return jsonb_build_object('ok', found, 'request_id', p_request_id, 'status', 'REJECTED_TEMPORARY');
+end;
+$$;
+
+grant execute on function public.reject_live_location_request(uuid, text) to authenticated;
+
+create or replace function public.approve_live_location_request(
+  p_request_id uuid,
+  p_note text default ''
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  update public.live_location_requests
+  set status = 'APPROVED',
+      response_note = coalesce(p_note, ''),
+      responded_at = now(),
+      updated_at = now()
+  where id = p_request_id
+    and (employee_id = public.current_employee_id() or public.current_is_full_access());
+
+  return jsonb_build_object('ok', found, 'request_id', p_request_id, 'status', 'APPROVED');
+end;
+$$;
+
+grant execute on function public.approve_live_location_request(uuid, text) to authenticated;
+
+-- =========================================================
+-- 7) Realtime registration — guarded because publication may differ per project
+-- =========================================================
+do $$
+declare
+  t text;
+begin
+  foreach t in array array[
+    'announcements',
+    'announcement_reads',
+    'admin_decisions',
+    'decision_acknowledgments',
+    'live_location_requests',
+    'live_location_responses',
+    'notifications',
+    'attendance_risk_scores',
+    'push_notification_log',
+    'offline_sync_queue',
+    'trusted_devices',
+    'attendance_points',
+    'employee_analytics_monthly',
+    'monthly_pdf_reports'
+  ] loop
+    begin
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    exception when duplicate_object then
+      null;
+    when undefined_object then
+      null;
+    when others then
+      null;
+    end;
+  end loop;
+end $$;
+
+-- =========================================================
+-- 8) System settings + migration markers
+-- =========================================================
+insert into public.system_settings (key, value, description, updated_at)
+values (
+  'v104_release',
+  jsonb_build_object(
+    'version', 'v38-mobile-ui-stability-106',
+    'release', 'v104-royal-blue-overhaul',
+    'expectedPatch', '104_royal_blue_full_migration',
+    'releasedAt', '2026-05-09',
+    'features', jsonb_build_array(
+      'Royal Blue Design System',
+      'Gamification & Points',
+      'Employee Monthly Analytics',
+      'Admin Decisions + ACK',
+      'Internal Announcements',
+      'Offline Queue Integration',
+      'Attendance Risk Scores',
+      'Device Trust Management',
+      'Push Notification Log',
+      'Live Location Bulk Request',
+      'Safe SQL v104 integration'
+    )
+  ),
+  'v104 Royal Blue Overhaul — إعدادات الإصدار بعد دمج SQL الآمن',
+  now()
+)
+on conflict (key) do update
+  set value = excluded.value,
+      description = excluded.description,
+      updated_at = now();
+
+insert into public.database_migration_status (name, status, applied_at, notes)
+values
+  ('104_royal_blue_full_migration', 'APPLIED', now(), 'v104: Safe merged SQL migration reviewed and integrated'),
+  ('104_royal_blue_full_permissions', 'APPLIED', now(), 'v104: New/additive tables, compatibility columns, RLS policies'),
+  ('104_live_location_enhanced', 'APPLIED', now(), 'v104: Live location columns and approve/reject helper RPCs'),
+  ('104_device_trust_push_log', 'APPLIED', now(), 'v104: trusted_devices enhancements + push_notification_log'),
+  ('104_attendance_points_analytics', 'APPLIED', now(), 'v104: attendance_points and employee_analytics_monthly'),
+  ('104_sql_safe_merge', 'APPLIED', now(), 'v104: Original migration reviewed; unsafe table/view conflicts removed')
+on conflict (name) do update
+  set status = excluded.status,
+      notes = excluded.notes,
+      applied_at = now();
+
+notify pgrst, 'reload schema';
+
+commit;
+
+-- =========================================================
+-- END SECTION: 104 Royal Blue Complete SAFE Migration
+-- =========================================================
+
+-- QC5 legacy audit_log compatibility: older installations used singular audit_log
+-- without entity metadata columns. Add them safely when the legacy table exists.
+alter table if exists public.audit_log
+  add column if not exists entity_type text,
+  add column if not exists entity_id text,
+  add column if not exists metadata jsonb default '{}'::jsonb;
+
+-- =========================================================
+-- QC5 FINAL SQL ALIGNMENT MARKER
+-- Ensures patch_markers exists before verification references it.
+-- =========================================================
+create table if not exists public.patch_markers (
+  patch_key text primary key,
+  applied_at timestamptz not null default now(),
+  notes text default ''
+);
+
+alter table public.patch_markers enable row level security;
+
+drop policy if exists "patch_markers_read_admins" on public.patch_markers;
+create policy "patch_markers_read_admins" on public.patch_markers
+  for select using (
+    public.has_any_permission(array['settings:manage','database:migrations','audit:read','*'])
+  );
+
+drop policy if exists "patch_markers_write_admins" on public.patch_markers;
+create policy "patch_markers_write_admins" on public.patch_markers
+  for all using (
+    public.has_any_permission(array['settings:manage','database:migrations','*'])
+  ) with check (
+    public.has_any_permission(array['settings:manage','database:migrations','*'])
+  );
+
+insert into public.database_migration_status (name, status, applied_at, notes)
+values
+  ('104_sql_qc4_static_runtime_alignment', 'APPLIED', now(), 'QC4: Guarded legacy runtime references and aligned operations center.'),
+  ('104_sql_qc5_final_alignment', 'APPLIED', now(), 'QC5: Created patch_markers safely and aligned verification checks for fresh Supabase installs.')
+on conflict (name) do update
+  set status = excluded.status,
+      notes = excluded.notes,
+      applied_at = now();
+
+insert into public.patch_markers(patch_key, applied_at, notes)
+values
+  ('104_sql_qc4_static_runtime_alignment', now(), 'Guarded legacy attendance/audit cleanup references and aligned operations center with missions table.'),
+  ('104_sql_qc5_final_alignment', now(), 'Created patch_markers safely and aligned verification checks for fresh Supabase installs.')
+on conflict (patch_key) do update
+  set applied_at = excluded.applied_at,
+      notes = excluded.notes;
+
+notify pgrst, 'reload schema';
+

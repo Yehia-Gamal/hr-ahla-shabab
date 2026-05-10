@@ -9,7 +9,15 @@
   NS.showPushPermissionExplainer = async function showPushPermissionExplainer() {
     if (!('Notification' in window)) return 'unsupported';
     if (Notification.permission !== 'default') return Notification.permission;
-    const ok = window.confirm ? window.confirm('تفعيل الإشعارات يساعدك على استقبال طلبات الموقع وتذكيرات البصمة والقرارات الإدارية. هل تريد المتابعة؟') : true;
+    let ok = true;
+    if (typeof window.HRConfirmDialog === 'function') {
+      ok = await window.HRConfirmDialog({
+        title: 'تفعيل الإشعارات',
+        message: 'تفعيل الإشعارات يساعدك على استقبال طلبات الموقع وتذكيرات البصمة والقرارات الإدارية.',
+        confirmLabel: 'تفعيل الآن',
+        cancelLabel: 'لاحقًا',
+      });
+    }
     if (!ok) return 'denied-by-user';
     return await Notification.requestPermission();
   };

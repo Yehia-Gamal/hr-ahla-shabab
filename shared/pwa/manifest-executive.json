@@ -5,8 +5,8 @@
   "start_url": "/executive/index.html",
   "scope": "/executive/",
   "display": "standalone",
-  "background_color": "#070f1e",
-  "theme_color": "#070f1e",
+  "background_color": "#050A1A",
+  "theme_color": "#1A6EFF",
   "icons": [
     {
       "src": "/shared/images/icon-192.png",

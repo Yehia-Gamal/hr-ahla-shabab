@@ -1,31 +1,38 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; img-src 'self' data: blob: https:; media-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://esm.sh https://cdn.jsdelivr.net; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://esm.sh https://nominatim.openstreetmap.org https://api.github.com; frame-src https://www.openstreetmap.org https://maps.google.com;" />
-    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
-    <meta name="theme-color" content="#050A1A" />
-    <link rel="manifest" href="../shared/pwa/manifest-employee.json" />
-    <link rel="icon" href="../shared/images/favicon-64.png" />
-    <link rel="stylesheet" href="../shared/css/styles.css?v=v33-ui-ux-overhaul-101" />
-    <link rel="stylesheet" href="../shared/css/employee.css?v=v33-ui-ux-overhaul-101" />
-    <title>تطبيق الموظفين — حضور أحلى شباب</title>
-    <meta name="description" content="تطبيق موبايل للموظفين لتسجيل الحضور والانصراف وإرسال الموقع وطلبات الإجازة والشكاوى" />
-      <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="../shared/css/neon-admin-theme.css?v=v33-ui-ux-overhaul-101" />
-  <script src="../shared/js/v9-hardening.js" defer></script>
-  <link rel="stylesheet" href="../shared/css/v10-private-deploy-theme.css?v=v33-ui-ux-overhaul-101" />
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; img-src 'self' data: blob: https:; media-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://esm.sh https://cdn.jsdelivr.net; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://esm.sh https://nominatim.openstreetmap.org https://api.github.com; frame-src https://www.openstreetmap.org https://maps.google.com;" />
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <meta name="robots" content="noindex,nofollow" />
+  <meta name="theme-color" content="#050A1A" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="موظفين أحلى شباب" />
+  <title>تطبيق الموظفين — أحلى شباب</title>
+  <meta name="description" content="تطبيق موبايل لتسجيل الحضور والانصراف وإرسال الموقع وطلبات الإجازة" />
+  <link rel="manifest" href="../shared/pwa/manifest-employee.json" />
+  <link rel="apple-touch-icon" href="../shared/images/icon-192.png" />
+  <link rel="icon" href="../shared/images/favicon-64.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <!-- Employee portal CSS (NO admin CSS) -->
+  <link rel="stylesheet" href="../shared/css/styles.css?v=v110" />
+  <link rel="stylesheet" href="../shared/css/employee.css?v=v110" />
+  <link rel="stylesheet" href="../shared/css/v110-consolidated.css?v=v110" />
 </head>
-  <body>
-    <div id="app" class="app employee-app"></div>
-    <script src="../shared/js/supabase-config.js?v=v33-ui-ux-overhaul-101"></script>
-  <script type="module" src="../shared/js/employee-app.js?v=v33-ui-ux-overhaul-101"></script>
-  <script src="../shared/js/register-sw.js?v=v33-ui-ux-overhaul-101"></script>
-    <script src="../shared/js/v10-private-deploy-fixes.js?v=v33-ui-ux-overhaul-101" defer></script>
+<body>
+  <div id="app" class="app employee-app"></div>
+  <script src="../shared/js/supabase-config.js?v=v110"></script>
+  <script src="../shared/js/v9-hardening.js" defer></script>
+  <script type="module" src="../shared/js/employee-app.js?v=v110"></script>
+  <script src="../shared/js/register-sw.js?v=v110"></script>
+  <script src="../shared/js/v10-private-deploy-fixes.js?v=v110" defer></script>
 </body>
 </html>

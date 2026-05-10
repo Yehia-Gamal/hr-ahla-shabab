@@ -1,0 +1,1332 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   HR v105 — COMPREHENSIVE UI/UX FIX PACKAGE
+   Fixes: Executive topbar mobile, employee cards, gate polish,
+          admin shell, metric cards, responsiveness, and all visual bugs.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ──────────────────────────────────────────────────────────────
+   0. SYSTEM-WIDE OVERRIDES & RESET HELPERS
+   ────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+:root {
+  --v105-transition: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  --v105-spring:     0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --v105-slow:       0.36s cubic-bezier(0.4, 0, 0.2, 1);
+  --v105-glow-cyan:  0 0 0 1px rgba(0,194,255,.18), 0 0 32px rgba(0,194,255,.12);
+  --v105-glow-blue:  0 0 0 1px rgba(26,110,255,.18), 0 0 32px rgba(26,110,255,.12);
+  --v105-glow-green: 0 0 0 1px rgba(0,214,143,.18), 0 0 24px rgba(0,214,143,.10);
+  --v105-surface-a:  rgba(11, 20, 40, 0.96);
+  --v105-surface-b:  rgba(8, 14, 32, 0.98);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   1. OPERATIONS GATE — COMPLETE POLISH
+   ────────────────────────────────────────────────────────────── */
+
+/* Smooth entrance */
+.gate {
+  animation: v105-gate-in 0.38s cubic-bezier(0.34, 1.2, 0.64, 1) both !important;
+}
+@keyframes v105-gate-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+
+/* Logo pulse */
+.gate .brand img {
+  animation: v105-logo-pulse 3s ease-in-out infinite !important;
+}
+@keyframes v105-logo-pulse {
+  0%, 100% { filter: drop-shadow(0 0 12px rgba(0,194,255,.3)); }
+  50%       { filter: drop-shadow(0 0 26px rgba(0,194,255,.6)); }
+}
+
+/* Title gradient shimmer */
+.gate .title {
+  background-size: 200% auto !important;
+  animation: v105-shimmer 4s linear infinite !important;
+}
+@keyframes v105-shimmer {
+  from { background-position: 0 center; }
+  to   { background-position: 200% center; }
+}
+
+/* Target buttons — lift + glow on hover */
+.gate .target {
+  position: relative;
+  overflow: hidden;
+  transition:
+    border-color var(--v105-transition),
+    background var(--v105-transition),
+    transform var(--v105-spring),
+    box-shadow var(--v105-transition) !important;
+}
+.gate .target:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 12px 32px rgba(0,100,255,.18), var(--v105-glow-cyan) !important;
+}
+.gate .target.is-active {
+  background: linear-gradient(135deg, rgba(0,194,255,.15), rgba(26,110,255,.18)) !important;
+  border-color: #00C2FF !important;
+  box-shadow: 0 0 0 3px rgba(0,194,255,.14), 0 12px 32px rgba(0,100,255,.18) !important;
+}
+/* Active check icon */
+.gate .target.is-active::after {
+  content: '✓';
+  position: absolute;
+  top: 8px;
+  inset-inline-start: 10px;
+  font-size: 10px;
+  font-weight: 900;
+  color: #00C2FF;
+  line-height: 1;
+}
+
+/* Password toggle — fix vertical alignment */
+.password-toggle {
+  position: absolute !important;
+  inset-inline-end: 8px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  min-height: 34px !important;
+  height: 34px !important;
+  border: 1px solid rgba(0,194,255,.32) !important;
+  border-radius: 999px !important;
+  padding: 0 14px !important;
+  background: rgba(5,12,28,.9) !important;
+  color: #7A94C1 !important;
+  font-family: inherit !important;
+  font-weight: 900 !important;
+  font-size: 12px !important;
+  cursor: pointer !important;
+  transition: border-color var(--v105-transition), color var(--v105-transition) !important;
+  white-space: nowrap !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 2 !important;
+}
+.password-toggle:hover {
+  border-color: #00C2FF !important;
+  color: #00C2FF !important;
+  background: rgba(0,194,255,.08) !important;
+}
+
+/* Password field wrapper */
+.password-field {
+  position: relative !important;
+  display: block !important;
+}
+.password-field input {
+  padding-inline-end: 88px !important;
+}
+
+/* Gate inputs — focus improvement */
+.gate input:focus {
+  border-color: #00C2FF !important;
+  box-shadow: 0 0 0 4px rgba(0,194,255,.16), inset 0 1px 0 rgba(0,194,255,.06) !important;
+  transform: translateY(-1px) !important;
+  transition: transform var(--v105-spring), box-shadow var(--v105-transition), border-color var(--v105-transition) !important;
+}
+
+/* Gate submit button — polish */
+.gate .submit {
+  position: relative;
+  overflow: hidden;
+  letter-spacing: 0.03em !important;
+  transition: transform var(--v105-spring), box-shadow var(--v105-transition), opacity var(--v105-transition) !important;
+}
+.gate .submit:hover:not([disabled]) {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 16px 36px rgba(0,100,255,.38) !important;
+}
+.gate .submit::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.18), transparent);
+  background-size: 200% auto;
+  opacity: 0;
+  animation: v105-btn-shine 2.2s linear infinite paused;
+  transition: opacity 0.3s;
+}
+.gate .submit:hover::before { opacity: 1; animation-play-state: running; }
+@keyframes v105-btn-shine {
+  from { background-position: -200% center; }
+  to   { background-position:  200% center; }
+}
+
+/* Status message */
+.gate .msg {
+  border-radius: 14px !important;
+  padding: 13px 16px !important;
+  font-size: 13px !important;
+  line-height: 1.65 !important;
+  animation: v105-msg-in 0.24s ease both !important;
+}
+@keyframes v105-msg-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   2. EXECUTIVE PORTAL — FULL TOPBAR REWORK
+   ────────────────────────────────────────────────────────────── */
+
+/* Shell page-in animation */
+.executive-shell {
+  animation: v105-page-in 0.26s ease both;
+}
+@keyframes v105-page-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Desktop Topbar ── */
+.executive-topbar {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: var(--z-topbar, 400) !important;
+  display: flex !important;
+  flex-direction: column !important;       /* stack brand + tabs on separate rows */
+  gap: 0 !important;
+  padding: 0 !important;
+  background: var(--v105-surface-a) !important;
+  border: none !important;
+  border-bottom: 1px solid rgba(26,110,255,.18) !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,.32) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+}
+
+/* Top row: brand + user actions */
+.executive-topbar-row-1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  gap: 12px;
+  min-height: 60px;
+}
+
+/* Patch: existing brand is inside topbar with no row wrapper — compensate */
+.executive-brand {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  flex-shrink: 0 !important;
+  padding: 10px 20px 0 !important;
+}
+.executive-brand img {
+  width: 38px !important;
+  height: 38px !important;
+  object-fit: contain !important;
+  border-radius: 10px !important;
+  background: rgba(255,255,255,.08) !important;
+  border: 1px solid rgba(26,110,255,.28) !important;
+  padding: 3px !important;
+}
+.executive-brand strong {
+  font-size: 15px !important;
+  font-weight: 900 !important;
+  color: #EEF5FF !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+}
+.executive-brand span {
+  font-size: 10px !important;
+  color: #00C2FF !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  font-weight: 700 !important;
+  display: block !important;
+}
+
+/* ── Navigation tabs — Scrollable pill row ── */
+.executive-tabs {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 4px !important;
+  padding: 6px 16px 10px !important;
+  overflow-x: auto !important;
+  scrollbar-width: none !important;
+  -webkit-overflow-scrolling: touch !important;
+  border-top: 1px solid rgba(26,110,255,.10) !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  border: none !important;
+  scroll-snap-type: x mandatory !important;
+}
+.executive-tabs::-webkit-scrollbar { display: none !important; }
+
+.executive-tabs button {
+  flex-shrink: 0 !important;
+  scroll-snap-align: start !important;
+  white-space: nowrap !important;
+  padding: 8px 16px !important;
+  border-radius: 999px !important;
+  border: 1px solid transparent !important;
+  background: rgba(26,110,255,.07) !important;
+  color: #9AB0CC !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  transition:
+    background var(--v105-transition),
+    color var(--v105-transition),
+    border-color var(--v105-transition),
+    transform var(--v105-spring),
+    box-shadow var(--v105-transition) !important;
+  line-height: 1.3 !important;
+  font-family: inherit !important;
+}
+.executive-tabs button:hover:not(.is-active) {
+  background: rgba(26,110,255,.14) !important;
+  color: #EEF5FF !important;
+  transform: translateY(-1px) !important;
+}
+.executive-tabs button.is-active {
+  background: linear-gradient(135deg, #00C2FF, #1A6EFF) !important;
+  color: #031022 !important;
+  font-weight: 900 !important;
+  border-color: transparent !important;
+  box-shadow: 0 4px 16px rgba(26,110,255,.36) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* ── User actions row ── */
+.executive-user {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: nowrap !important;
+  flex-shrink: 0 !important;
+  padding: 10px 20px 0 !important;
+}
+.executive-user .user-chip {
+  display: flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  padding: 5px 12px 5px 6px !important;
+  border-radius: 999px !important;
+  background: rgba(26,110,255,.10) !important;
+  border: 1px solid rgba(26,110,255,.22) !important;
+  color: #EEF5FF !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+  max-width: 160px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.executive-user .button {
+  padding: 7px 14px !important;
+  font-size: 12px !important;
+  border-radius: 10px !important;
+  font-weight: 800 !important;
+  white-space: nowrap !important;
+}
+.executive-user .button.danger {
+  padding: 7px 12px !important;
+}
+
+/* ── Executive main content area — compensate for taller header ── */
+.executive-main {
+  padding: clamp(16px, 2.5vw, 28px) clamp(14px, 2.5vw, 24px) !important;
+  width: 100% !important;
+  max-width: 1200px !important;
+  margin: 0 auto !important;
+}
+
+/* Page head */
+.executive-page-head {
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: space-between !important;
+  flex-wrap: wrap !important;
+  gap: 12px !important;
+  margin-bottom: 24px !important;
+  padding-bottom: 16px !important;
+  border-bottom: 1px solid rgba(26,110,255,.14) !important;
+}
+.executive-page-head h1 {
+  font-size: clamp(20px, 4vw, 28px) !important;
+  font-weight: 900 !important;
+  margin: 6px 0 0 !important;
+  background: linear-gradient(135deg, #EEF5FF, #7DC8FF);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.executive-page-head p {
+  font-size: 13px !important;
+  color: #9AB0CC !important;
+  margin: 4px 0 0 !important;
+}
+.role-chip {
+  padding: 6px 16px !important;
+  border-radius: 999px !important;
+  background: rgba(26,110,255,.12) !important;
+  border: 1px solid rgba(26,110,255,.26) !important;
+  color: #7DC8FF !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.04em !important;
+  white-space: nowrap !important;
+}
+
+/* ── Executive Metric Cards ── */
+.executive-dashboard .metric,
+.executive-shell .metric,
+.executive-report-page .metric {
+  position: relative !important;
+  overflow: hidden !important;
+  background:
+    linear-gradient(135deg,
+      rgba(26,110,255,.09) 0%,
+      rgba(0,194,255,.06) 50%,
+      rgba(8,14,32,.92) 100%
+    ) !important;
+  border: 1px solid rgba(26,110,255,.20) !important;
+  border-radius: 18px !important;
+  padding: 18px !important;
+  transition:
+    transform var(--v105-spring),
+    box-shadow var(--v105-transition),
+    border-color var(--v105-transition) !important;
+}
+.executive-dashboard .metric:hover,
+.executive-shell .metric:hover {
+  transform: translateY(-4px) !important;
+  border-color: rgba(26,110,255,.40) !important;
+  box-shadow: 0 20px 50px rgba(0,0,0,.38), var(--v105-glow-blue) !important;
+}
+.executive-dashboard .metric strong,
+.executive-shell .metric strong,
+.executive-report-page .metric strong {
+  background: linear-gradient(135deg, #00C2FF, #1A6EFF) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  font-variant-numeric: tabular-nums !important;
+  display: block !important;
+  line-height: 1.1 !important;
+}
+.executive-dashboard .metric > span,
+.executive-shell .metric > span {
+  color: #9AB0CC !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  display: block !important;
+  margin-bottom: 6px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+}
+
+/* Metric card shimmer on load */
+.executive-shell .metric::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.05), transparent);
+  animation: v105-metric-shimmer 2.8s ease infinite;
+}
+@keyframes v105-metric-shimmer {
+  0%   { left: -100%; opacity: 0; }
+  30%  { opacity: 1; }
+  100% { left: 200%; opacity: 0; }
+}
+
+/* ── Executive "Score Ring" ── */
+.score-display {
+  display: inline-flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 68px !important;
+  height: 68px !important;
+  border-radius: 50% !important;
+  background: radial-gradient(circle at 40% 35%,
+    rgba(26,110,255,.22), rgba(0,194,255,.10), transparent 70%) !important;
+  border: 2px solid rgba(26,110,255,.36) !important;
+  box-shadow: var(--v105-glow-blue) !important;
+  transition: transform var(--v105-spring) !important;
+  flex-shrink: 0 !important;
+}
+.score-display:hover { transform: scale(1.08) !important; }
+.score-display strong {
+  font-size: 18px !important;
+  font-weight: 900 !important;
+  background: linear-gradient(135deg, #00C2FF, #1A6EFF) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  line-height: 1 !important;
+}
+.score-display span {
+  font-size: 9px !important;
+  color: #9AB0CC !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+}
+
+/* ── Executive Hero section ── */
+.executive-hero {
+  background:
+    linear-gradient(135deg,
+      rgba(26,110,255,.10) 0%,
+      rgba(0,194,255,.07) 40%,
+      rgba(139,92,246,.07) 100%
+    ),
+    linear-gradient(180deg, rgba(11,20,40,.96), rgba(5,10,26,.98)) !important;
+  border: 1px solid rgba(26,110,255,.22) !important;
+  box-shadow: 0 16px 48px rgba(0,0,0,.3), var(--v105-glow-blue) !important;
+  animation: v105-hero-in 0.4s cubic-bezier(0.34,1.2,0.64,1) both !important;
+}
+@keyframes v105-hero-in {
+  from { opacity: 0; transform: scale(0.97) translateY(12px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   3. MOBILE — EXECUTIVE TOPBAR FULL REWRITE (≤ 768px)
+   ────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+
+  /* Stack topbar brand + user on one line, tabs below */
+  .executive-topbar {
+    flex-direction: column !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  /* Top row */
+  .executive-brand {
+    padding: 10px 14px 8px !important;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+  .executive-brand > div {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .executive-brand strong { font-size: 14px !important; }
+  .executive-brand span   { font-size: 9px !important; }
+
+  .executive-user {
+    padding: 0 14px 8px !important;
+    gap: 6px !important;
+    width: 100% !important;
+    justify-content: flex-end !important;
+    flex-wrap: nowrap !important;
+  }
+  .executive-user .user-chip {
+    max-width: 120px !important;
+    font-size: 11px !important;
+  }
+  .executive-user .button {
+    padding: 6px 10px !important;
+    font-size: 11px !important;
+    border-radius: 8px !important;
+  }
+
+  /* Tabs: single scrollable row with smaller text */
+  .executive-tabs {
+    padding: 6px 10px 10px !important;
+    gap: 5px !important;
+    border-top: 1px solid rgba(26,110,255,.12) !important;
+  }
+  .executive-tabs button {
+    padding: 7px 13px !important;
+    font-size: 12px !important;
+    border-radius: 999px !important;
+  }
+
+  /* Page head — compact */
+  .executive-page-head {
+    margin-bottom: 16px !important;
+    padding-bottom: 12px !important;
+  }
+  .executive-page-head h1 { font-size: 20px !important; }
+  .role-chip { font-size: 11px !important; padding: 5px 12px !important; }
+
+  /* Metrics grid — 2 columns on phone */
+  .executive-shell .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+  .executive-shell .metric { padding: 14px 12px !important; border-radius: 14px !important; }
+
+  /* Hero — compact on mobile */
+  .executive-hero {
+    flex-direction: column !important;
+    gap: 20px !important;
+    padding: 20px !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .executive-tabs button { padding: 6px 11px !important; font-size: 11.5px !important; }
+  .executive-user .user-chip { display: none !important; } /* hide on very small screens */
+  .executive-shell .metric-grid { grid-template-columns: 1fr 1fr !important; }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   4. EMPLOYEE APP — HERO CARD & HOME IMPROVEMENTS
+   ────────────────────────────────────────────────────────────── */
+
+/* Hero card */
+.employee-home-hero,
+.employee-hero-card,
+[class*="home-hero"],
+.home-welcome {
+  background:
+    linear-gradient(135deg,
+      rgba(0,194,255,.10) 0%,
+      rgba(26,110,255,.08) 50%,
+      rgba(139,92,246,.06) 100%
+    ),
+    linear-gradient(180deg, rgba(11,20,40,.97), rgba(5,10,26,.97)) !important;
+  border: 1px solid rgba(0,194,255,.22) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 16px 48px rgba(0,0,0,.36), var(--v105-glow-cyan) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+.employee-home-hero::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  inset-inline-end: -5%;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(0,194,255,.08), transparent 65%);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: v105-hero-orb 6s ease-in-out infinite alternate;
+}
+@keyframes v105-hero-orb {
+  from { transform: scale(1); opacity: 0.5; }
+  to   { transform: scale(1.4) translate(-8%, 8%); opacity: 0.9; }
+}
+
+/* Compact metric badges (the 4/5 stats grid) */
+.compact-metric-badge {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 3px !important;
+  padding: 13px 8px !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(0,194,255,.14) !important;
+  background: linear-gradient(180deg, rgba(11,20,40,.90), rgba(5,10,26,.85)) !important;
+  cursor: pointer !important;
+  transition:
+    transform var(--v105-spring),
+    box-shadow var(--v105-transition),
+    border-color var(--v105-transition) !important;
+  text-align: center !important;
+  overflow: hidden !important;
+  position: relative !important;
+}
+.compact-metric-badge:hover {
+  transform: translateY(-4px) scale(1.04) !important;
+  border-color: rgba(0,194,255,.32) !important;
+  box-shadow: 0 12px 32px rgba(0,0,0,.32), var(--v105-glow-cyan) !important;
+}
+.compact-metric-badge:active {
+  transform: translateY(0) scale(0.97) !important;
+}
+.compact-metric-badge .badge-icon {
+  font-size: 20px !important;
+  line-height: 1 !important;
+  display: block !important;
+}
+.compact-metric-badge strong {
+  font-size: 19px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  background: linear-gradient(135deg, #00C2FF, #1A6EFF) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  font-variant-numeric: tabular-nums !important;
+  display: block !important;
+}
+.compact-metric-badge > span:last-child {
+  font-size: 10px !important;
+  color: #7A94C1 !important;
+  line-height: 1.3 !important;
+  display: block !important;
+}
+
+/* Attendance punch card */
+.attendance-status-card,
+.punch-card {
+  background:
+    linear-gradient(135deg, rgba(0,214,143,.07), rgba(0,194,255,.07), rgba(5,10,26,.94)) !important;
+  border: 1px solid rgba(0,194,255,.18) !important;
+  border-radius: 20px !important;
+}
+
+/* Punch button */
+.punch-btn,
+button[data-action="punch"],
+.btn-punch {
+  background: linear-gradient(135deg, #00C2FF, #1A6EFF) !important;
+  color: #031022 !important;
+  font-weight: 900 !important;
+  border-radius: 14px !important;
+  border: none !important;
+  padding: 14px 24px !important;
+  font-size: 15px !important;
+  box-shadow: 0 8px 28px rgba(0,194,255,.30) !important;
+  transition: transform var(--v105-spring), box-shadow var(--v105-transition) !important;
+  cursor: pointer !important;
+  font-family: inherit !important;
+  letter-spacing: 0.02em !important;
+}
+.punch-btn:hover:not([disabled]) {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 14px 36px rgba(0,194,255,.44) !important;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   5. EMPLOYEE BOTTOM NAV — COMPLETE REDESIGN
+   ────────────────────────────────────────────────────────────── */
+.employee-bottom-nav {
+  background: rgba(5,10,26,.97) !important;
+  border-top: 1px solid rgba(0,194,255,.14) !important;
+  box-shadow: 0 -12px 36px rgba(0,0,0,.36) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+}
+
+body.employee-portal .employee-bottom-nav button {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 3px !important;
+  border: none !important;
+  background: transparent !important;
+  color: #647A9B !important;
+  cursor: pointer !important;
+  padding: 10px 4px !important;
+  border-radius: 12px !important;
+  margin: 4px 2px !important;
+  transition:
+    background var(--v105-transition),
+    color var(--v105-transition),
+    transform var(--v105-spring),
+    box-shadow var(--v105-transition) !important;
+  font-family: inherit !important;
+  min-width: 0 !important;
+}
+
+body.employee-portal .employee-bottom-nav button:hover:not(.is-active) {
+  background: rgba(0,194,255,.08) !important;
+  color: #9AB0CC !important;
+  transform: translateY(-2px) !important;
+}
+
+body.employee-portal .employee-bottom-nav button.is-active {
+  background: linear-gradient(135deg, rgba(0,194,255,.16), rgba(26,110,255,.18)) !important;
+  color: #00C2FF !important;
+  transform: translateY(-3px) !important;
+  box-shadow: 0 6px 20px rgba(0,194,255,.20) !important;
+}
+body.employee-portal .employee-bottom-nav button.is-active strong {
+  color: #00C2FF !important;
+  -webkit-text-fill-color: #00C2FF !important;
+}
+
+/* Punch button in nav — special highlight */
+body.employee-portal .employee-bottom-nav button[data-route="punch"] {
+  background: linear-gradient(135deg, rgba(0,194,255,.18), rgba(26,110,255,.22)) !important;
+  border: 1px solid rgba(0,194,255,.24) !important;
+  border-radius: 16px !important;
+  color: #00C2FF !important;
+  padding: 8px 10px !important;
+  margin: 6px 4px !important;
+}
+body.employee-portal .employee-bottom-nav button[data-route="punch"].is-active {
+  background: linear-gradient(135deg, #00C2FF, #1A6EFF) !important;
+  color: #031022 !important;
+  box-shadow: 0 8px 24px rgba(0,194,255,.36) !important;
+}
+body.employee-portal .employee-bottom-nav button[data-route="punch"].is-active strong {
+  color: #031022 !important;
+  -webkit-text-fill-color: #031022 !important;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   6. ADMIN PORTAL — SIDEBAR & SHELL IMPROVEMENTS
+   ────────────────────────────────────────────────────────────── */
+.sidebar {
+  background: var(--v105-surface-b) !important;
+  border-inline-end: 1px solid rgba(26,110,255,.12) !important;
+  box-shadow: 4px 0 24px rgba(0,0,0,.24) !important;
+}
+
+/* Brand area */
+.brand {
+  border-bottom: 1px solid rgba(26,110,255,.10) !important;
+  padding: 16px 14px !important;
+  transition: background var(--v105-transition) !important;
+}
+.brand:hover { background: rgba(26,110,255,.06) !important; }
+.brand img {
+  transition: transform var(--v105-spring), filter var(--v105-transition) !important;
+}
+.brand:hover img {
+  transform: scale(1.07) rotate(-2deg) !important;
+  filter: drop-shadow(0 0 12px rgba(0,194,255,.4)) !important;
+}
+
+/* Nav buttons */
+.nav button,
+.nav a {
+  border-radius: 12px !important;
+  transition:
+    background var(--v105-transition),
+    color var(--v105-transition),
+    transform var(--v105-spring),
+    box-shadow var(--v105-transition) !important;
+}
+.nav button:hover:not(.is-active) {
+  background: rgba(26,110,255,.08) !important;
+  color: #EEF5FF !important;
+  transform: translateX(-2px) !important;
+}
+html[dir="rtl"] .nav button:hover:not(.is-active) {
+  transform: translateX(2px) !important;
+}
+.nav button.is-active {
+  background: linear-gradient(135deg, rgba(0,194,255,.14), rgba(26,110,255,.16)) !important;
+  color: #00C2FF !important;
+  box-shadow: inset -3px 0 0 #00C2FF !important;
+  font-weight: 800 !important;
+}
+html[dir="rtl"] .nav button.is-active {
+  box-shadow: inset 3px 0 0 #00C2FF !important;
+}
+
+/* Topbar */
+.topbar {
+  background: rgba(5,10,26,.97) !important;
+  border-bottom: 1px solid rgba(26,110,255,.14) !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,.28) !important;
+  backdrop-filter: blur(16px) !important;
+}
+.topbar h1 {
+  background: linear-gradient(90deg, #EEF5FF, #7DC8FF) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+/* Main area page-in animation */
+.main > *,
+.admin-main > * {
+  animation: v105-page-in 0.22s ease both;
+}
+
+/* Panel improvements */
+.panel {
+  border: 1px solid rgba(26,110,255,.12) !important;
+  border-radius: 20px !important;
+  background:
+    linear-gradient(135deg, rgba(11,20,40,.94), rgba(8,14,32,.96)) !important;
+  transition:
+    border-color var(--v105-transition),
+    box-shadow var(--v105-transition) !important;
+}
+.panel:hover { border-color: rgba(26,110,255,.22) !important; }
+
+/* ──────────────────────────────────────────────────────────────
+   7. METRIC CARDS — UNIVERSAL IMPROVEMENTS
+   ────────────────────────────────────────────────────────────── */
+.metric-card,
+.metric,
+.stat-card {
+  position: relative !important;
+  overflow: hidden !important;
+  background:
+    linear-gradient(135deg,
+      rgba(26,110,255,.09) 0%,
+      rgba(0,194,255,.05) 50%,
+      rgba(8,14,32,.92) 100%
+    ) !important;
+  border: 1px solid rgba(26,110,255,.16) !important;
+  border-radius: 18px !important;
+  transition:
+    transform var(--v105-spring),
+    box-shadow var(--v105-transition),
+    border-color var(--v105-transition) !important;
+}
+.metric-card:hover,
+.metric:hover,
+.stat-card:hover {
+  transform: translateY(-4px) !important;
+  border-color: rgba(26,110,255,.36) !important;
+  box-shadow: 0 20px 50px rgba(0,0,0,.36), var(--v105-glow-blue) !important;
+}
+
+.metric-card strong,
+.metric strong,
+.stat-card strong {
+  background: linear-gradient(135deg, #00C2FF, #1A6EFF) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  font-variant-numeric: tabular-nums !important;
+  display: block !important;
+  line-height: 1.1 !important;
+}
+
+/* Count-up animation class */
+.counting-up {
+  animation: v105-count-pulse 0.3s cubic-bezier(0.34,1.56,0.64,1) both !important;
+}
+@keyframes v105-count-pulse {
+  from { transform: scale(0.88); opacity: 0.7; }
+  to   { transform: scale(1);    opacity: 1;   }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   8. BUTTONS — UNIVERSAL RIPPLE + POLISH
+   ────────────────────────────────────────────────────────────── */
+button, .button {
+  font-family: inherit !important;
+}
+
+.button {
+  position: relative !important;
+  overflow: hidden !important;
+  isolation: isolate !important;
+  transition:
+    transform var(--v105-spring),
+    box-shadow var(--v105-transition),
+    background var(--v105-transition),
+    border-color var(--v105-transition),
+    color var(--v105-transition),
+    opacity var(--v105-transition) !important;
+}
+
+/* Ripple pseudoelement */
+.button::after {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  background: radial-gradient(
+    circle at var(--x, 50%) var(--y, 50%),
+    rgba(255,255,255,.22) 0%, transparent 68%
+  ) !important;
+  opacity: 0 !important;
+  transition: opacity 0.45s !important;
+  pointer-events: none !important;
+  border-radius: inherit !important;
+  z-index: 1 !important;
+}
+.button:active::after { opacity: 1 !important; transition: opacity 0s !important; }
+
+.button:hover:not([disabled]):not(:disabled) { transform: translateY(-2px) !important; }
+.button:active:not([disabled]):not(:disabled) { transform: translateY(0) !important; }
+
+.button.primary {
+  background: linear-gradient(135deg, #00C2FF, #1A6EFF) !important;
+  color: #031022 !important;
+  border: none !important;
+  font-weight: 900 !important;
+  box-shadow: 0 6px 22px rgba(26,110,255,.28) !important;
+}
+.button.primary:hover:not([disabled]) {
+  box-shadow: 0 12px 32px rgba(26,110,255,.42) !important;
+}
+
+.button.danger {
+  background: rgba(255,59,107,.14) !important;
+  border: 1px solid rgba(255,59,107,.32) !important;
+  color: #FF3B6B !important;
+}
+.button.danger:hover:not([disabled]) {
+  background: rgba(255,59,107,.22) !important;
+  box-shadow: 0 8px 24px rgba(255,59,107,.24) !important;
+}
+
+.button.ghost {
+  background: rgba(26,110,255,.08) !important;
+  border: 1px solid rgba(26,110,255,.22) !important;
+  color: #9AB0CC !important;
+}
+.button.ghost:hover:not([disabled]) {
+  background: rgba(26,110,255,.16) !important;
+  border-color: rgba(26,110,255,.38) !important;
+  color: #EEF5FF !important;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   9. FORM INPUTS — UNIVERSAL POLISH
+   ────────────────────────────────────────────────────────────── */
+input, select, textarea {
+  transition:
+    border-color var(--v105-transition),
+    box-shadow var(--v105-transition),
+    transform 0.14s ease !important;
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none !important;
+  border-color: #00C2FF !important;
+  box-shadow: 0 0 0 4px rgba(0,194,255,.16), inset 0 1px 0 rgba(0,194,255,.06) !important;
+  transform: translateY(-1px) !important;
+}
+input.is-valid, select.is-valid { border-color: #00D68F !important; }
+input.is-invalid, select.is-invalid {
+  border-color: #FF3B6B !important;
+  animation: v105-shake 0.32s ease both !important;
+}
+@keyframes v105-shake {
+  0%, 100% { transform: translateX(0); }
+  25%       { transform: translateX(-6px); }
+  75%       { transform: translateX(6px); }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   10. TABLE — STICKY HEADERS + MOBILE CARD VIEW
+   ────────────────────────────────────────────────────────────── */
+.table-wrap { overflow-x: auto; border-radius: 16px; }
+table { width: 100%; border-collapse: separate; border-spacing: 0; }
+
+thead th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 3 !important;
+  background: rgba(5,10,26,.96) !important;
+  backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid rgba(26,110,255,.20) !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: #647A9B !important;
+  padding: 11px 14px !important;
+  white-space: nowrap !important;
+  transition: color var(--v105-transition) !important;
+}
+thead th:hover { color: #9AB0CC !important; }
+
+tbody tr {
+  transition: background var(--v105-transition) !important;
+}
+tbody tr:hover { background: rgba(26,110,255,.04) !important; }
+tbody td {
+  padding: 11px 14px !important;
+  border-bottom: 1px solid rgba(26,110,255,.06) !important;
+  font-size: 14px !important;
+  vertical-align: middle !important;
+}
+tbody tr:last-child td { border-bottom: none !important; }
+
+@media (max-width: 600px) {
+  .table-responsive table,
+  .table-responsive thead,
+  .table-responsive tbody,
+  .table-responsive th,
+  .table-responsive td,
+  .table-responsive tr { display: block !important; }
+
+  .table-responsive thead tr { position: absolute; top: -9999px; left: -9999px; }
+  .table-responsive tbody tr {
+    border: 1px solid rgba(26,110,255,.14) !important;
+    border-radius: 14px !important;
+    margin-bottom: 10px !important;
+    padding: 8px 0 !important;
+    background: rgba(11,20,40,.86) !important;
+  }
+  .table-responsive td {
+    border: none !important;
+    border-bottom: 1px solid rgba(26,110,255,.06) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    padding: 9px 14px !important;
+    font-size: 13px !important;
+  }
+  .table-responsive td::before {
+    content: attr(data-label);
+    font-weight: 800;
+    color: #647A9B;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    min-width: 80px;
+    flex-shrink: 0;
+  }
+  .table-responsive td:last-child { border-bottom: none !important; }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   11. EMPTY STATES
+   ────────────────────────────────────────────────────────────── */
+.empty-state {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  padding: 52px 24px !important;
+  text-align: center !important;
+  color: #647A9B !important;
+  animation: v105-page-in 0.3s ease both !important;
+}
+.empty-state .empty-icon {
+  font-size: 48px;
+  line-height: 1;
+  opacity: 0.4;
+  display: block;
+  animation: v105-float 4s ease-in-out infinite;
+}
+@keyframes v105-float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-8px); }
+}
+.empty-state strong {
+  font-size: 15px !important;
+  color: #9AB0CC !important;
+  display: block;
+}
+.empty-state p { margin: 0; font-size: 13px !important; }
+
+/* ──────────────────────────────────────────────────────────────
+   12. TOASTS
+   ────────────────────────────────────────────────────────────── */
+.hr-toast,
+.v104-toast,
+[class*="toast"] {
+  position: fixed !important;
+  bottom: 96px !important;
+  left: 50% !important;
+  transform: translateX(-50%) translateY(24px) !important;
+  z-index: 900 !important;
+  min-width: 240px !important;
+  max-width: min(90vw, 420px) !important;
+  padding: 13px 20px !important;
+  border-radius: 14px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  text-align: center !important;
+  opacity: 0 !important;
+  transition: opacity 0.26s ease, transform 0.26s cubic-bezier(0.34,1.4,0.64,1) !important;
+  backdrop-filter: blur(16px) !important;
+  pointer-events: none !important;
+}
+.hr-toast.is-visible,
+[class*="toast"].is-visible {
+  opacity: 1 !important;
+  transform: translateX(-50%) translateY(0) !important;
+}
+.hr-toast.ok  { background: rgba(0,214,143,.18) !important; border: 1px solid rgba(0,214,143,.32) !important; color: #5fffc2 !important; }
+.hr-toast.error { background: rgba(255,59,107,.18) !important; border: 1px solid rgba(255,59,107,.32) !important; color: #ffb0c0 !important; }
+
+/* ──────────────────────────────────────────────────────────────
+   13. STATUS BADGES
+   ────────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.badge.ok, .badge.success, .badge.active, .badge.present, .badge.approved {
+  background: rgba(0,214,143,.12); border: 1px solid rgba(0,214,143,.26); color: #00D68F;
+}
+.badge.error, .badge.danger, .badge.absent, .badge.rejected {
+  background: rgba(255,59,107,.12); border: 1px solid rgba(255,59,107,.24); color: #FF3B6B;
+}
+.badge.warn, .badge.warning, .badge.pending, .badge.late {
+  background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.24); color: #F59E0B;
+}
+.badge.info, .badge.remote, .badge.mission {
+  background: rgba(0,194,255,.10); border: 1px solid rgba(0,194,255,.22); color: #00C2FF;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   14. SCROLLBAR POLISH
+   ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: rgba(5,10,26,.5); border-radius: 999px; }
+::-webkit-scrollbar-thumb {
+  background: rgba(26,42,80,.9);
+  border-radius: 999px;
+  border: 2px solid rgba(5,10,26,.4);
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(26,110,255,.5); }
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* ──────────────────────────────────────────────────────────────
+   15. OFFLINE/ONLINE BANNERS (v104 styles fix)
+   ────────────────────────────────────────────────────────────── */
+.offline-banner {
+  position: fixed !important;
+  top: 0 !important; left: 0 !important; right: 0 !important;
+  z-index: 9999 !important;
+  background: rgba(255,59,107,.92) !important;
+  color: #fff !important;
+  text-align: center !important;
+  padding: 9px 20px !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  backdrop-filter: blur(10px) !important;
+  animation: v105-banner-in 0.24s ease both !important;
+}
+.online-restored-banner {
+  position: fixed !important;
+  top: 0 !important; left: 0 !important; right: 0 !important;
+  z-index: 9999 !important;
+  background: rgba(0,214,143,.90) !important;
+  color: #031022 !important;
+  text-align: center !important;
+  padding: 9px 20px !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  backdrop-filter: blur(10px) !important;
+  animation: v105-banner-in 0.24s ease both !important;
+}
+@keyframes v105-banner-in {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   16. PRINT FIXES
+   ────────────────────────────────────────────────────────────── */
+@media print {
+  body { background: #fff !important; color: #111 !important; }
+  .sidebar, .topbar, .employee-bottom-nav, .executive-topbar,
+  .hr-toast, .offline-banner, .online-restored-banner,
+  .scroll-top, .nav-fab, .modal-backdrop { display: none !important; }
+  .main, .executive-main, .employee-main, #app {
+    margin: 0 !important; padding: 0 !important; max-width: 100% !important;
+  }
+  .panel, .metric-card, .metric {
+    box-shadow: none !important; border: 1px solid #ccc !important;
+    background: #fff !important; break-inside: avoid;
+  }
+  .metric-card strong, .metric strong {
+    -webkit-text-fill-color: #111 !important; color: #111 !important;
+  }
+  table { border-collapse: collapse !important; }
+  th, td { border: 1px solid #bbb !important; padding: 7px 10px !important; color: #111 !important; background: #fff !important; }
+  thead th { background: #f0f0f0 !important; }
+  @page { margin: 2cm 1.5cm; }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   17. MODAL IMPROVEMENTS
+   ────────────────────────────────────────────────────────────── */
+.modal-backdrop {
+  animation: v105-backdrop-in 0.2s ease both !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+@keyframes v105-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+
+.confirm-dialog,
+.modal-box {
+  animation: v105-modal-in 0.28s cubic-bezier(0.34,1.4,0.64,1) both !important;
+  border: 1px solid rgba(26,110,255,.22) !important;
+  box-shadow: 0 32px 80px rgba(0,0,0,.5), var(--v105-glow-blue) !important;
+  border-radius: 22px !important;
+}
+@keyframes v105-modal-in {
+  from { opacity: 0; transform: scale(0.88) translateY(20px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   18. PROGRESS BAR (page loading)
+   ────────────────────────────────────────────────────────────── */
+.v104-progress-bar,
+.progress-bar-top {
+  position: fixed !important;
+  top: 0 !important; left: 0 !important; right: 0 !important;
+  height: 3px !important;
+  background: linear-gradient(90deg, #00C2FF, #1A6EFF, #8B5CF6) !important;
+  z-index: 9999 !important;
+  border-radius: 0 0 3px 3px !important;
+  animation: v105-progress 1s ease forwards !important;
+}
+@keyframes v105-progress {
+  from { opacity: 1; transform: scaleX(0); transform-origin: left; }
+  80%  { opacity: 1; transform: scaleX(0.9); }
+  to   { opacity: 0; transform: scaleX(1); }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   19. NOTIFICATION BADGE
+   ────────────────────────────────────────────────────────────── */
+.notification-badge,
+.notif-count,
+[class*="badge-count"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  padding: 0 5px !important;
+  border-radius: 999px !important;
+  background: #FF3B6B !important;
+  color: #fff !important;
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  line-height: 1 !important;
+  animation: v105-badge-pop 0.32s cubic-bezier(0.34,1.56,0.64,1) both !important;
+}
+@keyframes v105-badge-pop {
+  from { transform: scale(0); }
+  to   { transform: scale(1); }
+}
+
+/* ──────────────────────────────────────────────────────────────
+   20. EXECUTIVE TOPBAR — BRAND/USER INLINE ON DESKTOP
+   ────────────────────────────────────────────────────────────── */
+@media (min-width: 769px) {
+  .executive-topbar {
+    flex-direction: row !important;
+    align-items: center !important;
+    padding: 0 24px !important;
+    gap: 16px !important;
+    min-height: 60px !important;
+  }
+  .executive-brand {
+    padding: 0 !important;
+    flex-shrink: 0 !important;
+  }
+  .executive-tabs {
+    flex: 1 !important;
+    border-top: none !important;
+    padding: 8px 0 !important;
+    min-width: 0 !important;
+  }
+  .executive-user {
+    padding: 0 !important;
+    flex-shrink: 0 !important;
+  }
+}

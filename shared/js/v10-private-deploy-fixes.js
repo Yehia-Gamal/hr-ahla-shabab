@@ -15,10 +15,10 @@
   if (cfg.attendance.branchLocation) cfg.attendance.branchLocation.safetyBufferMeters = Math.max(50, Number(cfg.attendance.branchLocation.safetyBufferMeters || 0));
   cfg.security = Object.assign({ allowLocalFallback:false, blockInsecureGatewayDefaults:true }, cfg.security || {});
   try { delete cfg.security.allowLocalDemo; } catch {}
-  cfg.cacheVersion = cfg.cacheVersion || 'v33-ui-ux-overhaul-101';
+  cfg.cacheVersion = cfg.cacheVersion || 'v39-consolidated-stable-110';
   cfg.deployment = Object.assign({}, cfg.deployment || {}, {
-    packageVersion: 'v33-ui-ux-overhaul-101',
-    expectedPatch: cfg.deployment?.expectedPatch || '098_location_security_edge_hardening'
+    packageVersion: 'v39-consolidated-stable-110',
+    expectedPatch: cfg.deployment?.expectedPatch || '104_royal_blue_full_migration'
   });
   window.HR_QR_REQUIRED = false;
   window.HR_PRIVATE_DEPLOY_BUNDLE = true;
@@ -186,20 +186,26 @@
   }
 
   function setupRipple(){
-    if (document.dataset.v10RippleBound === 'true') return;
-    document.dataset.v10RippleBound='true';
+    const host = document.documentElement || document.body;
+    if (!host || host.dataset.v10RippleBound === 'true') return;
+    host.dataset.v10RippleBound='true';
     document.addEventListener('click', event=>{
       const button=event.target.closest('button,.button,.quick-action,.action-card,[role="button"]');
       if(!button || button.disabled || button.classList.contains('no-ripple')) return;
-      const rect=button.getBoundingClientRect();
-      const ripple=document.createElement('span');
-      ripple.className='v10-ripple';
-      const size=Math.max(rect.width, rect.height);
-      ripple.style.width=ripple.style.height=size+'px';
-      ripple.style.left=(event.clientX - rect.left - size/2)+'px';
-      ripple.style.top=(event.clientY - rect.top - size/2)+'px';
-      button.appendChild(ripple);
-      setTimeout(()=>ripple.remove(),650);
+      const clientX = event.clientX;
+      const clientY = event.clientY;
+      requestAnimationFrame(()=>{
+        if (!button.isConnected) return;
+        const rect=button.getBoundingClientRect();
+        const ripple=document.createElement('span');
+        ripple.className='v10-ripple';
+        const size=Math.max(rect.width, rect.height);
+        ripple.style.width=ripple.style.height=size+'px';
+        ripple.style.left=(clientX - rect.left - size/2)+'px';
+        ripple.style.top=(clientY - rect.top - size/2)+'px';
+        button.appendChild(ripple);
+        setTimeout(()=>ripple.remove(),650);
+      });
     }, true);
   }
 
@@ -237,8 +243,9 @@
         }
       });
     });
-    if (document.dataset.v10ShortcutsBound === 'true') return;
-    document.dataset.v10ShortcutsBound='true';
+    const shortcutHost = document.documentElement || document.body;
+    if (!shortcutHost || shortcutHost.dataset.v10ShortcutsBound === 'true') return;
+    shortcutHost.dataset.v10ShortcutsBound='true';
     document.addEventListener('keydown', event=>{
       if (event.defaultPrevented) return;
       const active=document.activeElement;
@@ -327,4 +334,88 @@
     if (should) requestAnimationFrame(()=>polish(document));
   });
   if (document.documentElement) observer.observe(document.documentElement, { childList:true, subtree:true });
+})();
+
+/* ── v110: Offline/online detection ── */
+(function initNetworkStatus() {
+  const banner = document.createElement('div');
+  banner.className = 'offline-banner';
+  banner.textContent = '⚠️ لا يوجد اتصال بالإنترنت — بعض الخدمات قد لا تعمل';
+  document.body.insertBefore(banner, document.body.firstChild);
+
+  const update = () => {
+    const isOnline = navigator.onLine;
+    document.body.classList.toggle('is-offline', !isOnline);
+
+    if (!isOnline) {
+      /* Going offline: register Background Sync tag so the browser fires it
+         automatically when connectivity is restored.  Silently ignored on
+         browsers without BG-Sync support (Firefox, old Safari). */
+      navigator.serviceWorker?.ready?.then(sw => {
+        sw.sync?.register?.('hr-offline-sync').catch(() => {});
+      }).catch(() => {});
+    } else {
+      /* Coming back online: trigger the queue flush immediately as a direct
+         fallback for browsers that do not support the Background Sync API.
+         App files (employee-app / app-admin / executive-app) also listen for
+         this event and call endpoints.syncOfflineQueue() themselves; the hook
+         below is a belt-and-suspenders call in case they are not yet loaded. */
+      if (typeof window.HR_FLUSH_OFFLINE_QUEUE === 'function') {
+        window.HR_FLUSH_OFFLINE_QUEUE('v10-online-event');
+      }
+    }
+  };
+
+  window.addEventListener('online',  update, { passive: true });
+  window.addEventListener('offline', update, { passive: true });
+  update();
+})();
+
+/* ── v110: Pull-to-refresh indicator ── */
+(function initPullRefresh() {
+  const ptr = document.createElement('div');
+  ptr.className = 'ptr-indicator';
+  document.body.appendChild(ptr);
+
+  let startY = 0, pulling = false;
+  document.addEventListener('touchstart', e => { startY = e.touches[0].clientY; }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (window.scrollY > 0) return;
+    const dy = e.touches[0].clientY - startY;
+    if (dy > 40) { pulling = true; ptr.classList.add('active'); }
+  }, { passive: true });
+  document.addEventListener('touchend', () => {
+    if (pulling) { pulling = false; ptr.classList.remove('active'); window.location.reload(); }
+  }, { passive: true });
+})();
+
+/* ── v110: Register PWA install prompt ── */
+(function initPWAInstall() {
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    // Show install banner after 8 seconds if not already installed
+    setTimeout(() => {
+      if (!deferredPrompt) return;
+      const dismissed = sessionStorage.getItem('hr.pwaInstallDismissed');
+      if (dismissed) return;
+      const banner = document.createElement('div');
+      banner.className = 'hr102-install-banner is-visible';
+      banner.innerHTML = `
+        <span>📲 أضف التطبيق لشاشتك الرئيسية للوصول السريع</span>
+        <button class="hr102-install-btn" type="button">تثبيت</button>
+        <button class="hr102-install-dismiss" type="button" aria-label="إغلاق">✕</button>
+      `;
+      banner.querySelector('.hr102-install-btn').addEventListener('click', async () => {
+        banner.remove();
+        if (deferredPrompt) { deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt = null; }
+      });
+      banner.querySelector('.hr102-install-dismiss').addEventListener('click', () => {
+        sessionStorage.setItem('hr.pwaInstallDismissed','1');
+        banner.remove();
+      });
+      document.body.appendChild(banner);
+    }, 8000);
+  });
 })();

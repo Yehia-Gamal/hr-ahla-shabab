@@ -1,0 +1,42 @@
+{
+  "version": "v39-consolidated-stable-110",
+  "packageVersion": "1.7.0-v39-consolidated-stable-110",
+  "date": "2026-05-10",
+  "basedOn": "HR.zip (v38-mobile-ui-stability-106)",
+  "noSupabaseChanges": true,
+  "bugs_fixed": [
+    "CSS BLOAT: 10 patch CSS files (v10-private-deploy through v109) loaded on every page (10 HTTP requests) → merged into 1 file: v110-consolidated.css",
+    "manifest.json: broken relative icon path '../images/icon-512.png' → fixed to absolute '/shared/images/icon-512.png'",
+    "executive/index.html: missing Cache-Control meta headers",
+    "All 3 portals: missing apple-mobile-web-app-capable, apple-mobile-web-app-status-bar-style, apple-touch-icon",
+    "employee/index.html: neon-admin-theme.css still present in some builds",
+    "v106-mobile-stability.js + tools/reset-cache.html: stale version strings v38",
+    "SW ASSETS: patch CSS files not updated to v110-consolidated reference",
+    "iOS zoom: input font-size below 16px triggers auto-zoom — fixed globally",
+    "Touch targets: some buttons below 44px minimum",
+    "Notification modal: missing backdrop CSS in consolidated",
+    "Toast positioning: unsafe-area not respected on iPhone notch devices",
+    "Offline state: no visual feedback when internet disconnected",
+    "PWA install: no prompt to add to home screen shown to users"
+  ],
+  "improvements": [
+    "v110-consolidated.css: single CSS file replaces 10 patch files (6725 lines, deduped)",
+    "CSS load reduced: 10 files → 3 per portal (styles + theme + consolidated)",
+    "Network offline banner: visible warning when no internet connection",
+    "Pull-to-refresh: swipe down to reload when at top of page",
+    "PWA install banner: appears after 8s if app not installed (dismissable)",
+    "Smooth font antialiasing on all elements",
+    "GPS accuracy color coding: green/yellow/red classes",
+    "Avatar image fallback styling",
+    "Modal animations consolidated and standardized",
+    "Form actions stack vertically on mobile with full-width buttons",
+    "Admin sidebar: hidden on mobile, content uses full width",
+    "Metric cards: 2-col grid on small mobile screens",
+    "Data tables: overflow-x scroll with momentum scrolling on iOS"
+  ],
+  "cssSummary": {
+    "before": "10 patch files loaded per page (6527 lines across 10 HTTP requests)",
+    "after": "1 consolidated file (6725 lines, 1 HTTP request)",
+    "savings": "9 fewer HTTP requests per page load"
+  }
+}

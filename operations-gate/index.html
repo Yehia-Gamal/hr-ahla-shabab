@@ -11,9 +11,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" />
-  <link rel="stylesheet" href="../shared/css/neon-admin-theme.css?v=v33-ui-ux-overhaul-101" />
-  <link rel="stylesheet" href="../shared/css/v10-private-deploy-theme.css?v=v33-ui-ux-overhaul-101" />
-  <title>بوابة تشغيل الإدارة والتنفيذي - أحلى شباب</title>
+  <link rel="stylesheet" href="../shared/css/neon-admin-theme.css?v=v39-consolidated-stable-110" />
+  <link rel="stylesheet" href="../shared/css/v10-private-deploy-theme.css?v=v39-consolidated-stable-110" />
+  <link rel="stylesheet" href="../shared/css/v104-royal-blue-overhaul.css?v=v39-consolidated-stable-110" />
+    <link rel="stylesheet" href="../shared/css/v101-deep-quality.css?v=v39-consolidated-stable-110" />
+<title>بوابة تشغيل الإدارة والتنفيذي - أحلى شباب</title>
   <style>
     :root{color-scheme:dark;--bg:#050A1A;--panel:#0B1628;--line:rgba(0,194,255,.22);--cyan:#00C2FF;--blue:#1A6EFF;--purple:#8b5cf6;--red:#FF3B6B;--green:#00D68F;--text:#E8F0FF;--muted:#7A94C1;--soft:#9CB3D9}
     *{box-sizing:border-box}
@@ -82,11 +84,17 @@
       .fields{gap:10px}input{padding:12px 14px;font-size:15px}
       .submit{padding:13px 16px}.msg{margin-top:10px;padding:10px 12px;font-size:12px;line-height:1.55}}
   </style>
+  <link rel="stylesheet" href="../shared/css/v102-ui-overhaul.css?v=v39-consolidated-stable-110" />
+  <link rel="stylesheet" href="../shared/css/v105-ui-fixes.css?v=v39-consolidated-stable-110" />
+  <link rel="stylesheet" href="../shared/css/v106-mobile-stability.css?v=v39-consolidated-stable-110" />
+  <link rel="stylesheet" href="../shared/css/v107-final-ui-polish.css?v=v39-consolidated-stable-110" />
+  <link rel="stylesheet" href="../shared/css/v108-final-bugfix.css?v=v108-final-bugfix" />
+  <link rel="stylesheet" href="../shared/css/v109-final-system-fixes.css?v=v39-consolidated-stable-110" />
 </head>
 <body>
   <main class="gate" aria-labelledby="gate-title">
     <div class="brand">
-      <img src="../shared/images/ahla-shabab-logo.png" alt="أحلى شباب" onerror="this.style.display='none'" />
+      <img src="../shared/images/ahla-shabab-logo.png" alt="أحلى شباب" data-hide-on-error />
       <div>
         <div class="kicker">بوابة تشغيل خاصة</div>
         <h1 class="title" id="gate-title">بوابة الدخول</h1>
@@ -112,9 +120,10 @@
     <p class="foot">تذكير: الكود لا يغني عن تسجيل الدخول وصلاحيات المستخدم داخل Supabase. منع الفتح المباشر هنا طبقة حماية إضافية وليست بديلًا عن RLS.</p>
   </main>
 
-  <script src="../shared/js/supabase-config.js?v=v33-ui-ux-overhaul-101"></script>
-  <script src="../shared/js/v10-private-deploy-fixes.js?v=v33-ui-ux-overhaul-101" defer></script>
-  <script src="../shared/js/register-sw.js?v=v33-ui-ux-overhaul-101" defer></script>
+  <script src="../shared/js/supabase-config.js?v=v39-consolidated-stable-110"></script>
+  <script src="../shared/js/v10-private-deploy-fixes.js?v=v39-consolidated-stable-110" defer></script>
+    <script src="../shared/js/v101-deep-quality.js?v=v39-consolidated-stable-110" defer></script>
+<script src="../shared/js/register-sw.js?v=v39-consolidated-stable-110" defer></script>
   <script>
     const msg = document.getElementById('gate-msg');
     const submitBtn = document.querySelector('.submit');
@@ -273,5 +282,12 @@
       }
     });
   </script>
+  <script src="../shared/js/v102-enhancements.js?v=v39-consolidated-stable-110" defer></script>
+<script>document.querySelectorAll("[data-hide-on-error]").forEach((img) => img.addEventListener("error", () => { img.hidden = true; }));</script>
+  <script src="../shared/js/v105-ui-fixes.js?v=v39-consolidated-stable-110" defer></script>
+  <script src="../shared/js/v106-mobile-stability.js?v=v39-consolidated-stable-110" defer></script>
+  <script src="../shared/js/v107-final-ui-polish.js?v=v39-consolidated-stable-110" defer></script>
+  <script src="../shared/js/v108-final-bugfix.js?v=v108-final-bugfix" defer></script>
+  <script src="../shared/js/v109-final-system-fixes.js?v=v39-consolidated-stable-110" defer></script>
 </body>
 </html>

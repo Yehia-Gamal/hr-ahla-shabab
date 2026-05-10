@@ -1,0 +1,869 @@
+/* ============================================================
+   HR v102 — UI/UX Full Overhaul Layer
+   المزيد من التحسينات على قاعدة v101
+   ============================================================ */
+
+/* ── 1. Root Extensions ── */
+:root {
+  --hr102-glow-cyan:  0 0 0 4px rgba(0,194,255,.12), 0 0 22px rgba(0,194,255,.18);
+  --hr102-glow-green: 0 0 0 4px rgba(0,214,143,.12), 0 0 18px rgba(0,214,143,.16);
+  --hr102-glow-red:   0 0 0 4px rgba(255,59,107,.14), 0 0 20px rgba(255,59,107,.20);
+  --hr102-transition: 190ms cubic-bezier(.4,0,.2,1);
+}
+
+/* ── 2. Hero Card (Employee Home) ── */
+.employee-hero-card.home-welcome,
+.employee-hero-card {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(0,194,255,.28) !important;
+  background:
+    radial-gradient(circle at 90% 8%,  rgba(0,194,255,.22), transparent 32%),
+    radial-gradient(circle at 10% 90%, rgba(139,92,246,.14), transparent 30%),
+    linear-gradient(160deg, rgba(11,22,40,.96), rgba(7,16,30,.98)) !important;
+  border-radius: 26px !important;
+}
+
+.employee-hero-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(0,194,255,.18), transparent 42%, rgba(139,92,246,.12));
+  pointer-events: none;
+  opacity: .8;
+}
+
+.employee-hero-card::after {
+  content: "";
+  position: absolute;
+  inset: auto -10% -30% -10%;
+  height: 52%;
+  background: radial-gradient(closest-side, rgba(0,194,255,.10), transparent 75%);
+  pointer-events: none;
+}
+
+.employee-hero-card > * { position: relative; z-index: 1; }
+
+.employee-hero-card.has-live-alert {
+  border-color: rgba(255,59,107,.36) !important;
+}
+
+.employee-hero-card.has-live-alert::before {
+  background: linear-gradient(135deg, rgba(255,59,107,.14), transparent 38%, rgba(0,194,255,.10));
+}
+
+/* ── 3. Hero Greeting Block ── */
+.hero-greeting-block {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 12px 0 10px;
+  flex-wrap: wrap;
+}
+
+.hero-text { flex: 1; min-width: 0; }
+
+.hero-greeting-label {
+  display: block;
+  font-size: clamp(18px,4.5vw,22px);
+  font-weight: 900;
+  color: var(--hr-text, #E8F4FF);
+  margin-bottom: 4px;
+}
+
+.hero-greeting-block p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--hr-muted, #9CB4D4);
+  line-height: 1.6;
+}
+
+/* ── 4. Live Clock ── */
+.hero-live-clock {
+  text-align: center;
+  min-width: 80px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: rgba(0,194,255,.08);
+  border: 1px solid rgba(0,194,255,.22);
+  backdrop-filter: blur(8px);
+  flex-shrink: 0;
+  transition: border-color var(--hr102-transition);
+}
+
+.hero-live-clock strong {
+  display: block;
+  font-size: clamp(20px,5vw,26px);
+  font-weight: 900;
+  color: #00C2FF;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+}
+
+.hero-live-clock small {
+  display: block;
+  font-size: 11px;
+  color: var(--hr-muted, #9CB4D4);
+  margin-top: 4px;
+  white-space: nowrap;
+}
+
+/* ── 5. Hero Chips ── */
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.hero-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.07);
+  color: var(--hr-soft, #C9DAF3);
+  white-space: nowrap;
+}
+
+.hero-chip.success      { border-color: rgba(0,214,143,.42);  background: rgba(0,214,143,.12);  color: #B9FFE9; }
+.hero-chip.warning      { border-color: rgba(255,176,32,.42); background: rgba(255,176,32,.12); color: #FFE5AD; }
+.hero-chip.holiday      { border-color: rgba(139,92,246,.42); background: rgba(139,92,246,.12); color: #E9D5FF; }
+.hero-chip.info         { border-color: rgba(0,194,255,.38);  background: rgba(0,194,255,.10);  color: #BAE6FF; }
+.hero-chip.urgent       { border-color: rgba(255,59,107,.48); background: rgba(255,59,107,.14); color: #FFD0DC; }
+.hero-chip.success-soft { border-color: rgba(0,214,143,.28);  background: rgba(0,214,143,.07);  color: #A7F3D0; }
+
+/* ── 6. Urgent Card ── */
+.hr-urgent-card {
+  border-color: rgba(255,59,107,.42) !important;
+  background: linear-gradient(135deg, rgba(255,59,107,.08), rgba(7,16,30,.96)) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+.hr-urgent-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, #FF3B6B, #FF8C00);
+  opacity: .9;
+}
+
+.hr-urgent-header {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.hr-urgent-icon {
+  font-size: 28px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* ── 7. Punch Row with Type Indicator ── */
+.hr-punch-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  position: relative;
+}
+
+.hr-punch-type-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 5px;
+  background: rgba(0,214,143,.8);
+  box-shadow: 0 0 8px rgba(0,214,143,.4);
+}
+
+.hr-punch-row[data-punch-type="out"] .hr-punch-type-dot {
+  background: rgba(255,59,107,.8);
+  box-shadow: 0 0 8px rgba(255,59,107,.4);
+}
+
+/* ── 8. Punch CTA Glow State ── */
+.punch-cta-glow {
+  border-color: rgba(255,176,32,.44) !important;
+  background: linear-gradient(135deg, rgba(255,176,32,.06), rgba(7,16,30,.96)) !important;
+  animation: punchCtaPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes punchCtaPulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(255,176,32,.0), var(--shadow-soft,none); }
+  50%      { box-shadow: 0 0 24px rgba(255,176,32,.18), var(--shadow-soft,none); }
+}
+
+.punch-cta-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #FFB020, transparent);
+  animation: punchSweep 2.4s ease-in-out infinite;
+}
+
+@keyframes punchSweep {
+  0%   { transform: translateX(-100%); opacity: .6; }
+  100% { transform: translateX(100%);  opacity: 0; }
+}
+
+/* ── 9. Stats Grid ── */
+.home-stats-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0,1fr)) !important;
+  gap: 10px !important;
+}
+
+@media (min-width: 480px) {
+  .home-stats-grid { grid-template-columns: repeat(4, minmax(0,1fr)) !important; }
+}
+
+@media (min-width: 700px) {
+  .home-stats-grid { grid-template-columns: repeat(5, minmax(0,1fr)) !important; }
+}
+
+/* ── 10. HR Pulse Animation ── */
+@keyframes hrPulse {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50%     { opacity: .7; transform: scale(1.06); }
+}
+
+.hr-pulse { animation: hrPulse 1.4s ease-in-out infinite; }
+
+/* ── 11. Permissions Row ── */
+.hr-permissions-row {
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(0,0,0,.18);
+  border: 1px solid rgba(255,255,255,.06);
+}
+
+/* ── 12. Admin Dashboard Improvements ── */
+.executive-dashboard .metric {
+  background:
+    radial-gradient(circle at 18% 14%, rgba(0,194,255,.10), transparent 38%),
+    var(--panel) !important;
+  border: 1px solid rgba(0,194,255,.16) !important;
+  transition: transform var(--hr102-transition), box-shadow var(--hr102-transition), border-color var(--hr102-transition) !important;
+}
+
+.executive-dashboard .metric:hover {
+  border-color: rgba(0,194,255,.36) !important;
+  transform: translateY(-3px) !important;
+  box-shadow: 0 14px 36px rgba(0,80,200,.18) !important;
+}
+
+/* Metric card number animation on hover */
+.executive-dashboard .metric strong {
+  background: linear-gradient(135deg, #fff, #00C2FF);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 8px rgba(0,194,255,.22));
+}
+
+/* ── 13. Admin Topbar Enhancement ── */
+.topbar {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 30 !important;
+}
+
+/* ── 14. Sidebar Nav Item Improvements ── */
+.nav button {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 11px 14px !important;
+  border-radius: 12px !important;
+  margin: 2px 8px !important;
+  border: 1px solid transparent !important;
+  transition: all var(--hr102-transition) !important;
+  min-height: 44px !important;
+}
+
+.nav button.is-active {
+  background: linear-gradient(135deg, rgba(0,194,255,.14), rgba(26,110,255,.12)) !important;
+  border-color: rgba(0,194,255,.38) !important;
+  box-shadow: inset -3px 0 0 rgba(0,194,255,.7) !important;
+  color: #E8F4FF !important;
+  font-weight: 800 !important;
+}
+
+.nav button:hover:not(.is-active) {
+  background: rgba(0,194,255,.06) !important;
+  border-color: rgba(0,194,255,.16) !important;
+  transform: translateX(-1px) !important;
+}
+
+/* ── 15. Admin Shell Panel ── */
+.admin-shell .main,
+.admin-shell main {
+  animation: hr102PageIn .24s ease both;
+}
+
+@keyframes hr102PageIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 16. Metric Grid Color Variants ── */
+.metric-grid .metric:nth-child(4n+1) .metric-icon,
+.metric-grid .metric:nth-child(4n+1) strong { color: #00C2FF !important; -webkit-text-fill-color: #00C2FF !important; }
+.metric-grid .metric:nth-child(4n+2) .metric-icon,
+.metric-grid .metric:nth-child(4n+2) strong { color: #00D68F !important; -webkit-text-fill-color: #00D68F !important; }
+.metric-grid .metric:nth-child(4n+3) .metric-icon,
+.metric-grid .metric:nth-child(4n+3) strong { color: #FFB020 !important; -webkit-text-fill-color: #FFB020 !important; }
+.metric-grid .metric:nth-child(4n+4) .metric-icon,
+.metric-grid .metric:nth-child(4n+4) strong { color: #FF3B6B !important; -webkit-text-fill-color: #FF3B6B !important; }
+
+/* ── 17. Table Sticky Header with Gradient ── */
+thead th {
+  background: rgba(6,14,30,.97) !important;
+  border-bottom: 2px solid rgba(0,194,255,.18) !important;
+}
+
+thead th:first-child { border-radius: 0 8px 0 0; }
+thead th:last-child  { border-radius: 8px 0 0 0; }
+
+/* ── 18. Attendance List Row Color by Status ── */
+.employee-list-item[data-status="PRESENT"],
+.employee-list-item[data-status="CHECK_IN"] {
+  border-inline-start: 3px solid #00D68F !important;
+  padding-inline-start: 12px;
+}
+
+.employee-list-item[data-status="ABSENT"] {
+  border-inline-start: 3px solid #FF3B6B !important;
+  padding-inline-start: 12px;
+}
+
+.employee-list-item[data-status="LATE"] {
+  border-inline-start: 3px solid #FFB020 !important;
+  padding-inline-start: 12px;
+}
+
+/* ── 19. Button States ── */
+.button.primary {
+  background: linear-gradient(135deg, #00C2FF 0%, #1A6EFF 60%, #3B4EFF 100%) !important;
+  border-color: rgba(0,194,255,.5) !important;
+  color: #031022 !important;
+  font-weight: 900 !important;
+  box-shadow: 0 6px 20px rgba(0,80,200,.28) !important;
+  letter-spacing: 0 !important;
+}
+
+.button.primary:hover:not([disabled]) {
+  background: linear-gradient(135deg, #22DAFF 0%, #2B82FF 60%, #4B5EFF 100%) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 10px 30px rgba(0,80,200,.38) !important;
+}
+
+.button.primary:active:not([disabled]) {
+  transform: translateY(0) !important;
+  box-shadow: 0 4px 12px rgba(0,80,200,.22) !important;
+}
+
+.button.primary.full {
+  border-radius: 16px !important;
+}
+
+/* ── 20. Better Form Controls ── */
+input, select, textarea {
+  transition: border-color var(--hr102-transition), box-shadow var(--hr102-transition) !important;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: #00C2FF !important;
+  box-shadow: 0 0 0 4px rgba(0,194,255,.14), inset 0 1px 0 rgba(0,194,255,.06) !important;
+  background: rgba(5,10,26,.82) !important;
+}
+
+label {
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  color: var(--muted) !important;
+  letter-spacing: 0 !important;
+}
+
+/* ── 21. Login Screen ── */
+.login-screen {
+  background:
+    radial-gradient(circle at 25% 12%, rgba(0,194,255,.16), transparent 35%),
+    radial-gradient(circle at 78% 85%, rgba(139,92,246,.12), transparent 30%),
+    #050A1A !important;
+}
+
+.login-panel {
+  background: linear-gradient(180deg, rgba(11,22,40,.98), rgba(7,16,30,.99)) !important;
+  border: 1px solid rgba(0,194,255,.20) !important;
+  box-shadow: 0 0 0 1px rgba(0,194,255,.04), 0 32px 90px rgba(0,0,0,.50) !important;
+}
+
+.login-panel h1 {
+  background: linear-gradient(90deg, #00C2FF, #1A6EFF);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ── 22. Executive Tabs ── */
+.executive-tabs button.is-active {
+  background: linear-gradient(135deg, #00C2FF, #1A6EFF) !important;
+  color: #031022 !important;
+  font-weight: 900 !important;
+  box-shadow: 0 4px 18px rgba(0,80,200,.30) !important;
+}
+
+/* ── 23. Panel Head Improvements ── */
+.panel-head h2 {
+  font-size: clamp(16px,2.2vw,20px) !important;
+  font-weight: 800 !important;
+}
+
+.panel-head p {
+  font-size: 13px !important;
+  line-height: 1.65 !important;
+  max-width: 680px !important;
+}
+
+/* ── 24. Compact Metric Badges (Quick Actions) ── */
+.compact-metric-badge,
+.compactMetricCard {
+  position: relative;
+  overflow: hidden;
+  min-height: 98px !important;
+  border-radius: 18px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  padding: clamp(12px,2vw,16px) !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+  transition: transform var(--hr102-transition), box-shadow var(--hr102-transition), border-color var(--hr102-transition) !important;
+}
+
+.compact-metric-badge::after,
+.compactMetricCard::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(0,194,255,.12), transparent 50%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--hr102-transition);
+}
+
+.compact-metric-badge:hover::after,
+.compactMetricCard:hover::after { opacity: 1; }
+
+.compact-metric-badge:hover,
+.compactMetricCard:hover {
+  transform: translateY(-3px) !important;
+  border-color: rgba(0,194,255,.36) !important;
+  box-shadow: 0 10px 28px rgba(0,80,200,.20) !important;
+}
+
+.compact-metric-badge:active,
+.compactMetricCard:active {
+  transform: translateY(-1px) scale(.98) !important;
+  transition-duration: .08s !important;
+}
+
+/* Icon in compact metric */
+.compact-metric-badge > strong:first-child,
+.compactMetricCard > strong:first-child {
+  font-size: 22px !important;
+  line-height: 1 !important;
+  filter: drop-shadow(0 2px 6px rgba(0,194,255,.20));
+}
+
+/* Number in compact metric */
+.compact-metric-badge > [data-count],
+.compact-metric-badge > b,
+.compactMetricCard > b {
+  font-size: clamp(20px,4vw,26px) !important;
+  font-weight: 900 !important;
+  color: #E8F4FF !important;
+  line-height: 1 !important;
+}
+
+/* Label in compact metric */
+.compact-metric-badge > small,
+.compactMetricCard > small {
+  font-size: 11px !important;
+  color: var(--hr-muted, #9CB4D4) !important;
+  line-height: 1.3 !important;
+}
+
+/* ── 25. Employee List Item Improvements ── */
+.employee-list-item {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 12px !important;
+  padding: 12px 14px !important;
+  border-radius: 14px !important;
+  border: 1px solid rgba(255,255,255,.06) !important;
+  background: rgba(10,22,42,.6) !important;
+  transition: background var(--hr102-transition), border-color var(--hr102-transition) !important;
+  margin-bottom: 8px !important;
+}
+
+.employee-list-item:last-child { margin-bottom: 0 !important; }
+
+.employee-list-item:hover {
+  background: rgba(0,194,255,.06) !important;
+  border-color: rgba(0,194,255,.22) !important;
+}
+
+.employee-list-item > div:first-child strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 800;
+  color: #E8F4FF;
+  margin-bottom: 3px;
+}
+
+.employee-list-item > div:first-child span {
+  display: block;
+  font-size: 12px;
+  color: var(--hr-muted);
+}
+
+.employee-list-item .list-item-side {
+  margin-inline-start: auto;
+  flex-shrink: 0;
+}
+
+/* ── 26. Avatar Improvements ── */
+.person-avatar,
+.avatar {
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  border: 2px solid rgba(0,194,255,.22) !important;
+  transition: border-color var(--hr102-transition) !important;
+}
+
+.person-avatar:hover,
+.avatar:hover { border-color: rgba(0,194,255,.50) !important; }
+
+/* Fallback avatar text */
+.avatar.fallback,
+.avatar-initials {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-weight: 900 !important;
+  color: #00C2FF !important;
+  background: rgba(0,194,255,.10) !important;
+  border: 2px solid rgba(0,194,255,.24) !important;
+  font-size: 13px !important;
+}
+
+/* ── 27. Executive Portal ── */
+.executive-shell {
+  isolation: isolate;
+}
+
+.executive-topbar {
+  background: rgba(5,10,26,.94) !important;
+  border: 1px solid rgba(0,194,255,.18) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 8px 28px rgba(0,0,0,.28) !important;
+  backdrop-filter: blur(12px) !important;
+}
+
+.executive-tabs {
+  background: rgba(5,10,26,.72) !important;
+  border: 1px solid rgba(0,194,255,.14) !important;
+  border-radius: 16px !important;
+  gap: 4px !important;
+  padding: 4px !important;
+}
+
+.executive-tabs button {
+  border-radius: 12px !important;
+  padding: 10px 16px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  transition: all var(--hr102-transition) !important;
+}
+
+.executive-tabs button:hover:not(.is-active) {
+  background: rgba(0,194,255,.08) !important;
+  color: #E8F4FF !important;
+}
+
+/* ── 28. Operations Gate ── */
+.gate {
+  position: relative;
+  overflow: hidden;
+}
+
+.gate .kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,194,255,.38);
+  background: rgba(0,194,255,.1);
+  color: #00C2FF;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .07em;
+  margin-bottom: 6px;
+}
+
+.gate .lead {
+  display: block !important;
+  color: var(--hr-muted) !important;
+  font-size: 13px !important;
+  margin-top: 6px !important;
+  line-height: 1.7 !important;
+}
+
+.gate .target small {
+  display: block !important;
+  font-size: 11px !important;
+  color: var(--hr-muted) !important;
+  margin-top: 5px !important;
+  line-height: 1.55 !important;
+  text-align: center !important;
+}
+
+.gate .target.is-active small {
+  color: rgba(186,230,255,.85) !important;
+}
+
+/* ── 29. Tooltip via data-tip ── */
+[data-tip] {
+  position: relative;
+}
+
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute;
+  inset-block-end: calc(100% + 8px);
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+  min-width: max-content;
+  max-width: 200px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  background: rgba(6,14,30,.96);
+  border: 1px solid rgba(0,194,255,.22);
+  color: #E8F4FF;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-50%) translateY(4px);
+  transition: opacity .18s ease, transform .18s ease;
+  z-index: 9999;
+  white-space: normal;
+  word-break: keep-all;
+}
+
+[data-tip]:hover::after,
+[data-tip]:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── 30. Scrollbar Global Refinement ── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,194,255,.22) transparent;
+}
+
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(26,42,74,.8);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: rgba(0,194,255,.4) content-box; }
+
+/* ── 31. Mobile Refinements ── */
+@media (max-width: 640px) {
+  .hero-live-clock { padding: 8px 12px; }
+  .hero-live-clock strong { font-size: 20px; }
+  .hr-urgent-header { flex-direction: column; gap: 8px; }
+  .hr-urgent-icon { font-size: 24px; }
+  .hero-meta { gap: 5px; }
+  .hero-chip { font-size: 11px; padding: 4px 9px; }
+  .compact-metric-badge,
+  .compactMetricCard { min-height: 88px !important; }
+}
+
+@media (max-width: 380px) {
+  .home-stats-grid { grid-template-columns: repeat(2, minmax(0,1fr)) !important; }
+  .hero-greeting-block { flex-direction: column; gap: 10px; }
+  .hero-live-clock { width: 100%; text-align: right; }
+}
+
+/* ── 32. Reduced Motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .hr-pulse,
+  .punch-cta-glow,
+  .punch-cta-glow::before,
+  .hero-logo-float,
+  .hrPulse { animation: none !important; }
+}
+
+/* ── 33. PWA Install Banner ── */
+.hr102-install-banner {
+  position: fixed;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  inset-inline: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 16px;
+  border-radius: 18px;
+  background: rgba(10,22,45,.97);
+  border: 1px solid rgba(0,194,255,.32);
+  box-shadow: 0 16px 50px rgba(0,0,0,.40);
+  color: #E8F4FF;
+  font-size: 13px;
+  font-weight: 700;
+  z-index: 99998;
+  opacity: 0;
+  transform: translateY(14px);
+  transition: opacity .24s ease, transform .24s cubic-bezier(.34,1.56,.64,1);
+}
+
+.hr102-install-banner.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.hr102-install-banner > span { flex: 1; }
+
+.hr102-install-btn {
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,194,255,.48);
+  background: linear-gradient(135deg, rgba(0,194,255,.22), rgba(26,110,255,.22));
+  color: #00C2FF;
+  font: 700 13px/1 inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .18s, box-shadow .18s;
+}
+
+.hr102-install-btn:hover {
+  background: linear-gradient(135deg, rgba(0,194,255,.36), rgba(26,110,255,.36));
+  box-shadow: 0 4px 14px rgba(0,80,200,.22);
+}
+
+.hr102-install-dismiss {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06);
+  color: var(--hr-muted);
+  font: 700 13px/1 inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background .16s, color .16s;
+}
+
+.hr102-install-dismiss:hover {
+  background: rgba(255,59,107,.16);
+  border-color: rgba(255,59,107,.36);
+  color: #FFD0DC;
+}
+
+/* ── 34. Slow Connection Warning ── */
+.hr102-slow-conn {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top));
+  inset-inline: 16px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: rgba(255,176,32,.14);
+  border: 1px solid rgba(255,176,32,.40);
+  color: #FFE5AD;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  z-index: 99997;
+  opacity: 0;
+  transform: translateY(-110%);
+  transition: opacity .22s ease, transform .22s ease;
+}
+
+.hr102-slow-conn.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── 35. Better Badge Pill Variants ── */
+.pill,
+.badge {
+  font-variant-numeric: tabular-nums;
+}
+
+.pill.active,
+.pill.live { animation: hrPulse 1.6s ease-in-out infinite; }
+
+/* ── 36. Panel kicker improvements ── */
+.panel-kicker {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  padding: 4px 12px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(0,194,255,.28) !important;
+  background: rgba(0,194,255,.08) !important;
+  color: #00C2FF !important;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+  letter-spacing: .06em !important;
+  margin-bottom: 8px !important;
+}
+
+/* ── 37. Sort Arrow Styling ── */
+.sort-arrow {
+  user-select: none;
+  transition: opacity .16s, color .16s;
+}
+
+[aria-sort="ascending"]  .sort-arrow { color: #00C2FF; opacity: 1; }
+[aria-sort="descending"] .sort-arrow { color: #00C2FF; opacity: 1; }
+
+/* ── 38. Focus Ring on Cards ── */
+.compact-metric-badge:focus-visible,
+.compactMetricCard:focus-visible,
+.person-card:focus-visible,
+.employee-card:focus-visible,
+.panel:focus-visible {
+  outline: 2px solid rgba(0,194,255,.5) !important;
+  outline-offset: 2px !important;
+}

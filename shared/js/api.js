@@ -1,5 +1,5 @@
-import { seedDatabase } from "./database.js?v=v33-ui-ux-overhaul-101";
-import { supabaseEndpoints, shouldUseSupabase, supabaseModeIsStrict } from "./supabase-api.js?v=v33-ui-ux-overhaul-101";
+import { seedDatabase } from "./database.js?v=v39-consolidated-stable-110";
+import { supabaseEndpoints, shouldUseSupabase, supabaseModeIsStrict } from "./supabase-api.js?v=v39-consolidated-stable-110";
 
 const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
 const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };
@@ -2270,8 +2270,8 @@ function kpiProgressMetrics(evaluations = [], pendingEmployees = []) {
 function assertKpiSubmitAllowed(db, mode, cycle = currentKpiCycle(db)) {
   const windowInfo = kpiWindowInfo(db, cycle);
   if (isFullAccessUser(db)) return windowInfo;
-  if (mode === 'self' || mode === 'manager') {
-    if (!windowInfo.isOpen) throw new Error(`تقييم الموظف والمدير متاح فقط من يوم ${windowInfo.startDay} إلى يوم ${windowInfo.deadlineDay} من كل شهر. الحالة الحالية: ${windowInfo.label}.`);
+  if (mode === 'manager') {
+    if (!windowInfo.isOpen) throw new Error(`تقييم المدير متاح فقط من يوم ${windowInfo.startDay} إلى يوم ${windowInfo.deadlineDay} من كل شهر. الحالة الحالية: ${windowInfo.label}.`);
   }
   if (mode === 'hr' && windowInfo.isBefore) throw new Error('مراجعة HR تبدأ بعد فتح دورة التقييم يوم 20 من الشهر.');
   return windowInfo;
@@ -3576,7 +3576,7 @@ const localEndpoints = {
     let evaluation = (db.kpiEvaluations || []).find((item) => item.employeeId === normalized.employeeId && item.cycleId === normalized.cycleId);
     const previous = evaluation || null;
     ensureKpiWorkflowTransition(db, previous, normalized, mode, user);
-    if (selfOnly || managerReview) {
+    if (managerReview) {
       normalized.attendanceScore = Number(previous?.attendanceScore ?? attendanceScoreForEmployee(db, normalized.employeeId, currentKpiCycle(db)) ?? 0);
       normalized.prayerScore = Number(previous?.prayerScore ?? 0);
       normalized.quranCircleScore = Number(previous?.quranCircleScore ?? 0);
@@ -3957,8 +3957,21 @@ const localEndpoints = {
   syncOfflineQueue: async () => {
     const db = loadDb();
     let synced = 0;
+    const MAX_ATTEMPTS = 5;
     for (const item of db.offlineQueue || []) {
-      if (item.status === "PENDING") { item.status = "SYNCED"; item.syncedAt = now(); synced += 1; }
+      if (item.status !== "PENDING") continue;
+      try {
+        /* Re-execute the originally-failed HTTP request */
+        await apiRequest(item.path, { method: item.method || "POST", body: item.body || undefined });
+        item.status = "SYNCED";
+        item.syncedAt = now();
+        synced += 1;
+      } catch (err) {
+        item.attempts = (item.attempts || 0) + 1;
+        item.error = err?.message || "تعذر المزامنة";
+        /* Give up after MAX_ATTEMPTS so stale items don't block the queue indefinitely */
+        if (item.attempts >= MAX_ATTEMPTS) item.status = "FAILED";
+      }
     }
     audit(db, "sync", "offline_queue", "bulk", null, { synced });
     saveDb(db);
@@ -4667,12 +4680,13 @@ const localEndpoints = {
       "094_workflow_mobile_role_alignment.sql",
       "095_kpi_workflow_polish.sql",
       "096_kpi_automation_mobile_reports.sql",
-      "098_location_security_edge_hardening.sql"
+      "098_location_security_edge_hardening.sql",
+      "104_royal_blue_full_migration.sql"
     ];
     db.migrationStatus ||= [];
     const normalizeMigrationName = (name = "") => String(name).replace(/\.sql$/i, "");
     const applied = new Set(db.migrationStatus.flatMap((item) => [item.name, normalizeMigrationName(item.name)]));
-    return ok({ expectedPatch: "098_location_security_edge_hardening", rows: expected.map((name, index) => {
+    return ok({ expectedPatch: "104_royal_blue_full_migration", rows: expected.map((name, index) => {
       const marker = normalizeMigrationName(name);
       const isApplied = applied.has(name) || applied.has(marker);
       return { name, marker, order: index + 1, status: isApplied ? "APPLIED" : (index === expected.length - 1 ? "NEW" : "CHECK_MANUALLY") };

@@ -1,4 +1,4 @@
-import { endpoints, unwrap } from "./api.js?v=v33-ui-ux-overhaul-101";
+import { endpoints, unwrap } from "./api.js?v=v39-consolidated-stable-110";
 
 const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
 const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };
@@ -235,7 +235,7 @@ function resolveAvatarUrl(value) {
 function avatar(person = {}, size = "") {
   const src = resolveAvatarUrl(person?.photoUrl || person?.avatarUrl || person?.employee?.photoUrl || person?.employee?.avatarUrl || bundledEmployeePhoto(person));
   const label = initials(person?.fullName || person?.name || person?.employee?.fullName || person?.employee?.name);
-  if (src) return `<img class="avatar ${size}" src="${escapeHtml(src)}" alt="${escapeHtml(person.fullName || person.name || person?.employee?.fullName || "")}" loading="lazy" decoding="async" fetchpriority="low" onerror="this.style.display='none';this.nextElementSibling&&this.nextElementSibling.classList.remove('hidden')" /><span class="avatar fallback ${size} hidden">${escapeHtml(label)}</span>`;
+  if (src) return `<img class="avatar ${size}" src="${escapeHtml(src)}" alt="${escapeHtml(person.fullName || person.name || person?.employee?.fullName || "")}" loading="lazy" decoding="async" fetchpriority="low" data-fallback-avatar="1" /><span class="avatar fallback ${size} hidden">${escapeHtml(label)}</span>`;
   return `<span class="avatar fallback ${size}">${escapeHtml(label)}</span>`;
 }
 
@@ -345,7 +345,9 @@ function todayText() {
 }
 
 function metric(label, value, helper = "") {
-  return `<article class="metric exec-metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value ?? 0)}</strong><small>${escapeHtml(helper)}</small></article>`;
+  const num = parseFloat(String(value ?? 0).replace(/[^0-9.]/g, ''));
+  const dc  = (!isNaN(num) && num >= 0) ? ` data-count="${num}"` : '';
+  return `<article class="metric exec-metric"><span>${escapeHtml(label)}</span><strong${dc}>${escapeHtml(value ?? 0)}</strong><small>${escapeHtml(helper)}</small></article>`;
 }
 
 function employeeStatus(employee) {
@@ -388,7 +390,7 @@ function shell(content, title = "المتابعة التنفيذية", descripti
     <div class="executive-shell">
       <header class="executive-topbar">
         <div class="executive-brand">
-          <img src="../shared/images/ahla-shabab-logo.png" alt="" onerror="this.style.display='none'" />
+          <img src="../shared/images/ahla-shabab-logo.png" alt="" data-hide-on-error="1" />
           <div><strong>المتابعة التنفيذية</strong><span>Control View — أحلى شباب</span></div>
         </div>
         <nav class="executive-tabs" aria-label="قائمة المدير التنفيذي">
@@ -437,7 +439,7 @@ function renderLogin() {
   app.innerHTML = `
     <div class="login-screen executive-login-screen">
       <form class="login-panel executive-login-panel" id="login-form" novalidate>
-        <div class="login-logo-mark"><img src="../shared/images/ahla-shabab-logo.png" alt="" onerror="this.style.display='none'" /></div>
+        <div class="login-logo-mark"><img src="../shared/images/ahla-shabab-logo.png" alt="" data-hide-on-error="1" /></div>
         <h1>بوابة المدير التنفيذي</h1>
         ${state.error ? `<div class="message error">${escapeHtml(state.error)}</div>` : ""}
         ${state.lastLoginFailed ? `<div class="message warning compact">تحقق من البريد/الهاتف وكلمة المرور. لن يتم مسح البيانات المكتوبة.</div>` : ""}
@@ -887,4 +889,46 @@ new MutationObserver(() => {
 
 
 if (!location.hash) location.hash = "home";
+
+/* ── v111: Offline Queue Replay ─────────────────────────────────────────────
+ * The Service Worker sends SYNC_OFFLINE_QUEUE via Background Sync when the
+ * device reconnects.  Ensures executive actions queued while offline are
+ * replayed automatically on reconnection.
+ * ─────────────────────────────────────────────────────────────────────────── */
+(function attachOfflineQueueSyncExec() {
+  let _syncInFlight = false;
+
+  async function flushOfflineQueue(source) {
+    if (_syncInFlight) return;
+    _syncInFlight = true;
+    try {
+      const result = await endpoints.syncOfflineQueue();
+      const count = result?.synced ?? result?.data?.synced ?? 0;
+      if (count > 0) {
+        if (window.HRToast) window.HRToast(`تمت مزامنة ${count} طلب محفوظ بنجاح.`, 'ok');
+        render();
+      }
+    } catch (_err) {
+      /* silent — network may still be flaky */
+    } finally {
+      _syncInFlight = false;
+    }
+  }
+
+  /* Expose globally so v10-private-deploy-fixes.js can trigger on 'online' */
+  window.HR_FLUSH_OFFLINE_QUEUE = flushOfflineQueue;
+
+  /* Service Worker → client message (Background Sync path) */
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event?.data?.type === 'SYNC_OFFLINE_QUEUE') {
+        flushOfflineQueue('sw-background-sync');
+      }
+    });
+  }
+
+  /* Direct fallback: browser comes back online */
+  window.addEventListener('online', () => flushOfflineQueue('online-event'), { passive: true });
+})();
+
 render();

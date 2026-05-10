@@ -1,4 +1,4 @@
-const CACHE_NAME = "hr-attendance-v33-ui-ux-overhaul-101";
+const CACHE_NAME = "hr-attendance-v39-consolidated-stable-110";
 const DEFAULT_OPEN_URL = "./employee/index.html#notifications";
 const ASSETS = [
   "./health.html",
@@ -10,9 +10,10 @@ const ASSETS = [
   "./shared/offline.html",
   "./shared/css/styles.css",
   "./shared/css/neon-admin-theme.css",
-  "./shared/css/v10-private-deploy-theme.css",
+  "./shared/css/v110-consolidated.css",
+  "./shared/js/v102-enhancements.js",
   "./shared/css/employee.css",
-  "./shared/js/api.js",
+    "./shared/js/api.js",
   "./shared/js/supabase-api.js",
   "./shared/js/supabase-config.js",
   "./shared/js/push.js",
@@ -22,9 +23,16 @@ const ASSETS = [
   "./shared/js/attendance-v4-ops.js",
   "./shared/js/executive-app.js",
   "./shared/js/register-sw.js",
+  "./shared/js/v104-ux-enhancements.js",
+  "./shared/js/v106-mobile-stability.js",
+  "./shared/js/v107-final-ui-polish.js",
+  "./shared/js/v108-final-bugfix.js",
+  "./shared/js/v109-final-system-fixes.js",
+  "./shared/js/v105-ui-fixes.js",
   "./shared/js/runtime-diagnostics.js",
   "./shared/js/v9-hardening.js",
   "./shared/js/v10-private-deploy-fixes.js",
+  "./shared/js/v101-deep-quality.js",
   "./shared/js/database.js",
   "./shared/js/app-admin.js",
   "./shared/pwa/manifest-admin.json",
@@ -102,20 +110,40 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = notificationTargetUrl(event.notification.data || {});
-  event.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-    const targetUrl = new URL(target);
-    for (const client of clientList) {
-      const clientUrl = new URL(client.url);
-      const sameApp = clientUrl.origin === targetUrl.origin
-        && clientUrl.pathname.includes("/employee/")
-        && targetUrl.pathname.includes("/employee/");
-      if (sameApp && "navigate" in client) return client.navigate(target).then((focused) => focused?.focus?.() || focused);
-      if (sameApp && "focus" in client) return client.focus();
-    }
-    if (clients.openWindow) return clients.openWindow(target);
-    return undefined;
-  }));
+  /* Handle action button clicks */
+  const action = event.action || "";
+  const data   = event.notification.data || {};
+  let target;
+  if (action === "open-location") {
+    const scope = self.registration.scope;
+    target = scope.includes("/employee/")
+      ? new URL("./index.html#location", scope).href
+      : new URL("./employee/index.html#location", scope).href;
+  } else {
+    target = notificationTargetUrl(data);
+  }
+
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      const targetUrl = new URL(target);
+      /* Try to re-use existing open window */
+      for (const client of clientList) {
+        const clientUrl = new URL(client.url);
+        const sameOrigin = clientUrl.origin === targetUrl.origin;
+        const sameApp = sameOrigin && (
+          (clientUrl.pathname.includes("/employee/") && targetUrl.pathname.includes("/employee/")) ||
+          (clientUrl.pathname.includes("/admin/")    && targetUrl.pathname.includes("/admin/"))    ||
+          (clientUrl.pathname.includes("/executive/") && targetUrl.pathname.includes("/executive/"))
+        );
+        if (sameApp) {
+          if ("navigate" in client) return client.navigate(target).then((f) => f?.focus?.() ?? f);
+          if ("focus"    in client) return client.focus();
+        }
+      }
+      if (clients.openWindow) return clients.openWindow(target);
+      return undefined;
+    })
+  );
 });
 
 function notificationTargetUrl(data = {}) {
@@ -138,7 +166,6 @@ self.addEventListener("sync", (event) => {
     event.waitUntil(self.clients.matchAll().then((clientsList) => clientsList.forEach((client) => client.postMessage({ type: "SYNC_OFFLINE_QUEUE" }))));
   }
 });
-
 
 self.addEventListener("message", (event) => {
   const data = event.data || {};

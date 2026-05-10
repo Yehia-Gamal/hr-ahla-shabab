@@ -4,9 +4,9 @@
   "id": "/employee/",
   "start_url": "/employee/index.html",
   "scope": "/employee/",
-  "display": "standalone",
-  "background_color": "#050b16",
-  "theme_color": "#070f1e",
+  "display": "fullscreen",
+  "background_color": "#050A1A",
+  "theme_color": "#1A6EFF",
   "icons": [
     {
       "src": "/shared/images/icon-192.png",

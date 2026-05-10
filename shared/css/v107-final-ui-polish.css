@@ -1,0 +1,90 @@
+/* HR v107 — Final UI polish and file-cleanup stability layer */
+:root{
+  --v107-max-mobile: 480px;
+  --v107-nav-height: 74px;
+  --v107-calm-panel: linear-gradient(180deg, rgba(8,21,42,.96), rgba(5,14,30,.98));
+  --v107-calm-border: rgba(68,172,255,.20);
+}
+html,body{max-width:100%;overflow-x:hidden!important;}
+body.employee-portal .employee-shell,
+body.employee-portal .employee-main,
+body.employee-portal .employee-topbar,
+body.employee-portal .employee-bottom-nav{box-sizing:border-box;}
+body.employee-portal .employee-main{padding-bottom:calc(var(--v107-nav-height) + 22px + env(safe-area-inset-bottom))!important;}
+body.employee-portal .employee-topbar{width:min(100%,var(--v107-max-mobile));margin-inline:auto!important;left:auto!important;right:auto!important;}
+body.employee-portal .employee-page-head{width:min(100%,var(--v107-max-mobile));margin-inline:auto!important;text-align:center;}
+body.employee-portal .employee-bottom-nav{
+  position:fixed!important;left:50%!important;right:auto!important;bottom:0!important;transform:translateX(-50%)!important;
+  width:min(calc(100vw - 18px),var(--v107-max-mobile))!important;max-width:var(--v107-max-mobile)!important;
+  height:calc(var(--v107-nav-height) + env(safe-area-inset-bottom))!important;padding:8px 8px calc(8px + env(safe-area-inset-bottom))!important;
+  display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:6px!important;border-radius:22px 22px 0 0!important;overflow:hidden!important;
+}
+body.employee-portal .employee-bottom-nav button{min-width:0!important;width:100%!important;max-width:100%!important;padding:7px 4px!important;border-radius:15px!important;gap:2px!important;}
+body.employee-portal .employee-bottom-nav button strong{font-size:16px!important;line-height:1!important;}
+body.employee-portal .employee-bottom-nav button span{font-size:9px!important;line-height:1.15!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;}
+body.employee-portal .employee-grid,body.employee-portal .employee-card,body.employee-portal .employee-list,body.employee-portal .employee-list-item{min-width:0!important;max-width:100%!important;}
+body.employee-portal .employee-list-item{overflow:hidden!important;align-items:center!important;gap:10px!important;background:var(--v107-calm-panel)!important;border-color:var(--v107-calm-border)!important;}
+body.employee-portal .employee-list-item>div:first-child{min-width:0!important;overflow:hidden!important;}
+body.employee-portal .employee-list-item strong,body.employee-portal .employee-list-item span,body.employee-portal .employee-list-item small{overflow:hidden;text-overflow:ellipsis;}
+body.employee-portal .employee-list-item small{white-space:normal!important;line-height:1.55!important;}
+body.employee-portal .list-item-side{display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:6px!important;flex-wrap:wrap!important;max-width:45%!important;}
+body.employee-portal .list-item-side .button{width:auto!important;min-width:72px!important;max-width:140px!important;padding:8px 10px!important;font-size:12px!important;}
+body.employee-portal .hr-punch-row,body.employee-portal .location-history-item,body.employee-portal .polished-history-list .employee-list-item{
+  background:linear-gradient(135deg,rgba(8,28,48,.96),rgba(4,17,35,.98))!important;border:1px solid rgba(0,194,255,.18)!important;color:var(--emp-text,#eaf6ff)!important;
+}
+body.employee-portal .hr-punch-row::before,body.employee-portal .location-history-item::before{display:none!important;}
+body.employee-portal .hr-punch-type-dot{box-shadow:0 0 0 5px rgba(0,194,255,.08)!important;}
+body.employee-portal .attendance-floating-reminder,.attendance-floating-reminder{
+  left:50%!important;right:auto!important;transform:translateX(-50%) translateY(14px)!important;width:min(calc(100vw - 24px),420px)!important;max-height:34svh!important;overflow:auto!important;
+  bottom:calc(var(--v107-nav-height) + 14px + env(safe-area-inset-bottom))!important;border-radius:22px!important;padding:14px!important;
+}
+body.employee-portal .attendance-floating-reminder.is-visible,.attendance-floating-reminder.is-visible{transform:translateX(-50%) translateY(0)!important;}
+body.employee-portal .attendance-floating-actions, .attendance-floating-actions{display:grid!important;grid-template-columns:1fr!important;gap:8px!important;}
+body.employee-portal .attendance-floating-actions .button, .attendance-floating-actions .button{width:100%!important;min-height:44px!important;}
+body.employee-portal .attendance-floating-actions .button:nth-child(n+2){display:none!important;}
+.hr-toast,.online-restored-banner,.offline-banner,.sw-update-banner{max-width:min(calc(100vw - 24px),440px)!important;margin-inline:auto!important;border-radius:16px!important;}
+body.employee-portal .message,body.employee-portal .empty-state{max-width:100%!important;overflow:hidden!important;}
+body.employee-portal .compact-actions{display:grid!important;grid-template-columns:1fr!important;gap:8px!important;}
+body.employee-portal .compact-actions .button{width:100%!important;min-height:46px!important;}
+/* Compact, scrollable More drawer */
+.more-drawer{left:50%!important;right:auto!important;inset-inline:auto!important;transform:translate(-50%,100%)!important;width:min(calc(100vw - 16px),440px)!important;max-height:min(76svh,620px)!important;border-radius:24px 24px 0 0!important;}
+.more-drawer.is-open{transform:translate(-50%,0)!important;}
+.more-drawer-header{padding:8px 14px 6px!important;}
+.more-drawer-title{font-size:15px!important;}
+.more-drawer-close{width:32px!important;height:32px!important;}
+.more-drawer-handle{margin-top:8px!important;}
+.more-drawer-body{overflow-y:auto!important;max-height:calc(min(76svh,620px) - 58px)!important;padding:4px 10px calc(10px + env(safe-area-inset-bottom))!important;}
+.more-drawer-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:7px!important;margin-bottom:8px!important;}
+.more-drawer-item{min-height:56px!important;padding:8px 5px!important;border-radius:14px!important;gap:4px!important;}
+.more-drawer-item .di-icon{font-size:20px!important;}
+.more-drawer-item .di-label{font-size:9.5px!important;line-height:1.2!important;}
+.more-drawer-section-label{font-size:9px!important;padding:7px 4px 4px!important;letter-spacing:.04em!important;}
+.employee-more-sheet{max-height:72svh!important;overflow-y:auto!important;width:min(calc(100vw - 16px),440px)!important;}
+.more-sheet-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:7px!important;}
+.more-sheet-grid button{min-height:58px!important;padding:8px 5px!important;border-radius:14px!important;}
+.more-sheet-grid button strong{font-size:20px!important;}
+.more-sheet-grid button span{font-size:10px!important;}
+/* Location */
+body.employee-portal .readable-location{background:rgba(9,24,44,.92)!important;border-color:rgba(0,194,255,.20)!important;}
+body.employee-portal .readable-location strong{white-space:normal!important;line-height:1.55!important;font-size:15px!important;}
+body.employee-portal .location-meta-row{display:flex!important;flex-wrap:wrap!important;gap:6px!important;}
+.gps-real-map{max-height:260px!important;overflow:hidden!important;border-radius:18px!important;}
+.gps-real-map iframe{height:220px!important;}
+/* KPI cleanup */
+.compact-status-card{background:linear-gradient(135deg,rgba(0,194,255,.10),rgba(26,110,255,.08))!important;}
+/* Admin / Executive responsive guard */
+.admin-app .toolbar,.executive-portal-app .toolbar{flex-wrap:wrap!important;}
+.admin-app .toolbar .button,.executive-portal-app .toolbar .button{white-space:normal!important;min-width:0!important;}
+.executive-tabs{max-width:100%!important;overflow-x:auto!important;}
+.executive-tabs button{min-width:max-content!important;}
+/* Duplicate scroll top buttons */
+.v10-scroll-top+ .v10-scroll-top,.hr-scroll-top+ .hr-scroll-top{display:none!important;}
+@media(max-width:430px){
+  body.employee-portal .employee-main{padding-inline:10px!important;}
+  body.employee-portal .employee-card{padding:14px!important;border-radius:20px!important;}
+  body.employee-portal .list-item-side{max-width:42%!important;}
+  .more-drawer-grid,.more-sheet-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important;}
+  .more-drawer{max-height:70svh!important;}
+  .more-drawer-body{max-height:calc(70svh - 54px)!important;}
+}
+@media(max-width:360px){.more-drawer-grid,.more-sheet-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;} body.employee-portal .employee-bottom-nav button span{font-size:8px!important;}}

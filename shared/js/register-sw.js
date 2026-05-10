@@ -3,8 +3,8 @@ const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(
 const debugError = (...args) => { if (debugEnabled()) globalThis.console?.error?.(...args); };
 const debugInfo = (...args) => { if (debugEnabled()) globalThis.console?.info?.(...args); };
 // Service Worker registration is portal-scoped so employee devices do not cache admin UI.
-const HR_SW_CACHE_NAME = "hr-attendance-v33-ui-ux-overhaul-101";
-const HR_SW_VERSION = "v33-ui-ux-overhaul-101";
+const HR_SW_CACHE_NAME = "hr-attendance-v39-consolidated-stable-110";
+const HR_SW_VERSION = "v39-consolidated-stable-110";
 
 function portalServiceWorkerConfig() {
   const path = location.pathname.toLowerCase();

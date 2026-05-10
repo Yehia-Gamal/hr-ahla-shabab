@@ -26,7 +26,7 @@ const sw = read('sw.js');
 const reg = read('shared/js/register-sw.js');
 const supabaseApi = read('shared/js/supabase-api.js');
 const finalSql = read('supabase/sql/RUN_IN_SUPABASE_SQL_EDITOR.sql');
-assert(read('package.json').includes('v33-ui-ux-overhaul-101'), 'Package version must be v33-ui-ux-overhaul-101.');
+assert(read('package.json').includes('v38-mobile-ui-stability-106'), 'Package version must be v38-mobile-ui-stability-106.');
 assert(existsSync(join(root, 'shared/js/runtime-diagnostics.js')), 'Runtime diagnostics module must exist.');
 assert(read('health.html').includes('runRuntimeDiagnostics'), 'health.html must use runtime diagnostics.');
 assert(existsSync(join(root, 'supabase/sql/RUN_IN_SUPABASE_SQL_EDITOR.sql')), 'Final SQL Editor file must exist.');
@@ -37,7 +37,13 @@ for (const fn of ['managementStructure','assignManager','teamDashboard','hrOpera
 for (const fn of ['managementStructure','assignManager','teamDashboard','hrOperations','disputeWorkflow','reportCenter','exportManagementReport','monthlyEvaluations','runSmartAttendance','databaseMigrationsStatus','myActionCenter','executivePresenceDashboard','attendanceRiskCenter','adminDecisions','monthlyAutoPdfReports']) assert(supabaseApi.includes(`${fn}: async`), `Missing Supabase endpoint ${fn}.`);
 for (const scope of ['organization:manage','team:dashboard','hr:operations','disputes:escalate','reports:pdf','reports:excel','attendance:risk','decisions:manage','reports:monthly-pdf-auto']) assert(api.includes(scope) && db.includes(scope), `Missing permission ${scope}.`);
 assert(app.includes('حضور حلقة الشيخ وليد يوسف الأسبوعية') && app.includes('خاص بـ HR'), 'KPI HR-only fields must remain clear.');
-assert(sw.includes('v33-ui-ux-overhaul-101') && reg.includes('v33-ui-ux-overhaul-101'), 'Service worker cache must use v33-ui-ux-overhaul-101.');
+assert(sw.includes('v38-mobile-ui-stability-106') && reg.includes('v38-mobile-ui-stability-106'), 'Service worker cache must use v38-mobile-ui-stability-106.');
+
+for (const asset of ['shared/css/v105-ui-fixes.css','shared/js/v105-ui-fixes.js','shared/css/v106-mobile-stability.css','shared/js/v106-mobile-stability.js']) {
+  assert(existsSync(join(root, asset)), `${asset} must exist.`);
+  assert(sw.includes(asset), `sw.js must precache ${asset}.`);
+}
+
 assert(sw.includes('CLEAR_HR_CACHES') && reg.includes('CLEAR_HR_CACHES'), 'Service worker cache clear command must exist.');
 assert(supabaseApi.includes('send-push-notifications') && !supabaseApi.includes('send-push-notification"') && !supabaseApi.includes("send-push-notification'"), 'Runtime must use canonical send-push-notifications only.');
 assert(read('operations-gate/index.html').includes('hr.opsGatewayUnlockedTarget'), 'Operations gate must keep scoped target unlock.');

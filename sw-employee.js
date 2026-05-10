@@ -1,10 +1,12 @@
 // Versioned cache name; bump when updating deployment.packageVersion or cacheVersion
-const CACHE_NAME = "hr-attendance-v33-ui-ux-overhaul-101";
-const DEFAULT_OPEN_URL = "./employee/index.html#notifications";
+const CACHE_NAME = "hr-attendance-v39-consolidated-stable-110";
+const DEFAULT_OPEN_URL = "./index.html#notifications";
 const ASSETS = [
   "./health.html",
   "./employee/index.html",
+  "./shared/offline.html",
   "./shared/css/employee.css",
+  "./shared/css/v110-consolidated.css",
   "./shared/js/database.js",
   "./shared/js/employee-app.js",
   "./shared/js/attendance-identity.js",
@@ -14,15 +16,22 @@ const ASSETS = [
   "./index.html",
   "./shared/css/styles.css",
   "./shared/css/neon-admin-theme.css",
-  "./shared/css/v10-private-deploy-theme.css",
+    "./shared/js/v102-enhancements.js",
   "./shared/js/api.js",
   "./shared/js/supabase-api.js",
   "./shared/js/supabase-config.js",
   "./shared/js/push.js",
   "./shared/js/register-sw.js",
+  "./shared/js/v104-ux-enhancements.js",
+  "./shared/js/v106-mobile-stability.js",
+  "./shared/js/v107-final-ui-polish.js",
+  "./shared/js/v108-final-bugfix.js",
+  "./shared/js/v109-final-system-fixes.js",
+  "./shared/js/v105-ui-fixes.js",
   "./shared/js/runtime-diagnostics.js",
   "./shared/js/v9-hardening.js",
   "./shared/js/v10-private-deploy-fixes.js",
+  "./shared/js/v101-deep-quality.js",
   "./shared/pwa/manifest.json",
   "./shared/images/ahla-shabab-logo.png",
   "./shared/images/favicon-64.png",
@@ -93,7 +102,7 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = notificationTargetUrl(event.notification.data || {});
+  const target = notificationTargetUrl(event.notification.data || {}, event.action || "");
   event.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
     const targetUrl = new URL(target);
     for (const client of clientList) {
@@ -109,19 +118,24 @@ self.addEventListener("notificationclick", (event) => {
   }));
 });
 
-function notificationTargetUrl(data = {}) {
-  const raw = String(data.url || "").trim();
-  if (data.route === "location" || data.type === "LIVE_LOCATION_REQUEST") {
-    const basePath = new URL(self.registration.scope).pathname;
-    const path = basePath.includes("/employee/") ? "./index.html#location" : "./employee/index.html#location";
-    return new URL(path, self.registration.scope).href;
+function notificationTargetUrl(data = {}, action = "") {
+  const scope = self.registration.scope;
+  const basePath = new URL(scope).pathname;
+  const requested = String(data.url || "").trim();
+  const isLocation = action === "open-location" || data.route === "location" || data.type === "LIVE_LOCATION_REQUEST";
+  if (isLocation) {
+    return new URL(basePath.includes("/employee/") ? "./index.html#location" : "./employee/index.html#location", scope).href;
   }
-  if (raw.startsWith("/employee/")) {
-    const hash = raw.includes("#") ? raw.slice(raw.indexOf("#")) : "";
-    const basePath = new URL(self.registration.scope).pathname;
-    return new URL(basePath.includes("/employee/") ? `./index.html${hash}` : `.${raw}`, self.registration.scope).href;
+  if (requested.startsWith("/employee/")) {
+    const hash = requested.includes("#") ? requested.slice(requested.indexOf("#")) : "";
+    return new URL(basePath.includes("/employee/") ? `./index.html${hash}` : `.${requested}`, scope).href;
   }
-  return new URL(raw || DEFAULT_OPEN_URL, self.registration.scope).href;
+  if (requested.startsWith("#")) return new URL(`./index.html${requested}`, scope).href;
+  try {
+    const absolute = new URL(requested, scope);
+    if (absolute.origin === new URL(scope).origin) return absolute.href;
+  } catch {}
+  return new URL(DEFAULT_OPEN_URL, scope).href;
 }
 
 self.addEventListener("sync", (event) => {
@@ -129,7 +143,6 @@ self.addEventListener("sync", (event) => {
     event.waitUntil(self.clients.matchAll().then((clientsList) => clientsList.forEach((client) => client.postMessage({ type: "SYNC_OFFLINE_QUEUE" }))));
   }
 });
-
 
 self.addEventListener("message", (event) => {
   const data = event.data || {};

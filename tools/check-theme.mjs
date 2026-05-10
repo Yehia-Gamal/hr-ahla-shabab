@@ -11,12 +11,12 @@ const requiredFiles = [
 
 const requiredPages = [
   'index.html',
-  'employee/index.html',
   'admin/index.html',
   'executive/index.html',
   'operations-gate/index.html',
   'admin-login.html',
 ];
+const employeePage = 'employee/index.html';
 
 const requiredSW = ['sw.js', 'sw-employee.js', 'sw-admin.js', 'sw-executive.js'];
 const failures = [];
@@ -33,6 +33,11 @@ for (const page of requiredPages) {
   const html = read(page);
   if (!html.includes('neon-admin-theme.css')) failures.push(`Page does not load neon theme: ${page}`);
   if (!html.includes('v10-private-deploy-theme.css')) failures.push(`Page does not load unified V10 theme: ${page}`);
+}
+const employeeHtml = read(employeePage);
+if (employeeHtml.includes('neon-admin-theme.css')) failures.push('Employee app must not load full admin neon theme; use employee.css + v104 tokens instead.');
+for (const css of ['employee.css', 'v10-private-deploy-theme.css', 'v101-deep-quality.css', 'v102-ui-overhaul.css', 'v103-mobile-nav.css', 'v104-royal-blue-overhaul.css']) {
+  if (!employeeHtml.includes(css)) failures.push(`Employee app missing required scoped theme: ${css}`);
 }
 
 for (const sw of requiredSW) {

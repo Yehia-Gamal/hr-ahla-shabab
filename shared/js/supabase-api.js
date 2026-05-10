@@ -21,6 +21,29 @@ const DEFAULT_COMPLEX = {
 let clientPromise = null;
 let realtimeChannels = [];
 
+const localCorsCooldown = new Map();
+function isLocalhostRuntime() {
+  try { return /^(127\.0\.0\.1|localhost)$/.test(globalThis.location?.hostname || ""); } catch { return false; }
+}
+function isFetchCorsLikeError(error) {
+  const msg = String(error?.message || error?.details || error?.hint || error || "");
+  return /failed to fetch|networkerror|load failed|err_failed|cors|access-control-allow-origin/i.test(msg);
+}
+function localCorsFallback(table, error, fallbackValue) {
+  if (!isLocalhostRuntime() || !isFetchCorsLikeError(error)) return null;
+  const until = Date.now() + 30000;
+  localCorsCooldown.set(table, until);
+  try {
+    globalThis.dispatchEvent?.(new CustomEvent("hr:local-cors-warning", { detail: { table, message: error?.message || "CORS" } }));
+  } catch {}
+  debugWarn(`[HR] Local Supabase CORS fallback for ${table}`, error);
+  return fallbackValue;
+}
+function localCorsFallbackActive(table) {
+  return isLocalhostRuntime() && Number(localCorsCooldown.get(table) || 0) > Date.now();
+}
+
+
 export function shouldUseSupabase() {
   const cfg = CONFIG();
   const params = new URLSearchParams(location.search);
@@ -822,7 +845,18 @@ function queueOffline(action, body = {}) {
     status: "PENDING",
     createdAt: now(),
     attempts: 0,
-    // No raw coordinates, selfie data, or employee IDs are stored in localStorage.
+    /* Store a sanitised snapshot sufficient to replay the action.
+       Raw biometrics (selfie file) are excluded; coordinates are kept
+       because they are needed to replay punch-with-location. */
+    replayBody: {
+      type:                body.type || action,
+      latitude:            body.latitude  ?? null,
+      longitude:           body.longitude ?? null,
+      accuracy:            body.accuracy  ?? null,
+      passkeyCredentialId: body.passkeyCredentialId || null,
+      deviceFingerprintHash: body.deviceFingerprintHash || null,
+      notes:               body.notes || null,
+    },
     summary: { type: body.type || action, hasPasskey: Boolean(body.passkeyCredentialId), hasLocation: Boolean(body.latitude && body.longitude) },
   };
   rows.unshift(item);
@@ -862,6 +896,11 @@ async function createOrUpdate(table, body, id = body?.id) {
   const client = await sb();
   const payload = toSnake(compact(body));
   delete payload.id;
+  if (table === "kpi_evaluations") {
+    // Some Supabase deployments define total_score as a generated column.
+    // Sending a non-DEFAULT value causes: cannot insert a non-DEFAULT value into column "total_score".
+    delete payload.total_score;
+  }
   const query = id ? client.from(table).update(payload).eq("id", id) : client.from(table).insert(payload);
   const { data, error } = await query.select("*").single();
   fail(error);
@@ -1403,7 +1442,7 @@ export const supabaseEndpoints = {
     fail(error || (data?.error ? new Error(data.error) : null), "تعذر إنشاء مستخدم Supabase. تأكد من نشر Edge Function admin-create-user.");
     const created = data?.user || data;
     if (body.avatarUrl && created?.id) {
-      await client.from("profiles").update({ avatar_url: body.avatarUrl }).eq("id", created.id).catch(() => null);
+      await ignoreSupabaseError(client.from("profiles").update({ avatar_url: body.avatarUrl }).eq("id", created.id));
       created.avatarUrl = body.avatarUrl;
     }
     return created;
@@ -1419,7 +1458,7 @@ export const supabaseEndpoints = {
     const { data, error } = await client.from("profiles").update(payload).eq("id", id).select("*").single();
     fail(error, "تعذر تعديل المستخدم.");
     if (data?.employee_id && (body.email || body.phone)) {
-      await client.from("employees").update(contactPayload(body)).eq("id", data.employee_id).catch(() => null);
+      await ignoreSupabaseError(client.from("employees").update(contactPayload(body)).eq("id", data.employee_id));
     }
     await audit("update", "profile", id, data);
     return enrichProfile(data, await core());
@@ -1437,10 +1476,9 @@ export const supabaseEndpoints = {
     }
     const { data, error } = await client.from("profiles").update(payload).eq("id", user.id).select("*").single();
     fail(error, "تعذر حفظ بيانات الاتصال.");
-    if (user.employeeId || user.employee?.id) {
-      const employeePayload = compact({ ...contactPayload(body), photo_url: avatarUrl || undefined, avatar_url: avatarUrl || undefined });
-      await client.from("employees").update(employeePayload).eq("id", user.employeeId || user.employee.id).catch(() => null);
-    }
+    // Do not PATCH employees from the employee self-profile screen.
+    // Older schemas may not include avatar_url/email fields on employees, and the visible 400 noise confuses users.
+    // HR/admin remains the source of truth for official employee roster fields.
     await audit("profile.contact_update", "profile", user.id, payload);
     return enrichProfile(data, await core());
   },
@@ -1566,7 +1604,7 @@ export const supabaseEndpoints = {
       const updates = { employee_id: employee.id, full_name: profile.fullName || employee.fullName, role_id: profile.roleId || employee.roleId, branch_id: profile.branchId || employee.branchId, department_id: profile.departmentId || employee.departmentId, governorate_id: profile.governorateId || employee.governorateId, complex_id: profile.complexId || employee.complexId, status: "ACTIVE" };
       const { error } = await client.from("profiles").update(updates).eq("id", profile.id);
       if (error) throw error;
-      await client.from("employees").update({ user_id: profile.id }).eq("id", employee.id).catch(() => null);
+      await ignoreSupabaseError(client.from("employees").update({ user_id: profile.id }).eq("id", employee.id));
       linked += 1;
     }
     return { linked };
@@ -1655,10 +1693,23 @@ export const supabaseEndpoints = {
   checkOut: (body = {}) => recordPunch("CHECK_OUT", body, body.employeeId),
   selfCheckIn: (body = {}) => recordPunch("CHECK_IN", body),
   selfCheckOut: (body = {}) => recordPunch("CHECK_OUT", body),
-  recordAttendance: (body = {}) => {
+  recordAttendance: async (body = {}) => {
     const action = String(body.eventType || body.type || body.action || "").toLowerCase();
     const out = ["out", "checkout", "check_out", "انصراف"].includes(action);
-    return recordPunch(out ? "CHECK_OUT" : "CHECK_IN", body, body.employeeId);
+    try {
+      return await recordPunch(out ? "CHECK_OUT" : "CHECK_IN", body, body.employeeId);
+    } catch (error) {
+      /* Queue for offline replay only on network-level failures, not on
+         validation or auth errors from Supabase */
+      const isNetwork = !navigator.onLine
+        || error?.name === "TypeError"
+        || /fetch|network|failed to fetch|NetworkError/i.test(error?.message || "");
+      if (isNetwork) {
+        const queued = queueOffline(out ? "checkOut" : "checkIn", body);
+        return { queued: true, offline: true, item: queued, message: "تم حفظ البصمة في قائمة المزامنة لحين عودة الاتصال." };
+      }
+      throw error;
+    }
   },
   regenerateAttendance: async () => ({ generated: 0, message: "في Supabase يتم تحديث اليومية عند كل بصمة، ويمكن إضافة Cron لاحقًا." }),
   manualAttendance: async (body = {}) => recordManualPunch(body.type || "CHECK_IN", body, body.employeeId),
@@ -1935,17 +1986,40 @@ export const supabaseEndpoints = {
   settings: async () => ({ orgName: "جمعية خواطر أحلى شباب الخيرية", backend: "Supabase" }),
   updateSettings: async (body) => body,
   kpi: async () => {
-    const [employees, evaluations] = await Promise.all([supabaseEndpoints.employees(), tableRows("kpi_evaluations", "created_at", false).then(toCamel)]);
+    const [employees, evaluations, cycles] = await Promise.all([
+      supabaseEndpoints.employees(),
+      tableRows("kpi_evaluations", "created_at", false).then(toCamel),
+      tableRows("kpi_cycles", "created_at", false).then(toCamel).catch(() => []),
+    ]);
     const user = await currentUser();
     const rolePerms = new Set(user?.permissions || []);
     const accessMode = rolePerms.has("*") || rolePerms.has("kpi:manage") ? "all" : rolePerms.has("kpi:hr") ? "hr" : rolePerms.has("kpi:team") ? "team" : (rolePerms.has("kpi:executive") || rolePerms.has("kpi:final-approve")) ? "executive" : "self";
     const currentEmployeeId = user?.employeeId || "";
     const visible = accessMode === "self" ? evaluations.filter((e) => e.employeeId === currentEmployeeId) : accessMode === "team" ? evaluations.filter((e) => employees.find((emp) => emp.id === e.employeeId)?.managerEmployeeId === currentEmployeeId) : evaluations;
     const nowDate = new Date();
-    const startsAt = new Date(nowDate.getFullYear(), nowDate.getMonth(), 20, 0, 0, 0);
-    const deadlineAt = new Date(nowDate.getFullYear(), nowDate.getMonth(), 25, 23, 59, 59);
-    const hardCloseAt = new Date(nowDate.getFullYear(), nowDate.getMonth(), 28, 23, 59, 59);
-    const windowInfo = { startDay: 20, endDay: 25, deadlineDay: 25, isOpen: nowDate >= startsAt && nowDate <= deadlineAt, isBefore: nowDate < startsAt, isLate: nowDate > deadlineAt && nowDate <= hardCloseAt, isClosed: nowDate > hardCloseAt, label: nowDate >= startsAt && nowDate <= deadlineAt ? "مفتوحة الآن" : nowDate > deadlineAt && nowDate <= hardCloseAt ? "مراجعة متأخرة" : nowDate > hardCloseAt ? "مغلقة" : "لم تبدأ", message: "تقييم الموظف والمدير من يوم 20 إلى 25، ثم HR والسكرتير والتنفيذي للمراجعة والإغلاق." };
+    const currentMonthKey = nowDate.toISOString().slice(0, 7);
+    const activeCycle = (cycles || []).find((cycle) => String(cycle.status || "").toUpperCase().match(/^(OPEN|ACTIVE|SELF_REVIEW|EMPLOYEE_SELF_EVALUATION)$/))
+      || (cycles || []).find((cycle) => String(cycle.id || cycle.month || cycle.periodMonth || "").startsWith(currentMonthKey))
+      || null;
+    const cycleStatus = String(activeCycle?.status || "CLOSED").toUpperCase();
+    const explicitlyOpen = /^(OPEN|ACTIVE|SELF_REVIEW|EMPLOYEE_SELF_EVALUATION)$/.test(cycleStatus);
+    const startsAt = activeCycle?.startDate || activeCycle?.startsAt || `${currentMonthKey}-20T00:00:00`;
+    const deadlineAt = activeCycle?.endDate || activeCycle?.deadlineAt || `${currentMonthKey}-25T23:59:59`;
+    const windowInfo = {
+      startDay: 20,
+      endDay: 25,
+      deadlineDay: 25,
+      isOpen: explicitlyOpen,
+      isBefore: !explicitlyOpen,
+      isLate: false,
+      isClosed: !explicitlyOpen,
+      cycleStatus,
+      cycleId: activeCycle?.id || currentMonthKey,
+      label: explicitlyOpen ? "مفتوحة الآن بقرار السكرتير التنفيذي" : "مغلقة حتى يفتحها السكرتير التنفيذي",
+      message: explicitlyOpen ? "يمكنك رفع تقييمك الآن، وسيتم تحويله للمدير المباشر." : "لا يمكن رفع تقييم جديد إلا بعد فتح دورة التقييم رسميًا من السكرتير التنفيذي.",
+      startsAt,
+      deadlineAt,
+    };
     const policy = { evaluationStartDay: 20, evaluationEndDay: 25, submissionDeadlineDay: 25, meetingRequired: true, description: "تقييم شهري من يوم 20 إلى 25، وآخر موعد للتسليم يوم 25. بنود الحضور والانصراف والصلاة في المسجد وحضور حلقة الشيخ وليد يوسف الأسبوعية من تقييم HR فقط." };
     const criteria = [
       { code: "TARGET", name: "تحقيق الأهداف", maxScore: 40, parentCode: "MANAGER_EMPLOYEE" },
@@ -1965,7 +2039,7 @@ export const supabaseEndpoints = {
       { label: "بانتظار السكرتير", value: byStatus("HR_REVIEWED"), helper: "مراجعة HR تمت" },
       { label: "بانتظار التنفيذي", value: byStatus("SECRETARY_REVIEWED"), helper: "مراجعة السكرتير تمت" },
     ];
-    return { accessMode, currentEmployeeId, policy, windowInfo, criteria, cycle: { id: new Date().toISOString().slice(0, 7), name: "تقييم الشهر الحالي", window: windowInfo }, evaluations: visible, pendingEmployees, progressMetrics, metrics: [{ label: "حالة نافذة KPI", value: windowInfo.label, helper: windowInfo.message }, { label: "التقييمات", value: visible.length }, { label: "بانتظار التقييم", value: pendingEmployees.length }] };
+    return { accessMode, currentEmployeeId, policy, windowInfo, criteria, cycle: { id: activeCycle?.id || currentMonthKey, name: activeCycle?.name || activeCycle?.title || "تقييم الشهر الحالي", status: cycleStatus, window: windowInfo }, evaluations: visible, pendingEmployees, progressMetrics, metrics: [{ label: "حالة نافذة KPI", value: windowInfo.label, helper: windowInfo.message }, { label: "التقييمات", value: visible.length }, { label: "بانتظار التقييم", value: pendingEmployees.length }] };
   },
   saveKpiEvaluation: async (body = {}) => {
     const { employees, user, accessMode } = await kpiAccessContext();
@@ -2235,10 +2309,30 @@ export const supabaseEndpoints = {
   syncOfflineQueue: async () => {
     const rows = getQueued();
     let synced = 0;
+    const MAX_ATTEMPTS = 5;
     for (const item of rows.filter((i) => i.status === "PENDING")) {
       try {
-        item.status = "SYNCED"; item.syncedAt = now(); synced += 1;
-      } catch (error) { item.attempts = Number(item.attempts || 0) + 1; item.error = error.message; }
+        /* Replay the action using the sanitised snapshot stored at queue time */
+        const rb = item.replayBody || {};
+        const action = item.action || rb.type || "";
+        if (action === "punchAttendance" || action === "checkIn" || action === "checkOut" || action === "punch") {
+          await supabaseEndpoints.punchAttendance(rb);
+        } else if (action === "submitLocation" || action === "sendLocation") {
+          await supabaseEndpoints.submitLocation(rb);
+        } else {
+          /* Unknown action type — mark as FAILED so it does not block indefinitely */
+          item.attempts = MAX_ATTEMPTS;
+          item.status = "FAILED";
+          continue;
+        }
+        item.status = "SYNCED";
+        item.syncedAt = now();
+        synced += 1;
+      } catch (error) {
+        item.attempts = (item.attempts || 0) + 1;
+        item.error = error?.message || "تعذر المزامنة";
+        if (item.attempts >= MAX_ATTEMPTS) item.status = "FAILED";
+      }
     }
     const remainingRows = rows.filter((i) => i.status === "PENDING");
     setQueued(remainingRows);
@@ -2442,13 +2536,22 @@ export const supabaseEndpoints = {
     return toCamel(data);
   },
   tasks: async (filters = {}) => {
-    const client = await sb();
-    let query = client.from("employee_tasks").select("*, employee:employees(*)").order("created_at", { ascending: false }).limit(1000);
-    if (filters.status) query = query.eq("status", filters.status);
-    if (filters.employeeId) query = query.eq("employee_id", filters.employeeId);
-    const { data, error } = await query;
-    fail(error, "تعذر قراءة المهام. تأكد من تطبيق Patch 020.");
-    return (data || []).map(({ employee, ...row }) => ({ ...toCamel(row), employee: employee ? enrichEmployee(employee) : null }));
+    if (localCorsFallbackActive("employee_tasks")) return [];
+    try {
+      const client = await sb();
+      let query = client.from("employee_tasks").select("*, employee:employees(*)").order("created_at", { ascending: false }).limit(1000);
+      if (filters.status) query = query.eq("status", filters.status);
+      if (filters.employeeId) query = query.eq("employee_id", filters.employeeId);
+      const { data, error } = await query;
+      const fallback = localCorsFallback("employee_tasks", error, []);
+      if (fallback) return fallback;
+      fail(error, "تعذر قراءة المهام. تأكد من تطبيق Patch 020.");
+      return (data || []).map(({ employee, ...row }) => ({ ...toCamel(row), employee: employee ? enrichEmployee(employee) : null }));
+    } catch (error) {
+      const fallback = localCorsFallback("employee_tasks", error, []);
+      if (fallback) return fallback;
+      throw error;
+    }
   },
   myTasks: async () => {
     const user = await currentUser();
@@ -2555,7 +2658,7 @@ export const supabaseEndpoints = {
     const before = await supabaseEndpoints.qualityCenter();
     const employees = await supabaseEndpoints.employees().catch(() => []);
     for (const employee of employees) {
-      await client.from("leave_balances").upsert({ employee_id: employee.id, annual_total: 21, casual_total: 7, sick_total: 15, remaining_days: 28, updated_at: now() }, { onConflict: "employee_id" }).catch(() => null);
+      await ignoreSupabaseError(client.from("leave_balances").upsert({ employee_id: employee.id, annual_total: 21, casual_total: 7, sick_total: 15, remaining_days: 28, updated_at: now() }, { onConflict: "employee_id" }));
     }
     const after = await supabaseEndpoints.qualityCenter();
     const payload = { title: body.title || "صيانة Supabase", before_score: before.readiness?.score || 0, after_score: after.readiness?.score || 0, repair: { note: "تم إنشاء أرصدة إجازات ناقصة وفحص الجاهزية. إنشاء الحسابات يتم من Edge Function حفاظًا على الأمان." }, workflow: { checked: after.readiness?.staleWorkflow || 0 }, created_at: now() };
@@ -2607,7 +2710,7 @@ export const supabaseEndpoints = {
     const { data, error } = await client.from("committee_actions").insert(payload).select("*").single();
     fail(error, "تعذر حفظ إجراء اللجنة. تأكد من تطبيق Patch 021.");
     if (body.status || body.escalatedToExecutive) {
-      await client.from("dispute_cases").update({ status: body.escalatedToExecutive ? "ESCALATED" : body.status, escalated_to_executive: Boolean(body.escalatedToExecutive), escalated_at: body.escalatedToExecutive ? now() : undefined }).eq("id", caseId).catch(() => null);
+      await ignoreSupabaseError(client.from("dispute_cases").update({ status: body.escalatedToExecutive ? "ESCALATED" : body.status, escalated_to_executive: Boolean(body.escalatedToExecutive), escalated_at: body.escalatedToExecutive ? now() : undefined }).eq("id", caseId));
     }
     await audit("dispute.committee_action", "dispute_case", caseId, payload).catch(() => null);
     return toCamel(data);
@@ -2669,8 +2772,8 @@ export const supabaseEndpoints = {
     const user = await currentUser().catch(() => null);
     const targetEmployee = await resolveDeliverableEmployee(employeeId);
     const targetEmployeeId = targetEmployee.id;
-    await client.from("live_location_requests").update({ status: "EXPIRED", responded_at: now(), response_note: "انتهت مهلة الطلب تلقائيًا", updated_at: now() }).eq("employee_id", targetEmployeeId).eq("status", "PENDING").lt("expires_at", now()).catch(() => null);
-    await client.from("live_location_requests").update({ status: "SUPERSEDED", responded_at: now(), response_note: "تم إغلاق الطلب بسبب إرسال طلب أحدث", updated_at: now() }).eq("employee_id", targetEmployeeId).eq("status", "PENDING").catch(() => null);
+    await ignoreSupabaseError(client.from("live_location_requests").update({ status: "EXPIRED", responded_at: now(), response_note: "انتهت مهلة الطلب تلقائيًا", updated_at: now() }).eq("employee_id", targetEmployeeId).eq("status", "PENDING").lt("expires_at", now()));
+    await ignoreSupabaseError(client.from("live_location_requests").update({ status: "SUPERSEDED", responded_at: now(), response_note: "تم إغلاق الطلب بسبب إرسال طلب أحدث", updated_at: now() }).eq("employee_id", targetEmployeeId).eq("status", "PENDING"));
     const payload = { employee_id: targetEmployeeId, requested_by_user_id: user?.id || null, requested_by_employee_id: user?.employeeId || null, requested_by_name: user?.fullName || user?.name || "الإدارة", reason: body.reason || "متابعة تنفيذية مباشرة", status: "PENDING", precision: body.precision || "HIGH", expires_at: body.expiresAt || new Date(Date.now() + 15 * 60000).toISOString(), created_at: now() };
     const { data, error } = await client.from("live_location_requests").insert(payload).select("*").single();
     fail(error, "تعذر إنشاء طلب الموقع المباشر. تأكد من تشغيل ملف SQL النهائي RUN_IN_SUPABASE_SQL_EDITOR.sql.");
@@ -2713,7 +2816,7 @@ export const supabaseEndpoints = {
     const user = await currentUser();
     const employeeId = user?.employeeId || user?.employee?.id || "";
     if (!employeeId) return [];
-    await client.from("live_location_requests").update({ status: "EXPIRED", responded_at: now(), response_note: "انتهت مهلة الطلب تلقائيًا", updated_at: now() }).eq("employee_id", employeeId).eq("status", "PENDING").lt("expires_at", now()).catch(() => null);
+    await ignoreSupabaseError(client.from("live_location_requests").update({ status: "EXPIRED", responded_at: now(), response_note: "انتهت مهلة الطلب تلقائيًا", updated_at: now() }).eq("employee_id", employeeId).eq("status", "PENDING").lt("expires_at", now()));
     const { data, error } = await client.from("live_location_requests").select("*").or(`employee_id.eq.${employeeId},requested_by_employee_id.eq.${employeeId}`).order("created_at", { ascending: false }).limit(100);
     fail(error, "تعذر قراءة طلبات الموقع المباشر.");
     return toCamel(data || []);
@@ -2795,7 +2898,14 @@ export const supabaseEndpoints = {
         pendingRequests: (requests.rows || []).filter((row) => team.some((employee) => employee.id === row.employeeId) && ["PENDING", "OPEN", "IN_REVIEW"].includes(row.status)).length,
       };
     });
-    const bySlug = (...slugs) => employees.filter((employee) => slugs.includes(employee.role?.slug)).map((employee) => ({ ...employee, teamCount: teamOf(employee.id).length }));
+    const hierarchySort = (rows = []) => [...rows].sort((a, b) => {
+      const an = String(a.fullName || a.name || "");
+      const bn = String(b.fullName || b.name || "");
+      const as = an.includes("الشيخ محمد يوسف") ? -10 : 0;
+      const bs = bn.includes("الشيخ محمد يوسف") ? -10 : 0;
+      return as - bs || an.localeCompare(bn, "ar");
+    });
+    const bySlug = (...slugs) => hierarchySort(employees.filter((employee) => slugs.includes(employee.role?.slug)).map((employee) => ({ ...employee, teamCount: teamOf(employee.id).length })));
     return {
       metrics: [
         { label: "إجمالي الموظفين", value: employees.length, helper: "من Supabase" },
@@ -3181,12 +3291,13 @@ export const supabaseEndpoints = {
       "094_workflow_mobile_role_alignment.sql",
       "095_kpi_workflow_polish.sql",
       "096_kpi_automation_mobile_reports.sql",
-      "098_location_security_edge_hardening.sql"
+      "098_location_security_edge_hardening.sql",
+      "104_royal_blue_full_migration.sql"
     ];
     const applied = await maybeTableRows("database_migration_status", "applied_at", false).then(toCamel);
     const normalizeMigrationName = (name = "") => String(name).replace(/\.sql$/i, "");
     const appliedSet = new Set(applied.flatMap((row) => [row.name, normalizeMigrationName(row.name)]));
-    return { expectedPatch: "098_location_security_edge_hardening", rows: expected.map((name, index) => {
+    return { expectedPatch: "104_royal_blue_full_migration", rows: expected.map((name, index) => {
       const marker = normalizeMigrationName(name);
       const isApplied = appliedSet.has(name) || appliedSet.has(marker);
       return { name, marker, order: index + 1, status: isApplied ? "APPLIED" : "CHECK_MANUALLY" };

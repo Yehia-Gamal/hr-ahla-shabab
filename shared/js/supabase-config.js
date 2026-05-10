@@ -82,15 +82,15 @@ window.HR_SUPABASE_CONFIG = Object.freeze({
     lockMinutes: 15,
   },
   deployment: {
-    expectedPatch: "098_location_security_edge_hardening",
-    packageVersion: "v33-ui-ux-overhaul-101",
+    expectedPatch: "110_consolidated_stable_full_audit",
+    packageVersion: "v39-consolidated-stable-110",
     hardeningLevel: "production-clean-secure-gate-csp-pwa",
   },
-  cacheVersion: "v33-ui-ux-overhaul-101",
+  cacheVersion: "v39-consolidated-stable-110",
 });
 
 window.__HR_SUPABASE_CONFIG_LOADED__ = true;
-window.__HR_SUPABASE_CONFIG_VERSION__ = "v33-ui-ux-overhaul-101";
+window.__HR_SUPABASE_CONFIG_VERSION__ = "v39-consolidated-stable-110";
 
 (function markSupabaseMode() {
   const cfg = window.HR_SUPABASE_CONFIG || {};

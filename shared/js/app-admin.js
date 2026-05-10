@@ -1,6 +1,6 @@
-import { endpoints, unwrap } from "./api.js?v=v33-ui-ux-overhaul-101";
-import { enableWebPushSubscription } from "./push.js?v=v33-ui-ux-overhaul-101";
-import { runRuntimeDiagnostics, clearRuntimeCaches } from "./runtime-diagnostics.js?v=v33-ui-ux-overhaul-101";
+import { endpoints, unwrap } from "./api.js?v=v39-consolidated-stable-110";
+import { enableWebPushSubscription } from "./push.js?v=v39-consolidated-stable-110";
+import { runRuntimeDiagnostics, clearRuntimeCaches } from "./runtime-diagnostics.js?v=v39-consolidated-stable-110";
 
 const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
 const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };
@@ -447,7 +447,9 @@ function dateOnly(value) {
 }
 
 function metric(label, value, helper = "") {
-  return `<article class="metric-card"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value ?? 0)}</strong><small>${escapeHtml(helper)}</small></article>`;
+  const num = parseFloat(String(value ?? 0).replace(/[^0-9.]/g, ''));
+  const dc  = (!isNaN(num) && num >= 0) ? ` data-count="${num}"` : '';
+  return `<article class="metric-card"><span>${escapeHtml(label)}</span><strong${dc}>${escapeHtml(value ?? 0)}</strong><small>${escapeHtml(helper)}</small></article>`;
 }
 
 function statusLabel(value) {
@@ -576,7 +578,7 @@ function resolveAvatarUrl(value) {
 function avatar(person, size = "") {
   const src = resolveAvatarUrl(person?.photoUrl || person?.avatarUrl || person?.employee?.photoUrl || person?.employee?.avatarUrl || bundledEmployeePhoto(person));
   const label = initials(person?.fullName || person?.name || person?.employee?.fullName || person?.employee?.name);
-  if (src) return `<img class="avatar ${size}" src="${escapeHtml(src)}" alt="${escapeHtml(person.fullName || person.name || person?.employee?.fullName || "")}" loading="lazy" decoding="async" fetchpriority="low" onerror="this.style.display='none';this.nextElementSibling&&this.nextElementSibling.classList.remove('hidden')" /><span class="avatar fallback ${size} hidden">${escapeHtml(label)}</span>`;
+  if (src) return `<img class="avatar ${size}" src="${escapeHtml(src)}" alt="${escapeHtml(person.fullName || person.name || person?.employee?.fullName || "")}" loading="lazy" decoding="async" fetchpriority="low" data-fallback-avatar="1" /><span class="avatar fallback ${size} hidden">${escapeHtml(label)}</span>`;
   return `<span class="avatar fallback ${size}">${escapeHtml(label)}</span>`;
 }
 
@@ -725,13 +727,13 @@ function exportHtmlTable(name, headers, rows) {
 function printReport(title, headers, rows) {
   const win = window.open("", "_blank", "width=1100,height=800");
   if (!win) return;
-  win.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8" /><title>${escapeHtml(title)}</title><style>body{font-family:Arial,sans-serif;padding:24px;direction:rtl;color:#111827}h1{font-size:22px}table{border-collapse:collapse;width:100%;margin-top:16px}th,td{border:1px solid #d1d5db;padding:8px;text-align:right;font-size:12px}th{background:#f3f4f6}.meta{color:#6b7280;margin-bottom:12px}@media print{button{display:none}}</style></head><body><button onclick="print()">طباعة / حفظ PDF</button><h1>${escapeHtml(title)}</h1><div class="meta">تاريخ التقرير: ${new Date().toLocaleString("ar-EG")}</div><table><thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table></body></html>`);
+  win.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8" /><title>${escapeHtml(title)}</title><style>body{font-family:Arial,sans-serif;padding:24px;direction:rtl;color:#111827}h1{font-size:22px}table{border-collapse:collapse;width:100%;margin-top:16px}th,td{border:1px solid #d1d5db;padding:8px;text-align:right;font-size:12px}th{background:#f3f4f6}.meta{color:#6b7280;margin-bottom:12px}@media print{button{display:none}}</style></head><body><button id="print-report-btn" type="button">طباعة / حفظ PDF</button><h1>${escapeHtml(title)}</h1><div class="meta">تاريخ التقرير: ${new Date().toLocaleString("ar-EG")}</div><table><thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table><script>document.getElementById("print-report-btn")?.addEventListener("click",()=>window.print());<\/script></body></html>`);
   win.document.close();
 }
 function printBrandedReport(title, summaryHtml, headers, rows) {
   const win = window.open("", "_blank", "width=1200,height=850");
   if (!win) return;
-  win.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8" /><title>${escapeHtml(title)}</title><style>body{font-family:Arial,Tahoma,sans-serif;padding:28px;direction:rtl;color:#0f172a}.brand{display:flex;align-items:center;gap:14px;border-bottom:3px solid #0ea5e9;padding-bottom:16px;margin-bottom:18px}.brand img{width:68px;height:68px;object-fit:contain}.brand h1{margin:0;font-size:24px}.brand p{margin:4px 0 0;color:#64748b}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}.summary div{border:1px solid #dbeafe;background:#eff6ff;border-radius:14px;padding:10px}.summary strong{display:block;font-size:20px;color:#0369a1}.qr-print{display:block;margin:18px auto;width:300px;height:300px}table{border-collapse:collapse;width:100%;margin-top:16px}th,td{border:1px solid #d1d5db;padding:8px;text-align:right;font-size:12px}th{background:#e0f2fe}.meta{color:#64748b;margin:10px 0}.actions{margin-bottom:16px}@media print{.actions{display:none}.summary{break-inside:avoid}}</style></head><body><div class="actions"><button onclick="print()">طباعة / حفظ PDF</button></div><div class="brand"><img src="../shared/images/ahla-shabab-logo.png" onerror="this.style.display='none'" /><div><h1>${escapeHtml(title)}</h1><p>جمعية خواطر أحلى شباب الخيرية — مجمع منيل شيحة</p><p class="meta">تاريخ التقرير: ${new Date().toLocaleString("ar-EG")}</p></div></div>${summaryHtml}<table><thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table></body></html>`);
+  win.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8" /><title>${escapeHtml(title)}</title><style>body{font-family:Arial,Tahoma,sans-serif;padding:28px;direction:rtl;color:#0f172a}.brand{display:flex;align-items:center;gap:14px;border-bottom:3px solid #0ea5e9;padding-bottom:16px;margin-bottom:18px}.brand img{width:68px;height:68px;object-fit:contain}.brand h1{margin:0;font-size:24px}.brand p{margin:4px 0 0;color:#64748b}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}.summary div{border:1px solid #dbeafe;background:#eff6ff;border-radius:14px;padding:10px}.summary strong{display:block;font-size:20px;color:#0369a1}.qr-print{display:block;margin:18px auto;width:300px;height:300px}table{border-collapse:collapse;width:100%;margin-top:16px}th,td{border:1px solid #d1d5db;padding:8px;text-align:right;font-size:12px}th{background:#e0f2fe}.meta{color:#64748b;margin:10px 0}.actions{margin-bottom:16px}@media print{.actions{display:none}.summary{break-inside:avoid}}</style></head><body><div class="actions"><button id="print-report-btn" type="button">طباعة / حفظ PDF</button></div><div class="brand"><img src="../shared/images/ahla-shabab-logo.png" data-hide-on-error="1" /><div><h1>${escapeHtml(title)}</h1><p>جمعية خواطر أحلى شباب الخيرية — مجمع منيل شيحة</p><p class="meta">تاريخ التقرير: ${new Date().toLocaleString("ar-EG")}</p></div></div>${summaryHtml}<table><thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table><script>document.getElementById("print-report-btn")?.addEventListener("click",()=>window.print());<\/script></body></html>`);
   win.document.close();
 }
 
@@ -817,7 +819,7 @@ function shell(content, title, description = "") {
       <aside class="sidebar ${state.sidebarCollapsed ? "is-collapsed" : ""}">
         <button class="sidebar-close" type="button" data-action="nav-close" aria-label="إغلاق القائمة">×</button>
         <div class="brand">
-          <img src="../shared/images/ahla-shabab-logo.png" alt="" onerror="this.style.display='none'" />
+          <img src="../shared/images/ahla-shabab-logo.png" alt="" data-hide-on-error="1" />
           <div><strong>نظام الحضور</strong><span>HR Operations SaaS</span></div>
         </div>
         <div class="sidebar-account-section">
@@ -939,7 +941,7 @@ async function renderLogin() {
   app.innerHTML = `
     <div class="login-screen">
       <form class="login-panel" id="login-form" data-password-policy="none" novalidate>
-        <div class="login-logo-mark"><img src="../shared/images/ahla-shabab-logo.png" alt="" onerror="this.style.display='none'" /></div>
+        <div class="login-logo-mark"><img src="../shared/images/ahla-shabab-logo.png" alt="" data-hide-on-error="1" /></div>
         <h1>بوابة الإدارة</h1>
         ${state.error ? `<div class="message error">${escapeHtml(state.error)}</div>` : ""}
         ${state.lastLoginFailed ? `<div class="message warning compact">تعذر تسجيل الدخول. تأكد من البيانات ثم أعد المحاولة.</div>` : ""}
@@ -2763,7 +2765,7 @@ async function renderSystemDiagnostics() {
 
   app.querySelector("[data-export-runtime-diagnostics]")?.addEventListener("click", () => downloadFile("runtime-diagnostics.json", JSON.stringify(browserDiag, null, 2), "application/json;charset=utf-8"));
   app.querySelector("[data-clear-runtime-cache]")?.addEventListener("click", async () => {
-    if (!confirm("سيتم تنظيف كاش هذا الجهاز وإعادة تحميل الصفحة. هل تريد المتابعة؟")) return;
+    if (!await confirmAction({ title: "تنظيف الكاش", message: "سيتم تنظيف كاش هذا الجهاز وإعادة تحميل الصفحة. هل تريد المتابعة؟", confirmLabel: "تنظيف وإعادة تحميل", danger: true })) return;
     await clearRuntimeCaches({ reload: true });
   });
   app.querySelector("[data-run-autolink]")?.addEventListener("click", async () => {
@@ -4025,7 +4027,7 @@ document.addEventListener('keydown', (e) => {
 
 /* ── v101: Sidebar search ── */
 (function initSidebarSearch() {
-  const sidebar = document.querySelector('.sidebar-nav') || document.querySelector('nav.sidebar');
+  const sidebar = document.querySelector('.sidebar-nav') || document.querySelector('nav.sidebar') || document.querySelector('.sidebar');
   if (!sidebar) return;
   const wrap = document.createElement('div');
   wrap.className = 'sidebar-search';
@@ -4111,4 +4113,95 @@ new MutationObserver(() => {
 }).observe(document.body, { childList: true, subtree: true });
 
 
+/* ── v111: Offline Queue Replay ─────────────────────────────────────────────
+ * The Service Worker sends SYNC_OFFLINE_QUEUE via Background Sync when the
+ * device reconnects.  Without this listener admin actions queued offline
+ * (approvals, KPI updates, etc.) would be permanently stuck.
+ *
+ * A plain window 'online' event acts as a direct fallback for browsers that
+ * do not implement the Background Sync API (Firefox, Safari < 17.4).
+ * ─────────────────────────────────────────────────────────────────────────── */
+(function attachOfflineQueueSyncAdmin() {
+  let _syncInFlight = false;
+
+  async function flushOfflineQueue(source) {
+    if (_syncInFlight) return;
+    _syncInFlight = true;
+    try {
+      const result = await endpoints.syncOfflineQueue();
+      const count = result?.synced ?? result?.data?.synced ?? 0;
+      if (count > 0) {
+        if (window.HRToast) window.HRToast(`تمت مزامنة ${count} طلب محفوظ بنجاح.`, 'ok');
+        render();
+      }
+    } catch (_err) {
+      /* silent — network may still be flaky */
+    } finally {
+      _syncInFlight = false;
+    }
+  }
+
+  /* Expose globally so v10-private-deploy-fixes.js can trigger on 'online' */
+  window.HR_FLUSH_OFFLINE_QUEUE = flushOfflineQueue;
+
+  /* Service Worker → client message (Background Sync path) */
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      if (event?.data?.type === 'SYNC_OFFLINE_QUEUE') {
+        flushOfflineQueue('sw-background-sync');
+      }
+    });
+  }
+
+  /* Direct fallback: browser comes back online */
+  window.addEventListener('online', () => flushOfflineQueue('online-event'), { passive: true });
+})();
+
 render();
+
+/* ── v103: Admin Mobile Bottom Nav ── */
+(function initAdminMobileNav() {
+  if (window.__HR_ADMIN_MOBILE_NAV__) return;
+  window.__HR_ADMIN_MOBILE_NAV__ = true;
+
+  const nav = document.createElement('nav');
+  nav.className = 'admin-mobile-nav';
+  nav.setAttribute('aria-label', 'تنقل الإدارة');
+
+  const items = [
+    ['dashboard',  '🏠', 'الرئيسية'],
+    ['employees',  '👥', 'الموظفون'],
+    ['attendance', '📊', 'الحضور'],
+    ['requests',   '📋', 'الطلبات'],
+    ['notifications','🔔', 'الإشعارات'],
+  ];
+
+  const setActive = (hash) => {
+    nav.querySelectorAll('button').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.route === hash);
+    });
+  };
+
+  nav.innerHTML = items.map(([route, icon, label]) => `
+    <button type="button" data-route="${route}" aria-label="${label}">
+      <span class="mob-icon">${icon}</span>
+      <span>${label}</span>
+    </button>
+  `).join('');
+
+  nav.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      location.hash = btn.dataset.route;
+      setActive(btn.dataset.route);
+    });
+  });
+
+  document.body.appendChild(nav);
+
+  /* Sync with hash changes */
+  window.addEventListener('hashchange', () => {
+    setActive(location.hash.replace('#', ''));
+  });
+  setActive(location.hash.replace('#', '') || 'dashboard');
+})();
+
