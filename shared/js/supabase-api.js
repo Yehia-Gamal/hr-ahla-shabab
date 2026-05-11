@@ -2894,7 +2894,12 @@ export const supabaseEndpoints = {
     if (request.requested_by_user_id) {
       const title = approved ? "تم إرسال الموقع المباشر" : postponed ? "تم تأجيل طلب الموقع" : "تم رفض/تأجيل طلب الموقع مؤقتًا";
       const note = approved ? `${employeeName} أرسل موقعه الحالي${body.addressLabel ? `: ${body.addressLabel}` : ""}` : postponed ? `${employeeName} طلب تأجيل إرسال الموقع ${minutes} دقائق.` : `${employeeName} رفض/أجّل إرسال الموقع مؤقتًا: ${responseNote}`;
-      const executiveNotification = await client.rpc("safe_create_notification", { p_user_id: request.requested_by_user_id, p_employee_id: request.requested_by_employee_id || null, p_title: title, p_body: note, p_type: "LIVE_LOCATION_RESPONSE", p_route: "employees", p_data: { route: "employees", type: "LIVE_LOCATION_RESPONSE", employeeId, requestId: id, status: update.status, latitude: responsePayload.latitude, longitude: responsePayload.longitude } }).catch(() => null);
+      let executiveNotification = null;
+      try {
+        executiveNotification = await client.rpc("safe_create_notification", { p_user_id: request.requested_by_user_id, p_employee_id: request.requested_by_employee_id || null, p_title: title, p_body: note, p_type: "LIVE_LOCATION_RESPONSE", p_route: "employees", p_data: { route: "employees", type: "LIVE_LOCATION_RESPONSE", employeeId, requestId: id, status: update.status, latitude: responsePayload.latitude, longitude: responsePayload.longitude } });
+      } catch (notificationError) {
+        debugWarn("safe_create_notification response skipped", notificationError?.message || notificationError);
+      }
       const responsePushResult = await client.functions.invoke("send-push-notifications", {
         body: {
           title,

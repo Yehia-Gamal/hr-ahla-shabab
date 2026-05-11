@@ -207,6 +207,10 @@ function mapUrl(latitude, longitude) {
   return `https://www.google.com/maps?q=${encodeURIComponent(`${latitude},${longitude}`)}`;
 }
 
+function formatMeters(value) {
+  return value == null || value === "" || Number.isNaN(Number(value)) ? "-" : `${Math.round(Number(value))} متر`;
+}
+
 function liveResponseForRequest(detail = {}, request = {}) {
   return (detail.liveResponses || []).find((row) => row.requestId === request.id || row.request_id === request.id) || null;
 }
