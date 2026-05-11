@@ -3,6 +3,21 @@
 
 begin;
 
+delete from public.profiles p
+using public.employees e
+where p.employee_id = e.id
+  and coalesce(e.employee_code, '') !~ '^AHS-[0-9]{3}$';
+
+with doomed as (
+  select id from public.employees
+  where coalesce(employee_code, '') !~ '^AHS-[0-9]{3}$'
+)
+update public.employees e
+set manager_employee_id = null,
+    updated_at = now()
+where e.id in (select id from doomed)
+   or e.manager_employee_id in (select id from doomed);
+
 delete from public.employees
 where coalesce(employee_code, '') !~ '^AHS-[0-9]{3}$';
 

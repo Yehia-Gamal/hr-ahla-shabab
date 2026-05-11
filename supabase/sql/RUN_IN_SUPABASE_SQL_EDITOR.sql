@@ -32,6 +32,26 @@
 
 create extension if not exists pgcrypto;
 
+-- Re-running the full SQL bundle on an existing production database can hit
+-- legacy demo/roster phone updates before the final cleanup patch. Disable
+-- duplicate-phone triggers for the duration of the bundle; final patches
+-- re-enable them after the official roster has been synced.
+do $$
+begin
+  if to_regclass('public.employees') is not null then
+    begin
+      alter table public.employees disable trigger trg_employees_prevent_duplicate_phone;
+    exception when undefined_object then null;
+    end;
+  end if;
+  if to_regclass('public.profiles') is not null then
+    begin
+      alter table public.profiles disable trigger trg_profiles_prevent_duplicate_phone;
+    exception when undefined_object then null;
+    end;
+  end if;
+end $$;
+
 -- =========================
 -- 1) Core lookup tables
 -- =========================
@@ -6531,6 +6551,7 @@ create unique index if not exists idx_trusted_devices_user_fp
 
 alter table public.trusted_devices enable row level security;
 
+drop policy if exists "user_own_devices" on public.trusted_devices;
 create policy "user_own_devices" on public.trusted_devices
   for all using (auth.uid() = user_id);
 
@@ -8844,11 +8865,224 @@ on conflict (key) do update set value = excluded.value, description = excluded.d
 notify pgrst, 'reload schema';
 
 -- =========================================================
+-- FINAL PRODUCTION ORDER FIX 2026-05-11
+-- The bundled legacy SQL may rewrite AHS placeholder phones/emails after
+-- earlier cleanup blocks. Re-apply the official Excel roster, then create/link
+-- Auth accounts after real phone numbers are in place.
+-- =========================================================
+begin;
+
+alter table public.employees disable trigger trg_employees_prevent_duplicate_phone;
+alter table public.profiles disable trigger trg_profiles_prevent_duplicate_phone;
+
+with roster(employee_code, full_name, phone, job_title, manager_employee_code) as (
+  values
+    ('AHS-001', 'الشيخ محمد يوسف', '01004045849', 'المدير لتنفيذي للجمعية', ''),
+    ('AHS-002', 'يحيي جمال ألسبع', '01154869616', 'السكرتير التنفيذي + تكنولوجيا المعلومات (IT) والبرمجة', 'AHS-001'),
+    ('AHS-003', 'محمد ابو عمار', '01226905602', 'مدير تشغيل 1', 'AHS-001'),
+    ('AHS-004', 'محمد عبدالعظيم محمد', '01092701744', 'مسؤول اللجنة الطبية', 'AHS-003'),
+    ('AHS-005', 'بلال محمد الشاكر', '01028403239', 'مسؤول الموارد البشرية + الاعلام', 'AHS-001'),
+    ('AHS-006', 'ياسر فتحي نور الدين', '01145809595', 'مدير تشغيل 2', 'AHS-001'),
+    ('AHS-007', 'مصطفي فايد', '01009052140', 'مدير الحسابات', 'AHS-001'),
+    ('AHS-008', 'حامد محمود ألعمدة', '01008214530', 'مسؤول لجنة أسرة كريمة', 'AHS-003'),
+    ('AHS-009', 'مصطفي احمد', '01099505229', 'ادارة اللوجيستك', 'AHS-001'),
+    ('AHS-010', 'محمد سيد', '01015398047', 'موظف مشتريات', 'AHS-009'),
+    ('AHS-011', 'حاتم محمد سالم', '01096842589', 'سائق العربية عزيزة', 'AHS-009'),
+    ('AHS-012', 'ربيع محمد ابو زيد', '0114321080', 'سائق العربية مسك', 'AHS-009'),
+    ('AHS-013', 'طارق سيد إبراهيم', '01008083891', 'مدير الحركة سائق + مطبخ المتععفين 2', 'AHS-009'),
+    ('AHS-014', 'عمار محمد عبدالباسط', '01115714930', 'جرافيك ديزاينر', 'AHS-005'),
+    ('AHS-015', 'احمد محمد محجوب', '01033447012', 'مدير الشؤون الادارية', 'AHS-001'),
+    ('AHS-016', 'عبدالله حسين حافظ', '01110867632', 'شؤون ادارية', 'AHS-015'),
+    ('AHS-017', 'عبد القادر جمال', '01024962522', 'شؤون إدارية', 'AHS-015'),
+    ('AHS-018', 'هاني احمد نصير', '01012141949', 'مسؤول المشروعات و طلاب العلم', 'AHS-003'),
+    ('AHS-019', 'يوسف رسمي شعبان', '01000719835', 'المشرف الفني لمجمع منيل شيحة', 'AHS-001'),
+    ('AHS-020', 'اسماعيل عبدالله', '01093976980', 'موظف بالمجمع', 'AHS-019'),
+    ('AHS-021', 'عبدالرحمن حسين مرعي', '01116164951', 'موظف لجنة أسرة كريمة', 'AHS-008'),
+    ('AHS-022', 'محمد عبده مزار', '01004466039', 'طباخ بمجمع أحلى شباب', 'AHS-019'),
+    ('AHS-023', 'حسام عفيفي  جمعة', '010023827201', 'موظف بالمجمع', 'AHS-019'),
+    ('AHS-024', 'محمد الاندونيسي', '01111144881', 'مسؤول الدعايا', 'AHS-006'),
+    ('AHS-025', 'ياسين طارق الباسل', '01127260359', 'مسؤول الدعايا', 'AHS-006'),
+    ('AHS-026', 'عبد العزيز طارق الباسل', '01000867705', 'مسؤول سفير + مطيخ المتعففين 3', 'AHS-001'),
+    ('AHS-027', 'محمد عبد المنعم', '01009919558', 'مسؤول ألاستكشاف', 'AHS-001'),
+    ('AHS-028', 'عبداالله نصر', '01016664229', 'أدارة المتطوعين', 'AHS-006')
+),
+normalized as (
+  select *, lower('emp.' || regexp_replace(phone, '[^0-9]', '', 'g') || '@ahla-shabab.org') as login_email
+  from roster
+)
+update public.employees e
+set full_name = r.full_name,
+    phone = r.phone,
+    email = r.login_email,
+    job_title = r.job_title,
+    manager_employee_id = m.id,
+    roster_source = 'بيانات الموظفين.xlsx',
+    is_active = true,
+    is_deleted = false,
+    status = 'ACTIVE',
+    updated_at = now()
+from normalized r
+left join public.employees m on m.employee_code = nullif(r.manager_employee_code, '')
+where e.employee_code = r.employee_code;
+
+delete from public.profiles p
+using public.employees e
+where p.employee_id = e.id
+  and coalesce(e.employee_code, '') !~ '^AHS-[0-9]{3}$';
+
+with doomed as (
+  select id from public.employees where coalesce(employee_code, '') !~ '^AHS-[0-9]{3}$'
+)
+update public.employees e
+set manager_employee_id = null,
+    updated_at = now()
+where e.id in (select id from doomed)
+   or e.manager_employee_id in (select id from doomed);
+
+delete from public.employees
+where coalesce(employee_code, '') !~ '^AHS-[0-9]{3}$';
+
+with roster as (
+  select e.*, regexp_replace(coalesce(e.phone, ''), '[^0-9]', '', 'g') as phone_digits
+  from public.employees e
+  where e.employee_code ~ '^AHS-[0-9]{3}$'
+)
+update auth.users u
+set encrypted_password = crypt(r.phone_digits, gen_salt('bf')),
+    email_confirmed_at = coalesce(u.email_confirmed_at, now()),
+    confirmation_token = coalesce(u.confirmation_token, ''),
+    recovery_token = coalesce(u.recovery_token, ''),
+    email_change_token_new = coalesce(u.email_change_token_new, ''),
+    email_change = coalesce(u.email_change, ''),
+    email_change_token_current = coalesce(u.email_change_token_current, ''),
+    phone_change = coalesce(u.phone_change, ''),
+    phone_change_token = coalesce(u.phone_change_token, ''),
+    reauthentication_token = coalesce(u.reauthentication_token, ''),
+    is_super_admin = coalesce(u.is_super_admin, false),
+    phone_confirmed_at = coalesce(u.phone_confirmed_at, u.email_confirmed_at, now()),
+    raw_app_meta_data = coalesce(u.raw_app_meta_data, '{}'::jsonb) || jsonb_build_object('provider', 'email', 'providers', array['email']),
+    raw_user_meta_data = coalesce(u.raw_user_meta_data, '{}'::jsonb)
+      || jsonb_build_object('name', r.full_name, 'full_name', r.full_name, 'phone', r.phone, 'employee_id', r.id, 'employee_code', r.employee_code, 'email_verified', true, 'phone_login_ready', true),
+    updated_at = now(),
+    deleted_at = null,
+    banned_until = null
+from roster r
+where lower(u.email) = lower(r.email);
+
+with roster as (
+  select e.*, regexp_replace(coalesce(e.phone, ''), '[^0-9]', '', 'g') as phone_digits
+  from public.employees e
+  where e.employee_code ~ '^AHS-[0-9]{3}$'
+),
+missing as (
+  select r.* from roster r
+  where not exists (select 1 from auth.users u where lower(u.email) = lower(r.email))
+)
+insert into auth.users (
+  instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, is_super_admin, created_at, updated_at,
+  phone, phone_confirmed_at, is_sso_user, is_anonymous,
+  confirmation_token, recovery_token, email_change_token_new, email_change,
+  email_change_token_current, phone_change, phone_change_token, reauthentication_token
+)
+select
+  '00000000-0000-0000-0000-000000000000',
+  gen_random_uuid(),
+  'authenticated',
+  'authenticated',
+  m.email,
+  crypt(m.phone_digits, gen_salt('bf')),
+  now(),
+  jsonb_build_object('provider', 'email', 'providers', array['email']),
+  jsonb_build_object('name', m.full_name, 'full_name', m.full_name, 'phone', m.phone, 'employee_id', m.id, 'employee_code', m.employee_code, 'email_verified', true, 'phone_login_ready', true),
+  false,
+  now(),
+  now(),
+  null,
+  now(),
+  false,
+  false,
+  '', '', '', '', '', '', '', ''
+from missing m;
+
+insert into auth.identities (id, provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+select u.id, u.id::text, u.id,
+       jsonb_build_object('sub', u.id::text, 'email', u.email, 'email_verified', true, 'phone_verified', false),
+       'email', null, now(), now()
+from auth.users u
+join public.employees e on lower(e.email) = lower(u.email)
+where e.employee_code ~ '^AHS-[0-9]{3}$'
+on conflict (provider_id, provider) do update
+set identity_data = excluded.identity_data,
+    updated_at = now();
+
+update public.employees e
+set user_id = u.id,
+    updated_at = now()
+from auth.users u
+where lower(u.email) = lower(e.email)
+  and e.employee_code ~ '^AHS-[0-9]{3}$';
+
+insert into public.profiles (
+  id, employee_id, email, phone, full_name, avatar_url, role_id, branch_id,
+  department_id, governorate_id, complex_id, status, temporary_password,
+  must_change_password, password_changed_at, created_at, updated_at
+)
+select e.user_id, e.id, e.email, e.phone, e.full_name, e.photo_url, e.role_id, e.branch_id,
+       e.department_id, e.governorate_id, e.complex_id, 'ACTIVE', true, true, null, now(), now()
+from public.employees e
+where e.employee_code ~ '^AHS-[0-9]{3}$'
+  and e.user_id is not null
+on conflict (id) do update
+set employee_id = excluded.employee_id,
+    email = excluded.email,
+    phone = excluded.phone,
+    full_name = excluded.full_name,
+    avatar_url = excluded.avatar_url,
+    role_id = excluded.role_id,
+    branch_id = excluded.branch_id,
+    department_id = excluded.department_id,
+    governorate_id = excluded.governorate_id,
+    complex_id = excluded.complex_id,
+    status = 'ACTIVE',
+    temporary_password = true,
+    must_change_password = true,
+    updated_at = now();
+
+alter table public.employees enable trigger trg_employees_prevent_duplicate_phone;
+alter table public.profiles enable trigger trg_profiles_prevent_duplicate_phone;
+
+insert into public.patch_markers(patch_key, applied_at, notes)
+values ('20260511_final_production_order_fix', now(), 'Final end-of-file roster/auth reapply after all legacy bundle sections.')
+on conflict (patch_key) do update
+  set applied_at = excluded.applied_at,
+      notes = excluded.notes;
+
+notify pgrst, 'reload schema';
+
+commit;
+
+-- =========================================================
 -- PRODUCTION CLEANUP 2026-05-11
 -- Keep the production AHS roster only and remove non-core support tables.
 -- This block is intentionally last so older bundled demo seeds cannot win.
 -- =========================================================
 begin;
+
+delete from public.profiles p
+using public.employees e
+where p.employee_id = e.id
+  and coalesce(e.employee_code, '') !~ '^AHS-[0-9]{3}$';
+
+with doomed as (
+  select id from public.employees
+  where coalesce(employee_code, '') !~ '^AHS-[0-9]{3}$'
+)
+update public.employees e
+set manager_employee_id = null,
+    updated_at = now()
+where e.id in (select id from doomed)
+   or e.manager_employee_id in (select id from doomed);
 
 delete from public.employees
 where coalesce(employee_code, '') !~ '^AHS-[0-9]{3}$';
@@ -8890,6 +9124,194 @@ values (
   now(),
   'Final cleanup patch for production roster and non-core tables.'
 )
+on conflict (patch_key) do update
+  set applied_at = excluded.applied_at,
+      notes = excluded.notes;
+
+notify pgrst, 'reload schema';
+
+commit;
+
+-- =========================================================
+-- AUTH ACCOUNT LINKING 2026-05-11
+-- Creates Supabase Auth users/profiles for the official AHS roster.
+-- =========================================================
+begin;
+
+create extension if not exists pgcrypto;
+
+alter table public.employees disable trigger trg_employees_prevent_duplicate_phone;
+alter table public.profiles disable trigger trg_profiles_prevent_duplicate_phone;
+
+with roster as (
+  select
+    e.*,
+    regexp_replace(coalesce(e.phone, ''), '[^0-9]', '', 'g') as phone_digits,
+    lower('emp.' || regexp_replace(coalesce(e.phone, ''), '[^0-9]', '', 'g') || '@ahla-shabab.org') as login_email
+  from public.employees e
+  where e.employee_code ~ '^AHS-[0-9]{3}$'
+)
+update public.employees e
+set email = r.login_email,
+    updated_at = now()
+from roster r
+where e.id = r.id
+  and e.email is distinct from r.login_email;
+
+with roster as (
+  select
+    e.*,
+    regexp_replace(coalesce(e.phone, ''), '[^0-9]', '', 'g') as phone_digits,
+    lower('emp.' || regexp_replace(coalesce(e.phone, ''), '[^0-9]', '', 'g') || '@ahla-shabab.org') as login_email
+  from public.employees e
+  where e.employee_code ~ '^AHS-[0-9]{3}$'
+)
+update auth.users u
+set encrypted_password = crypt(r.phone_digits, gen_salt('bf')),
+    email_confirmed_at = coalesce(u.email_confirmed_at, now()),
+    raw_user_meta_data = coalesce(u.raw_user_meta_data, '{}'::jsonb)
+      || jsonb_build_object('name', r.full_name, 'full_name', r.full_name, 'phone', r.phone, 'employee_id', r.id, 'employee_code', r.employee_code),
+    raw_app_meta_data = coalesce(u.raw_app_meta_data, '{}'::jsonb)
+      || jsonb_build_object('provider', 'email', 'providers', array['email']),
+    updated_at = now(),
+    deleted_at = null,
+    banned_until = null
+from roster r
+where lower(u.email) = r.login_email;
+
+with roster as (
+  select
+    e.*,
+    regexp_replace(coalesce(e.phone, ''), '[^0-9]', '', 'g') as phone_digits,
+    lower('emp.' || regexp_replace(coalesce(e.phone, ''), '[^0-9]', '', 'g') || '@ahla-shabab.org') as login_email
+  from public.employees e
+  where e.employee_code ~ '^AHS-[0-9]{3}$'
+),
+missing as (
+  select r.*
+  from roster r
+  where not exists (select 1 from auth.users u where lower(u.email) = r.login_email)
+)
+insert into auth.users (
+  instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, is_super_admin, created_at, updated_at, phone,
+  phone_confirmed_at, is_sso_user, is_anonymous
+)
+select
+  '00000000-0000-0000-0000-000000000000',
+  gen_random_uuid(),
+  'authenticated',
+  'authenticated',
+  m.login_email,
+  crypt(m.phone_digits, gen_salt('bf')),
+  now(),
+  jsonb_build_object('provider', 'email', 'providers', array['email']),
+  jsonb_build_object('name', m.full_name, 'full_name', m.full_name, 'phone', m.phone, 'employee_id', m.id, 'employee_code', m.employee_code),
+  false,
+  now(),
+  now(),
+  null,
+  null,
+  false,
+  false
+from missing m;
+
+insert into auth.identities (id, provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
+select
+  u.id,
+  u.id::text,
+  u.id,
+  jsonb_build_object('sub', u.id::text, 'email', u.email, 'email_verified', true, 'phone_verified', false),
+  'email',
+  null,
+  now(),
+  now()
+from auth.users u
+join public.employees e on lower(e.email) = lower(u.email)
+where e.employee_code ~ '^AHS-[0-9]{3}$'
+on conflict (provider_id, provider) do update
+set identity_data = excluded.identity_data,
+    updated_at = now();
+
+update public.employees e
+set user_id = u.id,
+    updated_at = now()
+from auth.users u
+where lower(u.email) = lower(e.email)
+  and e.employee_code ~ '^AHS-[0-9]{3}$';
+
+insert into public.profiles (
+  id, employee_id, email, phone, full_name, avatar_url, role_id, branch_id,
+  department_id, governorate_id, complex_id, status, temporary_password,
+  must_change_password, password_changed_at, created_at, updated_at
+)
+select
+  e.user_id,
+  e.id,
+  e.email,
+  e.phone,
+  e.full_name,
+  e.photo_url,
+  e.role_id,
+  e.branch_id,
+  e.department_id,
+  e.governorate_id,
+  e.complex_id,
+  'ACTIVE',
+  true,
+  true,
+  null,
+  now(),
+  now()
+from public.employees e
+where e.employee_code ~ '^AHS-[0-9]{3}$'
+  and e.user_id is not null
+on conflict (id) do update
+set employee_id = excluded.employee_id,
+    email = excluded.email,
+    phone = excluded.phone,
+    full_name = excluded.full_name,
+    avatar_url = excluded.avatar_url,
+    role_id = excluded.role_id,
+    branch_id = excluded.branch_id,
+    department_id = excluded.department_id,
+    governorate_id = excluded.governorate_id,
+    complex_id = excluded.complex_id,
+    status = 'ACTIVE',
+    temporary_password = true,
+    must_change_password = true,
+    updated_at = now();
+
+update auth.users u
+set confirmation_token = coalesce(u.confirmation_token, ''),
+    recovery_token = coalesce(u.recovery_token, ''),
+    email_change_token_new = coalesce(u.email_change_token_new, ''),
+    email_change = coalesce(u.email_change, ''),
+    email_change_token_current = coalesce(u.email_change_token_current, ''),
+    phone_change = coalesce(u.phone_change, ''),
+    phone_change_token = coalesce(u.phone_change_token, ''),
+    reauthentication_token = coalesce(u.reauthentication_token, ''),
+    is_super_admin = coalesce(u.is_super_admin, false),
+    phone_confirmed_at = coalesce(u.phone_confirmed_at, u.email_confirmed_at),
+    raw_user_meta_data = coalesce(u.raw_user_meta_data, '{}'::jsonb)
+      || jsonb_build_object('email_verified', true, 'phone_login_ready', true),
+    updated_at = now()
+from public.employees e
+where e.user_id = u.id
+  and e.employee_code ~ '^AHS-[0-9]{3}$';
+
+alter table public.employees enable trigger trg_employees_prevent_duplicate_phone;
+alter table public.profiles enable trigger trg_profiles_prevent_duplicate_phone;
+
+insert into public.database_migration_status (name, status, applied_at, notes)
+values ('20260511_create_auth_accounts_for_excel_roster', 'APPLIED', now(), 'Created/linked Auth users and profiles for the 28 official AHS employees.')
+on conflict (name) do update
+  set status = excluded.status,
+      notes = excluded.notes,
+      applied_at = now();
+
+insert into public.patch_markers(patch_key, applied_at, notes)
+values ('20260511_create_auth_accounts_for_excel_roster', now(), 'Created and linked Auth users/profiles for official AHS roster.')
 on conflict (patch_key) do update
   set applied_at = excluded.applied_at,
       notes = excluded.notes;
