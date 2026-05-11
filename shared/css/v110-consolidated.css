@@ -6950,3 +6950,20 @@ img.user-avatar[src=""], img.user-avatar:not([src]) {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* v112 live location mobile polish */
+.live-location-section .employee-list{display:grid!important;gap:12px!important}
+.live-location-request-card{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:12px!important;align-items:stretch!important;padding:14px!important;border-radius:18px!important;background:linear-gradient(145deg,rgba(7,22,43,.96),rgba(5,14,30,.98))!important;border:1px solid rgba(0,194,255,.22)!important}
+.live-location-request-card strong{display:block!important;font-size:15px!important;line-height:1.45!important}
+.live-location-request-card span,.live-location-request-card small{display:block!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;line-height:1.55!important}
+.live-location-request-card .list-item-side{display:grid!important;grid-template-columns:1fr!important;gap:8px!important;width:100%!important}
+.live-location-request-card .button,.live-location-request-card button{width:100%!important;min-height:42px!important;border-radius:13px!important}
+.location-fast-note{display:grid!important;gap:5px!important;margin-top:12px!important;padding:12px 14px!important;border-radius:16px!important;border:1px solid rgba(34,211,238,.22)!important;background:rgba(8,47,73,.34)!important;color:#dff7ff!important}
+.location-fast-note span{color:rgba(223,247,255,.78)!important;line-height:1.6!important}
+.executive-location-card{display:grid!important;gap:12px!important;margin-top:14px!important;padding:16px!important;border-radius:18px!important;border:1px solid rgba(34,211,238,.25)!important;background:linear-gradient(145deg,rgba(8,47,73,.42),rgba(15,23,42,.82))!important}
+.executive-location-card>div:first-child{display:grid!important;gap:4px!important}
+.executive-location-card span,.executive-location-card small{color:rgba(226,242,255,.74)!important}
+.executive-location-card strong{color:#f8fbff!important;font-size:clamp(17px,4vw,22px)!important;line-height:1.35!important}
+.executive-location-meta{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+.executive-location-meta span{padding:9px 10px!important;border-radius:12px!important;background:rgba(15,23,42,.72)!important;border:1px solid rgba(148,163,184,.16)!important;word-break:break-word!important}
+@media (max-width:640px){.executive-location-meta{grid-template-columns:1fr!important}}

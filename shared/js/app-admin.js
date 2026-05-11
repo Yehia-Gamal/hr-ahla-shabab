@@ -3500,7 +3500,7 @@ async function renderExecutiveMobile() {
     const latestLiveRequest = [...(detail.liveRequests || [])].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0] || null;
     const pendingLiveRequest = (detail.liveRequests || []).find((row) => String(row.status || "").toUpperCase() === "PENDING");
     const locationMessage = loc.latitude && loc.longitude
-      ? `<div class="message"><strong>آخر موقع:</strong> ${escapeHtml(loc.latitude)}, ${escapeHtml(loc.longitude)} — <a target="_blank" rel="noopener" href="https://www.google.com/maps?q=${escapeHtml(loc.latitude)},${escapeHtml(loc.longitude)}">فتح على الخريطة</a></div>`
+      ? `<div class="executive-location-card"><div><span>آخر موقع فعلي</span><strong>${escapeHtml(loc.addressLabel || loc.locationLabel || loc.placeLabel || "موقع مباشر مرسل")}</strong><small>${escapeHtml(date(loc.capturedAt || loc.respondedAt || loc.createdAt || loc.date))}</small></div><div class="executive-location-meta"><span>الدقة: ${escapeHtml(formatMeters(loc.accuracyMeters || loc.accuracy))}</span><span>${escapeHtml(loc.latitude)}, ${escapeHtml(loc.longitude)}</span></div><a class="button primary" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${escapeHtml(loc.latitude)},${escapeHtml(loc.longitude)}">فتح اللوكيشن على الخريطة</a></div>`
       : pendingLiveRequest
         ? `<div class="message warning">تم إرسال طلب الموقع للموظف وهو الآن بانتظار الرد. سيظهر GPS هنا بعد ضغط الموظف على "إرسال موقعي".</div>`
         : latestLiveRequest && String(latestLiveRequest.status || "").toUpperCase() === "REJECTED"

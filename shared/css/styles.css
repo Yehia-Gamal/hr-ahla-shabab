@@ -5405,3 +5405,110 @@ td.num, th.num { text-align: end; font-variant-numeric: tabular-nums; }
 .alert.warning { background: rgba(247,199,107,.08); border-color: rgba(247,199,107,.25); color: #ffd97a; }
 .alert.danger  { background: rgba(255,107,122,.08); border-color: rgba(255,107,122,.25); color: #ff9aa5; }
 
+/* Live location mobile polish */
+.live-location-section .employee-list {
+  display: grid;
+  gap: 12px;
+}
+
+.live-location-request-card {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px !important;
+  align-items: stretch !important;
+  padding: 14px !important;
+  border-radius: 18px !important;
+  background: linear-gradient(145deg, rgba(7, 22, 43, .96), rgba(5, 14, 30, .98)) !important;
+  border: 1px solid rgba(0, 194, 255, .22) !important;
+}
+
+.live-location-request-card strong {
+  display: block;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.live-location-request-card span,
+.live-location-request-card small {
+  display: block;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  line-height: 1.55;
+}
+
+.live-location-request-card .list-item-side {
+  display: grid !important;
+  grid-template-columns: 1fr;
+  gap: 8px !important;
+  width: 100%;
+}
+
+.live-location-request-card .button,
+.live-location-request-card button {
+  width: 100%;
+  min-height: 42px;
+  border-radius: 13px !important;
+}
+
+.location-fast-note {
+  display: grid;
+  gap: 5px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(34, 211, 238, .22);
+  background: rgba(8, 47, 73, .34);
+  color: #dff7ff;
+}
+
+.location-fast-note span {
+  color: rgba(223, 247, 255, .78);
+  line-height: 1.6;
+}
+
+.executive-location-card {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(34, 211, 238, .25);
+  background: linear-gradient(145deg, rgba(8, 47, 73, .42), rgba(15, 23, 42, .82));
+}
+
+.executive-location-card > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.executive-location-card span,
+.executive-location-card small {
+  color: rgba(226, 242, 255, .74);
+}
+
+.executive-location-card strong {
+  color: #f8fbff;
+  font-size: clamp(17px, 4vw, 22px);
+  line-height: 1.35;
+}
+
+.executive-location-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.executive-location-meta span {
+  padding: 9px 10px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, .72);
+  border: 1px solid rgba(148, 163, 184, .16);
+  word-break: break-word;
+}
+
+@media (max-width: 640px) {
+  .executive-location-meta {
+    grid-template-columns: 1fr;
+  }
+}

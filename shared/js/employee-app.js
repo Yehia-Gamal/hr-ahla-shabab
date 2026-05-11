@@ -1762,33 +1762,29 @@ async function renderLocation() {
   const pending = liveRequests.filter((item) => String(item.status || "").toUpperCase() === "PENDING" && employeeId && String(item.employeeId || "") === String(employeeId) && (!item.expiresAt || new Date(item.expiresAt).getTime() > nowMsForLocation) && (item.expiresAt || !item.createdAt || (nowMsForLocation - new Date(item.createdAt || item.requestedAt || 0).getTime()) <= 30 * 60 * 1000)).slice(0, 5);
   shell(`
     <section class="employee-grid">
-      ${pending.length ? `<article class="employee-card full urgent-card"><div class="panel-kicker">إجراء مطلوب</div><h2>طلبات موقع مباشر من الإدارة</h2><p>شارك موقعك الحالي أو أجّل الطلب 5 دقائق. يمكنك إرسال الموقع مباشرة أو رفض/تأجيل الطلب مؤقتًا مع سبب واضح للإدارة.</p><div class="employee-list">${pending.map((item) => `<div class="employee-list-item"><div><strong>${escapeHtml(item.requestedByName || "الإدارة")}</strong><span>${escapeHtml(item.reason || "طلب موقع مباشر")}</span><small>ينتهي: ${escapeHtml(date(item.expiresAt))}</small></div><div class="list-item-side"><button class="button primary" data-live-send="${escapeHtml(item.id)}">إرسال موقعي</button><button class="button ghost" data-live-postpone="${escapeHtml(item.id)}">رفض/تأجيل 5د</button><button class="button ghost" data-live-reject="${escapeHtml(item.id)}">رفض مؤقت بسبب</button></div></div>`).join("")}</div></article>` : ""}
+      ${pending.length ? `<article class="employee-card full urgent-card live-location-section"><div class="panel-kicker">إجراء مطلوب</div><h2>طلبات موقع مباشر من الإدارة</h2><p>شارك موقعك الحالي أو أجّل الطلب 5 دقائق. يمكنك إرسال الموقع مباشرة أو رفض/تأجيل الطلب مؤقتًا مع سبب واضح للإدارة.</p><div class="employee-list live-location-card-list">${pending.map((item) => `<div class="employee-list-item live-location-request-card"><div><strong>${escapeHtml(item.requestedByName || "الإدارة")}</strong><span>${escapeHtml(item.reason || "طلب موقع مباشر")}</span><small>ينتهي: ${escapeHtml(date(item.expiresAt))}</small></div><div class="list-item-side"><button class="button primary" data-live-send="${escapeHtml(item.id)}">إرسال موقعي</button><button class="button ghost" data-live-postpone="${escapeHtml(item.id)}">رفض/تأجيل 5د</button><button class="button ghost" data-live-reject="${escapeHtml(item.id)}">رفض مؤقت بسبب</button></div></div>`).join("")}</div></article>` : ""}
       <article class="employee-card full">
         <div class="panel-kicker">موقع مباشر</div>
         <h2>إرسال موقعي الحالي</h2>
         <p>استخدم هذا الزر لإرسال موقعك الحالي طوعًا أو عند وجود طلب من الإدارة. لا يوجد تتبع مستمر في الخلفية.</p>
         <button class="button primary full" data-send-location>إرسال موقعي الآن</button>
-        <div class="device-inline-status ${hasTrustedDevice ? 'ok' : 'warn'}">
-          <strong>${hasTrustedDevice ? '✅ بصمة الجهاز مسجلة' : '⚠️ بصمة الجهاز غير مسجلة'}</strong>
-          <span>${hasTrustedDevice ? 'سيطلب النظام بصمة الهاتف قبل إرسال الموقع.' : 'يمكن تسجيل بصمة هذا الموبايل من هنا مباشرة بدون الذهاب لحسابي.'}</span>
-          ${hasTrustedDevice ? '' : '<button class="button ghost full" type="button" data-register-location-passkey>تسجيل بصمة هذا الجهاز الآن</button>'}
+        <div class="location-fast-note">
+          <strong>إرسال سريع للموقع</strong>
+          <span>لا يلزم تأكيد بصمة الجهاز هنا. سيتم إرسال GPS الحالي فقط بعد سماحك بقراءة الموقع.</span>
         </div>
         <div id="location-result" class="risk-box hidden"></div>
       </article>
       <article class="employee-card full location-history-card"><h2>سجل المواقع والطلبات</h2>${mine.length ? `<div class="employee-list">${mine.map((item) => `<div class="employee-list-item location-history-item"><div class="location-history-main"><strong>${statusLabel(item.status)}</strong><span>${date(item.requestedAt || item.date || item.createdAt)}</span>${item.latitude && item.longitude ? readableLocationBlock(item, { compact: true }) : `<small>لم يتم إرسال موقع بعد</small>`}</div><div class="list-item-side">${item.latitude && item.longitude ? `<a target="_blank" rel="noopener" class="button ghost small" href="https://www.google.com/maps?q=${escapeHtml(item.latitude)},${escapeHtml(item.longitude)}">خريطة</a>` : badge(item.status || "PENDING")}</div></div>`).join("")}</div>` : `<div class="empty-state">لا توجد طلبات موقع بعد.</div>`}</article>
-      <article class="employee-card full"><h2>طلبات الموقع المباشر</h2>${liveRequests.length ? `<div class="employee-list">${liveRequests.map((item) => `<div class="employee-list-item"><div><strong>${escapeHtml(item.requestedByName || "الإدارة")}</strong><span>${escapeHtml(item.reason || "طلب موقع")}</span><small>${escapeHtml(date(item.createdAt))}</small></div><div class="list-item-side">${badge(item.status)}</div></div>`).join("")}</div>` : `<div class="empty-state">لا توجد طلبات مباشرة.</div>`}</article>
+      <article class="employee-card full live-location-section"><h2>طلبات الموقع المباشر</h2>${liveRequests.length ? `<div class="employee-list live-location-card-list">${liveRequests.map((item) => `<div class="employee-list-item live-location-request-card"><div><strong>${escapeHtml(item.requestedByName || "الإدارة")}</strong><span>${escapeHtml(item.reason || "طلب موقع")}</span><small>${escapeHtml(date(item.createdAt))}</small></div><div class="list-item-side">${badge(item.status)}</div></div>`).join("")}</div>` : `<div class="empty-state">لا توجد طلبات مباشرة.</div>`}</article>
     </section>
   `, "الموقع", "مشاركة الموقع المباشر بموافقة الموظف عند الطلب.");
   const result = app.querySelector("#location-result");
   const sendLive = async (id) => {
     result?.classList.remove("hidden", "danger-box");
-    if (result) result.textContent = "جاري تأكيد بصمة الجهاز قبل إرسال الموقع...";
-    const device = await requestBrowserPasskeyForAction("إرسال الموقع", state.user?.employee || {}, { autoRegisterOnMissing: true, resultBox: result });
-    const passkeyCredentialId = device.passkeyCredentialId;
     if (result) result.textContent = "جاري قراءة الموقع بدقة عالية...";
     const current = await getVerifiedBrowserLocation(employeeId);
     if (current.locationPermission !== "granted") throw new Error("لم يتم السماح بقراءة الموقع. فعّل GPS واسمح للتطبيق بالوصول للموقع.");
-    await endpoints.respondLiveLocationRequest(id, { status: "APPROVED", ...current, biometricMethod: "passkey", passkeyCredentialId });
+    await endpoints.respondLiveLocationRequest(id, { status: "APPROVED", ...current, biometricMethod: "gps" });
     document.querySelectorAll("[data-live-location-alert]").forEach((node) => { if (node.dataset.liveLocationAlert === id) node.remove(); });
     activeLiveLocationAlertId = "";
   };
@@ -1831,15 +1827,12 @@ async function renderLocation() {
   app.querySelector("[data-send-location]")?.addEventListener("click", async () => {
     try {
       result?.classList.remove("hidden", "danger-box");
-      if (result) result.textContent = "جاري تأكيد بصمة الجهاز قبل إرسال الموقع...";
-      const device = await requestBrowserPasskeyForAction("إرسال الموقع", state.user?.employee || {}, { autoRegisterOnMissing: true, resultBox: result });
-      const passkeyCredentialId = device.passkeyCredentialId;
       if (result) result.textContent = "جاري قراءة الموقع...";
       const current = await getVerifiedBrowserLocation(employeeId);
       if (current.locationPermission !== "granted") throw new Error("لم يتم السماح بقراءة الموقع.");
       const pendingLocationRequest = mine.find((item) => item.status === "PENDING" && item.id && String(item.id).startsWith("locreq"));
-      if (pendingLocationRequest) await endpoints.updateLocationRequest(pendingLocationRequest.id, { status: "APPROVED", ...current, biometricMethod: "passkey", passkeyCredentialId });
-      else await endpoints.recordLocation({ employeeId, source: "employee_app", status: "ACTIVE", ...current, biometricMethod: "passkey", passkeyCredentialId });
+      if (pendingLocationRequest) await endpoints.updateLocationRequest(pendingLocationRequest.id, { status: "APPROVED", ...current, biometricMethod: "gps" });
+      else await endpoints.recordLocation({ employeeId, source: "employee_app", status: "ACTIVE", ...current, biometricMethod: "gps" });
       setMessage("تم إرسال موقعك الحالي بنجاح.", "");
       renderLocation();
     } catch (error) {

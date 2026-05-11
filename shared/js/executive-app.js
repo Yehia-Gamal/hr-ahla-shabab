@@ -745,7 +745,7 @@ async function renderEmployeeDetail(employeeId) {
   const latestResponse = latestLiveRequest ? liveResponseForRequest(detail, latestLiveRequest) : null;
   const latestPlace = loc.addressLabel || loc.locationLabel || loc.placeLabel || latestResponse?.note || "";
   const locationMessage = loc.latitude && loc.longitude
-    ? `<div class="message"><strong>آخر موقع:</strong> ${escapeHtml(latestPlace || "موقع مباشر مرسل")} — <span>${escapeHtml(loc.latitude)}, ${escapeHtml(loc.longitude)}</span> — <a target="_blank" rel="noopener" href="${escapeHtml(mapUrl(loc.latitude, loc.longitude))}">فتح على الخريطة</a></div>`
+    ? `<div class="executive-location-card"><div><span>آخر موقع فعلي</span><strong>${escapeHtml(latestPlace || "موقع مباشر مرسل")}</strong><small>${escapeHtml(date(loc.capturedAt || loc.respondedAt || loc.createdAt || loc.date))}</small></div><div class="executive-location-meta"><span>الدقة: ${escapeHtml(formatMeters(loc.accuracyMeters || loc.accuracy))}</span><span>${escapeHtml(loc.latitude)}, ${escapeHtml(loc.longitude)}</span></div><a class="button primary" target="_blank" rel="noopener" href="${escapeHtml(mapUrl(loc.latitude, loc.longitude))}">فتح اللوكيشن على الخريطة</a></div>`
     : pendingLiveRequest
       ? `<div class="message warning">تم إرسال طلب الموقع للموظف وهو الآن بانتظار الرد. سيظهر GPS هنا بعد ضغط الموظف على "إرسال موقعي".</div>`
       : latestLiveRequest && String(latestLiveRequest.status || "").toUpperCase() === "POSTPONED"
