@@ -2873,7 +2873,7 @@ export const supabaseEndpoints = {
       const title = approved ? "تم إرسال الموقع المباشر" : postponed ? "تم تأجيل طلب الموقع" : "تم رفض/تأجيل طلب الموقع مؤقتًا";
       const note = approved ? `${employeeName} أرسل موقعه الحالي${body.addressLabel ? `: ${body.addressLabel}` : ""}` : postponed ? `${employeeName} طلب تأجيل إرسال الموقع ${minutes} دقائق.` : `${employeeName} رفض/أجّل إرسال الموقع مؤقتًا: ${responseNote}`;
       const executiveNotification = await client.rpc("safe_create_notification", { p_user_id: request.requested_by_user_id, p_employee_id: request.requested_by_employee_id || null, p_title: title, p_body: note, p_type: "LIVE_LOCATION_RESPONSE", p_route: "employees", p_data: { route: "employees", type: "LIVE_LOCATION_RESPONSE", employeeId, requestId: id, status: update.status, latitude: responsePayload.latitude, longitude: responsePayload.longitude } }).catch(() => null);
-      await client.functions.invoke("send-push-notifications", {
+      const responsePushResult = await client.functions.invoke("send-push-notifications", {
         body: {
           title,
           body: note,
@@ -2883,7 +2883,11 @@ export const supabaseEndpoints = {
           notificationId: executiveNotification?.data ? String(executiveNotification.data) : "",
           data: { route: "employees", url: "./executive/index.html#employees", type: "LIVE_LOCATION_RESPONSE", employeeId, requestId: id, responseId: response?.id || "", status: update.status, latitude: responsePayload.latitude, longitude: responsePayload.longitude },
         },
-      }).catch((pushError) => debugWarn("send-push-notifications response failed", pushError?.message || pushError));
+      }).catch((pushError) => {
+        debugWarn("send-push-notifications response failed", pushError?.message || pushError);
+        return null;
+      });
+      if (responsePushResult?.error) debugWarn("send-push-notifications response returned an error", responsePushResult.error?.message || responsePushResult.error);
     }
     await audit("live_location.respond", "live_location_request", id, { request, response }).catch(() => null);
     return { request: toCamel(request), response: toCamel(response) };

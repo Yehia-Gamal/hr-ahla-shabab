@@ -11368,3 +11368,73 @@ on conflict (patch_key) do update
       notes = excluded.notes;
 
 notify pgrst, 'reload schema';
+
+-- =========================================================
+-- BEGIN PATCH: 20260511140500_fix_live_location_response_flow.sql
+-- =========================================================
+
+begin;
+
+alter table if exists public.employee_locations
+  add column if not exists status text not null default 'ACTIVE',
+  add column if not exists captured_at timestamptz;
+
+update public.employee_locations
+set captured_at = coalesce(captured_at, created_at, now())
+where captured_at is null;
+
+create index if not exists idx_employee_locations_employee_captured
+  on public.employee_locations(employee_id, captured_at desc, created_at desc);
+
+alter table if exists public.live_location_requests
+  drop constraint if exists live_location_requests_status_check;
+
+alter table if exists public.live_location_requests
+  add constraint live_location_requests_status_check
+  check (status = any (array[
+    'PENDING',
+    'APPROVED',
+    'POSTPONED',
+    'REJECTED',
+    'REJECTED_TEMPORARY',
+    'EXPIRED',
+    'CANCELLED',
+    'SUPERSEDED',
+    'FAILED'
+  ]::text[]));
+
+alter table if exists public.live_location_responses
+  drop constraint if exists live_location_responses_status_check;
+
+alter table if exists public.live_location_responses
+  add constraint live_location_responses_status_check
+  check (status = any (array[
+    'APPROVED',
+    'POSTPONED',
+    'REJECTED',
+    'REJECTED_TEMPORARY',
+    'FAILED'
+  ]::text[]));
+
+insert into public.database_migration_status (name, status, applied_at, notes)
+values
+  ('20260511140500_fix_live_location_response_flow', 'APPLIED', now(), 'Allows live-location runtime statuses and persists employee live-location captures.')
+on conflict (name) do update
+  set status = excluded.status,
+      notes = excluded.notes,
+      applied_at = now();
+
+insert into public.patch_markers(patch_key, applied_at, notes)
+values
+  ('20260511140500_fix_live_location_response_flow', now(), 'Allows SUPERSEDED/POSTPONED/REJECTED_TEMPORARY live-location statuses and aligns employee_locations.')
+on conflict (patch_key) do update
+  set applied_at = excluded.applied_at,
+      notes = excluded.notes;
+
+notify pgrst, 'reload schema';
+
+commit;
+
+-- =========================================================
+-- END PATCH: 20260511140500_fix_live_location_response_flow.sql
+-- =========================================================
