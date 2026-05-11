@@ -1,4 +1,4 @@
-import { endpoints, unwrap } from "./api.js?v=v39-consolidated-stable-110";
+import { endpoints, unwrap } from "./api.js?v=v114-password-location-flow";
 
 const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
 const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };
@@ -8,6 +8,7 @@ const app = document.querySelector("#app");
 const EMPLOYEE_PORTAL = "../employee/index.html#home";
 const ADMIN_PORTAL = "../operations-gate/?next=../admin/";
 const DEFAULT_LIVE_LOCATION_REASON = "متابعة تنفيذية مباشرة";
+const EXECUTIVE_REQUESTER_NAME = "الشيخ محمد يوسف";
 
 const state = {
   route: location.hash.replace("#", "") || "home",
@@ -805,7 +806,7 @@ function bindEmployeeCardActions() {
     button.disabled = true;
     button.textContent = "جاري الإرسال...";
     try {
-      await endpoints.requestLiveLocation(button.dataset.requestLive, { reason: DEFAULT_LIVE_LOCATION_REASON });
+      await endpoints.requestLiveLocation(button.dataset.requestLive, { reason: DEFAULT_LIVE_LOCATION_REASON, requestedByName: EXECUTIVE_REQUESTER_NAME });
       state.dataCache = null;
       setMessage("تم إنشاء طلب الموقع، وقد لا يصل الإشعار الخارجي إذا كان غير مفعل.", "");
       if (routeKey() === "employee") await renderEmployeeDetail(button.dataset.requestLive);

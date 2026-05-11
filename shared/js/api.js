@@ -1,5 +1,5 @@
 import { seedDatabase } from "./database.js?v=v39-consolidated-stable-110";
-import { supabaseEndpoints, shouldUseSupabase, supabaseModeIsStrict } from "./supabase-api.js?v=v111-mobile-location-polish";
+import { supabaseEndpoints, shouldUseSupabase, supabaseModeIsStrict } from "./supabase-api.js?v=v114-password-location-flow";
 
 const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
 const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };
@@ -2509,7 +2509,7 @@ const localEndpoints = {
     if (!employee) throw new Error("الموظف غير موجود.");
     const actor = currentUser(db);
     db.liveLocationRequests ||= [];
-    const item = { id: makeId("liveLoc"), employeeId, requestedByUserId: actor?.id || "", requestedByEmployeeId: actor?.employeeId || "", requestedByName: actor?.fullName || actor?.name || "الإدارة", reason: body.reason || "متابعة تنفيذية مباشرة", status: "PENDING", precision: body.precision || "HIGH", expiresAt: body.expiresAt || new Date(Date.now() + 15 * 60000).toISOString(), createdAt: now() };
+    const item = { id: makeId("liveLoc"), employeeId, requestedByUserId: actor?.id || "", requestedByEmployeeId: actor?.employeeId || "", requestedByName: body.requestedByName || body.requested_by_name || actor?.fullName || actor?.name || "الإدارة", reason: body.reason || "متابعة تنفيذية مباشرة", status: "PENDING", precision: body.precision || "HIGH", expiresAt: body.expiresAt || new Date(Date.now() + 15 * 60000).toISOString(), createdAt: now() };
     db.liveLocationRequests.unshift(item);
     notifyEmployee(db, employeeId, "طلب مشاركة موقعك الحالي", item.requestedByName + " يطلب إرسال موقعك المباشر الآن. السبب: " + item.reason, "ACTION_REQUIRED", { route: "location", data: { route: "location", type: "LIVE_LOCATION_REQUEST", liveLocationRequestId: item.id, url: "./employee/index.html#location" } });
     audit(db, "live_location.request", "employee", employeeId, null, item);

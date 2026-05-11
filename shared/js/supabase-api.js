@@ -2820,7 +2820,8 @@ export const supabaseEndpoints = {
     const targetEmployeeId = targetEmployee.id;
     await ignoreSupabaseError(client.from("live_location_requests").update({ status: "EXPIRED", responded_at: now(), response_note: "انتهت مهلة الطلب تلقائيًا", updated_at: now() }).eq("employee_id", targetEmployeeId).eq("status", "PENDING").lt("expires_at", now()));
     await ignoreSupabaseError(client.from("live_location_requests").update({ status: "SUPERSEDED", responded_at: now(), response_note: "تم إغلاق الطلب بسبب إرسال طلب أحدث", updated_at: now() }).eq("employee_id", targetEmployeeId).eq("status", "PENDING"));
-    const payload = { employee_id: targetEmployeeId, requested_by_user_id: user?.id || null, requested_by_employee_id: user?.employeeId || null, requested_by_name: user?.fullName || user?.name || "الإدارة", reason: body.reason || "متابعة تنفيذية مباشرة", status: "PENDING", precision: body.precision || "HIGH", expires_at: body.expiresAt || new Date(Date.now() + 15 * 60000).toISOString(), created_at: now() };
+    const requesterName = body.requestedByName || body.requested_by_name || user?.fullName || user?.name || "الإدارة";
+    const payload = { employee_id: targetEmployeeId, requested_by_user_id: user?.id || null, requested_by_employee_id: user?.employeeId || null, requested_by_name: requesterName, reason: body.reason || "متابعة تنفيذية مباشرة", status: "PENDING", precision: body.precision || "HIGH", expires_at: body.expiresAt || new Date(Date.now() + 15 * 60000).toISOString(), created_at: now() };
     const { data, error } = await client.from("live_location_requests").insert(payload).select("*").single();
     fail(error, "تعذر إنشاء طلب الموقع المباشر. تأكد من تشغيل ملف SQL النهائي RUN_IN_SUPABASE_SQL_EDITOR.sql.");
     

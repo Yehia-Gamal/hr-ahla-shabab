@@ -1,4 +1,4 @@
-import { endpoints, unwrap } from "./api.js?v=v39-consolidated-stable-110";
+import { endpoints, unwrap } from "./api.js?v=v114-password-location-flow";
 import { enableWebPushSubscription } from "./push.js?v=v39-consolidated-stable-110";
 import { runRuntimeDiagnostics, clearRuntimeCaches } from "./runtime-diagnostics.js?v=v39-consolidated-stable-110";
 
@@ -8,6 +8,7 @@ const debugError = (...args) => { if (debugEnabled()) globalThis.console?.error?
 const debugInfo = (...args) => { if (debugEnabled()) globalThis.console?.info?.(...args); };
 const app = document.querySelector("#app");
 const DEFAULT_LIVE_LOCATION_REASON = "متابعة تنفيذية مباشرة";
+const EXECUTIVE_REQUESTER_NAME = "الشيخ محمد يوسف";
 
 const state = {
   route: location.hash.replace("#", "") || "dashboard",
@@ -2202,7 +2203,7 @@ async function renderLocations() {
           <span>دقة GPS: ${latest.latitude ? formatMeters(accuracy) : "لا يوجد"}</span>
           <span>طلبات مباشرة: ${escapeHtml(safeList(row.liveRequests).length)}</span>
         </div>
-        ${pending ? `<div class="message warning compact">طلب الموقع مُرسل مباشرة للموظف. الرد المتوقع: إرسال الموقع أو رفض/تأجيل مؤقت.</div>` : ""}
+        ${pending ? `<div class="message warning compact">طلب الموقع مُرسل مباشرة للموظف. الرد المتوقع الآن هو إرسال الموقع فقط.</div>` : ""}
         ${latest.latitude && latest.longitude ? `<div class="map-line"><span>Lat: ${escapeHtml(latest.latitude)}</span><span>Lng: ${escapeHtml(latest.longitude)}</span><span>الدقة: ${escapeHtml(accuracy || "-")} متر</span></div>` : `<div class="empty-box">لم يتم حفظ GPS لهذا الموظف بعد.</div>`}
         ${table(["المصدر", "الحالة", "الوقت", "الرد"], [...safeList(row.liveRequests), ...safeList(row.classicRequests), ...safeList(row.liveResponses)].slice(0, 12).map((item) => `<tr><td>${escapeHtml(item.requestId ? "استجابة" : item.precision ? "طلب مباشر" : "طلب عادي")}</td><td>${badge(item.status || "ACTIVE")}</td><td>${date(item.createdAt || item.respondedAt || item.capturedAt || item.date)}</td><td>${escapeHtml(item.responseNote || item.note || item.reason || "-")}</td></tr>`))}
       </div>
@@ -2220,7 +2221,7 @@ async function renderLocations() {
           ${metric("دقة ضعيفة", counts.lowAccuracy ?? 0, "أكبر من الحد المسموح")}
           ${metric("موقع قديم", counts.stale ?? 0, "لم يتحدث منذ ساعتين+")}
         </div>
-        <div class="message compact">طلب الموقع من المدير التنفيذي يتم اعتماده وإرساله فورًا للموظف، ثم يظهر هنا رد الموظف: إرسال الموقع أو رفض/تأجيل مؤقت.</div>
+        <div class="message compact">طلب الموقع من المدير التنفيذي يتم اعتماده وإرساله فورًا للموظف، ثم يظهر هنا رد الموظف عند إرسال الموقع.</div>
       </article>
       <article class="panel span-12">
         <div class="panel-head"><div><h2>مشاكل تحتاج متابعة</h2><p>بدون GPS، دقة ضعيفة، موقع قديم، أو طلبات معلقة.</p></div><button class="button ghost" id="export-location-monitor">تصدير JSON</button></div>
@@ -2241,8 +2242,8 @@ async function renderLocations() {
   app.querySelector("#export-location-monitor")?.addEventListener("click", () => downloadFile("location-monitor.json", JSON.stringify(data, null, 2), "application/json;charset=utf-8"));
   app.querySelectorAll("[data-request-live-location]").forEach((button) => button.addEventListener("click", async () => {
     try {
-      await endpoints.requestLiveLocation(button.dataset.requestLiveLocation, { reason: DEFAULT_LIVE_LOCATION_REASON });
-      setMessage("تم اعتماد طلب الموقع وإرساله مباشرة للموظف. بانتظار رد الموظف: إرسال الموقع أو رفض/تأجيل مؤقت.", "");
+      await endpoints.requestLiveLocation(button.dataset.requestLiveLocation, { reason: DEFAULT_LIVE_LOCATION_REASON, requestedByName: EXECUTIVE_REQUESTER_NAME });
+      setMessage("تم اعتماد طلب الموقع وإرساله مباشرة للموظف. بانتظار إرسال الموقع من الموظف.", "");
     } catch (error) {
       setMessage("", error.message || "تعذر طلب الموقع.");
     }
@@ -3552,7 +3553,7 @@ async function renderExecutiveMobile() {
       </section>
     `, "المتابعة التنفيذية", "تفاصيل موظف من شاشة المدير التنفيذي.");
     app.querySelector("[data-request-live]")?.addEventListener("click", async (event) => {
-      try { await endpoints.requestLiveLocation(event.currentTarget.dataset.requestLive, { reason: DEFAULT_LIVE_LOCATION_REASON }); setMessage("تم اعتماد طلب الموقع وإرساله مباشرة للموظف. سيظهر رد الموظف هنا: إرسال الموقع أو رفض/تأجيل مؤقت.", ""); location.hash = `executive-mobile?employeeId=${encodeURIComponent(event.currentTarget.dataset.requestLive)}`; render(); } catch (error) { setMessage("", error.message || "تعذر طلب الموقع."); render(); }
+      try { await endpoints.requestLiveLocation(event.currentTarget.dataset.requestLive, { reason: DEFAULT_LIVE_LOCATION_REASON, requestedByName: EXECUTIVE_REQUESTER_NAME }); setMessage("تم اعتماد طلب الموقع وإرساله مباشرة للموظف. سيظهر رد الموظف هنا عند إرسال الموقع.", ""); location.hash = `executive-mobile?employeeId=${encodeURIComponent(event.currentTarget.dataset.requestLive)}`; render(); } catch (error) { setMessage("", error.message || "تعذر طلب الموقع."); render(); }
     });
     return;
   }
@@ -3565,7 +3566,7 @@ async function renderExecutiveMobile() {
   shell(`
     <section class="grid executive-mobile-view executive-ops-page">
       <article class="panel span-12 accent-panel">
-        <div class="panel-head"><div><h2>غرفة عمليات المدير التنفيذي</h2><p>متابعة فورية للحضور وطلبات الموقع: الطلب يُعتمد ويرسل مباشرة للموظف، والرد يكون إرسال موقع أو رفض/تأجيل مؤقت.</p></div><div class="toolbar"><button class="button ghost" data-action="refresh">تحديث</button><button class="button primary" data-route="locations">مراقبة اللوكيشن</button></div></div>
+        <div class="panel-head"><div><h2>غرفة عمليات المدير التنفيذي</h2><p>متابعة فورية للحضور وطلبات الموقع: الطلب يُعتمد ويرسل مباشرة للموظف، والرد المطلوب هو إرسال الموقع الحالي فقط.</p></div><div class="toolbar"><button class="button ghost" data-action="refresh">تحديث</button><button class="button primary" data-route="locations">مراقبة اللوكيشن</button></div></div>
         <div class="metric-grid">
           ${[["إجمالي", data.counts?.total], ["حاضر", data.counts?.present], ["متأخر", data.counts?.late], ["غائب", data.counts?.absent], ["مواقع معلقة", pendingLocation.length], ["بدون GPS", missingLocation.length], ["دقة ضعيفة", outOfRange.length]].map(([label, value]) => `<article class="metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value ?? 0)}</strong><small>اليوم</small></article>`).join("")}
         </div>
@@ -3600,8 +3601,8 @@ async function renderExecutiveMobile() {
     button.disabled = true;
     button.textContent = "جاري الإرسال...";
     try {
-      await endpoints.requestLiveLocation(button.dataset.requestLive, { reason: DEFAULT_LIVE_LOCATION_REASON });
-      setMessage("تم اعتماد طلب الموقع وإرساله مباشرة للموظف. بانتظار رد الموظف: إرسال الموقع أو رفض/تأجيل مؤقت.", "");
+      await endpoints.requestLiveLocation(button.dataset.requestLive, { reason: DEFAULT_LIVE_LOCATION_REASON, requestedByName: EXECUTIVE_REQUESTER_NAME });
+      setMessage("تم اعتماد طلب الموقع وإرساله مباشرة للموظف. بانتظار إرسال الموقع من الموظف.", "");
       renderExecutiveMobile();
     } catch (error) {
       setMessage("", error.message || "تعذر طلب الموقع.");

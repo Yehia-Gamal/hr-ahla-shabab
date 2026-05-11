@@ -1,4 +1,4 @@
-import { endpoints, unwrap } from "./api.js?v=v111-mobile-location-polish";
+import { endpoints, unwrap } from "./api.js?v=v114-password-location-flow";
 import { enableWebPushSubscription } from "./push.js?v=v39-consolidated-stable-110";
 import { getDeviceFingerprintHash, requestEmployeePasskey, filterEmployeePasskeys, calculateAttendanceRisk, rememberDevicePunch, capturePunchSelfie } from "./attendance-identity.js?v=v39-consolidated-stable-110";
 import { ensureAttendancePolicyAcknowledged, ensureTrustedDeviceApproval, requestBranchQrChallenge, analyzeLocationTrust, mergeRiskSignals, submitFallbackAttendanceRequest } from "./attendance-v3-security.js?v=v39-consolidated-stable-110";
@@ -2443,7 +2443,7 @@ async function renderProfile() {
         </div>
         <div id="device-security-result" class="message compact hidden"></div>
       </article>
-      <form class="employee-card full" id="employee-password-form">
+      <form class="employee-card full password-change-card" id="employee-password-form">
         <div class="panel-kicker">الأمان</div>
         <h2>تغيير كلمة المرور</h2>
         <div class="employee-form-grid">
@@ -2503,9 +2503,20 @@ async function renderProfile() {
   });
   app.querySelector("#employee-password-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const values = readForm(event.currentTarget);
+    const form = event.currentTarget;
+    const submit = form.querySelector('button[type="submit"]');
+    const values = readForm(form);
     if (values.newPassword !== values.confirmPassword) { setMessage("", "تأكيد كلمة المرور غير مطابق."); return renderProfile(); }
-    try { await endpoints.changePassword(values); setMessage("تم تغيير كلمة المرور بنجاح.", ""); event.currentTarget.reset(); } catch (error) { setMessage("", error.message || "تعذر تغيير كلمة المرور."); }
+    try {
+      if (submit) submit.disabled = true;
+      await endpoints.changePassword(values);
+      state.user = { ...(state.user || {}), mustChangePassword: false, temporaryPassword: false };
+      setMessage("تم تغيير كلمة المرور بنجاح. استخدم كلمة المرور الجديدة في الدخول القادم.", "");
+    } catch (error) {
+      setMessage("", error.message || "تعذر تغيير كلمة المرور.");
+    } finally {
+      if (submit) submit.disabled = false;
+    }
     renderProfile();
   });
   profileForm?.addEventListener("submit", async (event) => {
