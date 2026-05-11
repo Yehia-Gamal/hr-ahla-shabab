@@ -578,7 +578,7 @@ function resolveAvatarUrl(value) {
 function avatar(person, size = "") {
   const src = resolveAvatarUrl(person?.photoUrl || person?.avatarUrl || person?.employee?.photoUrl || person?.employee?.avatarUrl || bundledEmployeePhoto(person));
   const label = initials(person?.fullName || person?.name || person?.employee?.fullName || person?.employee?.name);
-  if (src) return `<img class="avatar ${size}" src="${escapeHtml(src)}" alt="${escapeHtml(person.fullName || person.name || person?.employee?.fullName || "")}" loading="lazy" decoding="async" fetchpriority="low" data-fallback-avatar="1" /><span class="avatar fallback ${size} hidden">${escapeHtml(label)}</span>`;
+  if (src) return `<img class="avatar ${size}" src="${escapeHtml(src)}" alt="${escapeHtml(person.fullName || person.name || person?.employee?.fullName || "")}" loading="lazy" decoding="async" fetchpriority="low" />`;
   return `<span class="avatar fallback ${size}">${escapeHtml(label)}</span>`;
 }
 
@@ -4204,4 +4204,3 @@ render();
   });
   setActive(location.hash.replace('#', '') || 'dashboard');
 })();
-
