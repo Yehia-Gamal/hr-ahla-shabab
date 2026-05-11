@@ -23,12 +23,14 @@
   <script>
     (function() {
       try {
-        var until  = Number(sessionStorage.getItem('hr.opsGatewayUnlockedUntil') || 0);
-        var unlockedTarget = sessionStorage.getItem('hr.opsGatewayUnlockedTarget') || '';
-        var token  = sessionStorage.getItem('hr.opsGatewayToken') || '';
-        var tToken = sessionStorage.getItem('hr.opsGatewayToken.executive') || '';
+        var until  = Number(localStorage.getItem('hr.opsGatewayUnlockedUntil') || sessionStorage.getItem('hr.opsGatewayUnlockedUntil') || 0);
+        var unlockedTarget = localStorage.getItem('hr.opsGatewayUnlockedTarget') || sessionStorage.getItem('hr.opsGatewayUnlockedTarget') || '';
+        var token  = localStorage.getItem('hr.opsGatewayToken') || sessionStorage.getItem('hr.opsGatewayToken') || '';
+        var tToken = localStorage.getItem('hr.opsGatewayToken.executive') || sessionStorage.getItem('hr.opsGatewayToken.executive') || '';
         if (until > Date.now() && unlockedTarget === 'executive' && token && tToken && token === tToken) return;
         ['hr.opsGatewayUnlockedUntil','hr.opsGatewayUnlockedTarget','hr.opsGatewayToken'].forEach(function(k){sessionStorage.removeItem(k);});
+        ['hr.opsGatewayUnlockedUntil','hr.opsGatewayUnlockedTarget','hr.opsGatewayToken'].forEach(function(k){localStorage.removeItem(k);});
+        localStorage.removeItem('hr.opsGatewayToken.executive');
         location.replace('../operations-gate/?target=executive&next=' + encodeURIComponent(location.pathname + location.search + location.hash));
       } catch(e) { location.replace('../operations-gate/?target=executive'); }
     })();

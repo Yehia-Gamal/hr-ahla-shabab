@@ -307,8 +307,9 @@ function normalizeGateIdentifier(value = "") {
 }
 
 function gateIdentityForPortal(target = "admin") {
-  if (sessionStorage.getItem("hr.opsGatewayUnlockedTarget") !== target) return "";
-  return sessionStorage.getItem("hr.ops.gate.identity") || sessionStorage.getItem("hr.ops.gate.email") || "";
+  const unlockedTarget = localStorage.getItem("hr.opsGatewayUnlockedTarget") || sessionStorage.getItem("hr.opsGatewayUnlockedTarget");
+  if (unlockedTarget !== target) return "";
+  return localStorage.getItem("hr.ops.gate.identity") || sessionStorage.getItem("hr.ops.gate.identity") || localStorage.getItem("hr.ops.gate.email") || sessionStorage.getItem("hr.ops.gate.email") || "";
 }
 
 function sessionMatchesGateIdentity(user = state.user, target = "admin") {
@@ -926,9 +927,19 @@ function shell(content, title, description = "") {
   app.querySelectorAll('[data-action="refresh"]').forEach(btn => btn.addEventListener("click", render));
   app.querySelectorAll('[data-action="logout"]').forEach(btn => btn.addEventListener("click", async () => {
     await endpoints.logout();
+    clearPersistentGateSession("admin");
     state.user = null;
     renderLogin();
   }));
+}
+
+function clearPersistentGateSession(target = "admin") {
+  ["hr.opsGatewayUnlockedUntil", "hr.opsGatewayUnlockedTarget", "hr.opsGatewayToken", "hr.ops.gate.target", "hr.ops.gate.email", "hr.ops.gate.identity", "hr.ops.gate.ok"].forEach((key) => {
+    sessionStorage.removeItem(key);
+    localStorage.removeItem(key);
+  });
+  sessionStorage.removeItem(`hr.opsGatewayToken.${target}`);
+  localStorage.removeItem(`hr.opsGatewayToken.${target}`);
 }
 
 window.addEventListener("keydown", (event) => {

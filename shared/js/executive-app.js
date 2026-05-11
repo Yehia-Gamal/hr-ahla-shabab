@@ -130,8 +130,9 @@ function normalizeGateIdentifier(value = "") {
 }
 
 function gateIdentityForPortal(target = "executive") {
-  if (sessionStorage.getItem("hr.opsGatewayUnlockedTarget") !== target) return "";
-  return sessionStorage.getItem("hr.ops.gate.identity") || sessionStorage.getItem("hr.ops.gate.email") || "";
+  const unlockedTarget = localStorage.getItem("hr.opsGatewayUnlockedTarget") || sessionStorage.getItem("hr.opsGatewayUnlockedTarget");
+  if (unlockedTarget !== target) return "";
+  return localStorage.getItem("hr.ops.gate.identity") || sessionStorage.getItem("hr.ops.gate.identity") || localStorage.getItem("hr.ops.gate.email") || sessionStorage.getItem("hr.ops.gate.email") || "";
 }
 
 function sessionMatchesGateIdentity(user = state.user, target = "executive") {
@@ -431,10 +432,20 @@ function shell(content, title = "المتابعة التنفيذية", descripti
     const ok = await confirmAction({ title: "تسجيل الخروج", message: "هل تريد الخروج من المتابعة التنفيذية؟", confirmLabel: "خروج", danger: true });
     if (!ok) return;
     await endpoints.logout();
+    clearPersistentGateSession("executive");
     state.user = null;
     state.dataCache = null;
     renderLogin();
   });
+}
+
+function clearPersistentGateSession(target = "executive") {
+  ["hr.opsGatewayUnlockedUntil", "hr.opsGatewayUnlockedTarget", "hr.opsGatewayToken", "hr.ops.gate.target", "hr.ops.gate.email", "hr.ops.gate.identity", "hr.ops.gate.ok"].forEach((key) => {
+    sessionStorage.removeItem(key);
+    localStorage.removeItem(key);
+  });
+  sessionStorage.removeItem(`hr.opsGatewayToken.${target}`);
+  localStorage.removeItem(`hr.opsGatewayToken.${target}`);
 }
 
 function renderLogin() {

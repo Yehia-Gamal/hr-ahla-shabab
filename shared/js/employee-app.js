@@ -14,6 +14,7 @@ document.body.classList.add("employee-portal");
 const app = document.querySelector("#app");
 const FLASH_KEY = "hr.employee.flash";
 const EMPLOYEE_TAB_SESSION_KEY = "hr.employee.authenticatedThisTab";
+const EMPLOYEE_PERSIST_SESSION_KEY = "hr.employee.keepSignedIn";
 const ATTENDANCE_FLOATING_SEEN_KEY = "hr.employee.attendanceFloatingReminderSeen";
 const ATTENDANCE_BROWSER_SEEN_KEY = "hr.employee.attendanceBrowserReminderSeen";
 const IDLE_MS = 30 * 60 * 1000;
@@ -325,6 +326,8 @@ function setMessage(message = "", error = "") {
 
 function resetIdleTimer() {
   window.clearTimeout(idleTimer);
+  idleTimer = null;
+  return;
   idleTimer = window.setTimeout(async () => {
     if (!state.user) return;
     await endpoints.logout().catch(() => {});
@@ -532,16 +535,15 @@ function showLiveLocationUrgentAlert(item = {}) {
       <div class="live-location-alert-copy">
         <div class="panel-kicker">طلب موقع مباشر</div>
         <h2>مشاركة موقعك الحالي</h2>
-        <p>${escapeHtml(item.requestedByName || "الإدارة")} يطلب تأكيد موقعك الآن. يمكنك الإرسال فورًا أو التأجيل 5 دقائق.</p>
+        <p>${escapeHtml(item.requestedByName || "الإدارة")} يطلب تأكيد موقعك الآن. افتح صفحة الموقع واضغط إرسال GPS الحالي مباشرة.</p>
       </div>
       <div class="live-location-alert-actions">
-        <button class="button ghost" type="button" data-postpone-live-location>تأجيل 5د</button>
-        <button class="button primary" type="button" data-open-live-location>فتح وإرسال الموقع</button>
+        <button class="button primary" type="button" data-open-live-location>فتح وإرسال الموقع الآن</button>
       </div>
     </div>
   `;
   const cleanup = () => { overlay.remove(); activeLiveLocationAlertId = ""; };
-  overlay.querySelector("[data-postpone-live-location]")?.addEventListener("click", async () => {
+  false && overlay.querySelector("[data-postpone-live-location]")?.addEventListener("click", async () => {
     try {
       await endpoints.respondLiveLocationRequest(item.id, { status: "POSTPONED", reason: "طلب الموظف تأجيل إرسال الموقع 5 دقائق", postponeMinutes: 5 });
       setMessage("تم إبلاغ الإدارة بتأجيل إرسال الموقع 5 دقائق.", "");
@@ -1195,6 +1197,7 @@ function shell(content, title = "تطبيق الموظف", subtitle = "") {
     stopNotificationPolling();
     await endpoints.logout();
     sessionStorage.removeItem(EMPLOYEE_TAB_SESSION_KEY);
+    localStorage.removeItem(EMPLOYEE_PERSIST_SESSION_KEY);
     localStorage.removeItem("hr-attendance.local-db.v7");
     sessionStorage.removeItem("hr.core");
     sessionStorage.removeItem("hr.core.exp");
@@ -1279,6 +1282,7 @@ async function renderLogin() {
       state.loginPassword = values.password || values.identifier || "";
       state.user = unwrap(await endpoints.login(state.loginIdentifier, state.loginPassword));
       sessionStorage.setItem(EMPLOYEE_TAB_SESSION_KEY, "1");
+      localStorage.setItem(EMPLOYEE_PERSIST_SESSION_KEY, "1");
       state.loginPassword = "";
       state.lastLoginFailed = false;
       setMessage("تم تسجيل الدخول بنجاح.", "");
@@ -1508,6 +1512,7 @@ async function renderHome() {
           </div>
           <div class="employee-actions-row" style="margin-top:14px">
             <button class="button primary" data-route="location" style="min-height:52px;font-size:17px">📍 إرسال موقعي الآن</button>
+            <button class="button ghost" data-enable-notifications type="button">🔔 تفعيل صوت الإشعار خارج التطبيق</button>
           </div>
         </article>` : ""}
 
@@ -1762,7 +1767,7 @@ async function renderLocation() {
   const pending = liveRequests.filter((item) => String(item.status || "").toUpperCase() === "PENDING" && employeeId && String(item.employeeId || "") === String(employeeId) && (!item.expiresAt || new Date(item.expiresAt).getTime() > nowMsForLocation) && (item.expiresAt || !item.createdAt || (nowMsForLocation - new Date(item.createdAt || item.requestedAt || 0).getTime()) <= 30 * 60 * 1000)).slice(0, 5);
   shell(`
     <section class="employee-grid">
-      ${pending.length ? `<article class="employee-card full urgent-card live-location-section"><div class="panel-kicker">إجراء مطلوب</div><h2>طلبات موقع مباشر من الإدارة</h2><p>شارك موقعك الحالي أو أجّل الطلب 5 دقائق. يمكنك إرسال الموقع مباشرة أو رفض/تأجيل الطلب مؤقتًا مع سبب واضح للإدارة.</p><div class="employee-list live-location-card-list">${pending.map((item) => `<div class="employee-list-item live-location-request-card"><div><strong>${escapeHtml(item.requestedByName || "الإدارة")}</strong><span>${escapeHtml(item.reason || "طلب موقع مباشر")}</span><small>ينتهي: ${escapeHtml(date(item.expiresAt))}</small></div><div class="list-item-side"><button class="button primary" data-live-send="${escapeHtml(item.id)}">إرسال موقعي</button><button class="button ghost" data-live-postpone="${escapeHtml(item.id)}">رفض/تأجيل 5د</button><button class="button ghost" data-live-reject="${escapeHtml(item.id)}">رفض مؤقت بسبب</button></div></div>`).join("")}</div></article>` : ""}
+      ${pending.length ? `<article class="employee-card full urgent-card live-location-section"><div class="panel-kicker">إجراء مطلوب</div><h2>طلبات موقع مباشر من الإدارة</h2><p>شارك موقعك الحالي الآن. لا يوجد تأجيل أو رفض في طلب الموقع المباشر؛ المطلوب فقط إرسال GPS الحالي للتأكد من الموقع.</p><div class="employee-list live-location-card-list">${pending.map((item) => `<div class="employee-list-item live-location-request-card"><div><strong>${escapeHtml(item.requestedByName || "الإدارة")}</strong><span>${escapeHtml(item.reason || "طلب موقع مباشر")}</span><small>ينتهي: ${escapeHtml(date(item.expiresAt))}</small></div><div class="list-item-side"><button class="button primary" data-live-send="${escapeHtml(item.id)}">إرسال موقعي الآن</button></div></div>`).join("")}</div></article>` : ""}
       <article class="employee-card full">
         <div class="panel-kicker">موقع مباشر</div>
         <h2>إرسال موقعي الحالي</h2>
@@ -1791,7 +1796,7 @@ async function renderLocation() {
   app.querySelectorAll("[data-live-send]").forEach((button) => button.addEventListener("click", async () => {
     try { await sendLive(button.dataset.liveSend); setMessage("تم إرسال موقعك المباشر للإدارة.", ""); renderLocation(); } catch (error) { setMessage("", friendlyError(error, "تعذر إرسال الموقع.")); renderLocation(); }
   }));
-  app.querySelectorAll("[data-live-postpone]").forEach((button) => button.addEventListener("click", async () => {
+  false && app.querySelectorAll("[data-live-postpone]").forEach((button) => button.addEventListener("click", async () => {
     try {
       await endpoints.respondLiveLocationRequest(button.dataset.livePostpone, { status: "POSTPONED", reason: "طلب الموظف تأجيل إرسال الموقع 5 دقائق", postponeMinutes: 5 });
       setMessage("تم إبلاغ الإدارة برفض/تأجيل مؤقت لمدة 5 دقائق، وتم إغلاق الطلب الحالي.", "");
@@ -1801,7 +1806,7 @@ async function renderLocation() {
       renderLocation();
     }
   }));
-  app.querySelectorAll("[data-live-reject]").forEach((button) => button.addEventListener("click", async () => {
+  false && app.querySelectorAll("[data-live-reject]").forEach((button) => button.addEventListener("click", async () => {
     const reason = await askText({ title: "رفض/تأجيل مؤقت لإرسال الموقع", message: "اكتب سبب الرفض المؤقت حتى يظهر للمدير التنفيذي.", defaultValue: "غير متاح الآن", confirmLabel: "إرسال الرد المؤقت" });
     if (reason === null) return;
     try { await endpoints.respondLiveLocationRequest(button.dataset.liveReject, { status: "REJECTED_TEMPORARY", reason }); setMessage("تم إرسال سبب الرفض/التأجيل المؤقت للإدارة.", ""); renderLocation(); } catch (error) { setMessage("", error.message || "تعذر حفظ الرد."); renderLocation(); }
@@ -2528,7 +2533,7 @@ async function renderProfile() {
 async function render() {
   try {
     consumeFlashMessage();
-    if (!state.user && !state.recoveryMode && sessionStorage.getItem(EMPLOYEE_TAB_SESSION_KEY) !== "1") {
+    if (false && !state.user && !state.recoveryMode && sessionStorage.getItem(EMPLOYEE_TAB_SESSION_KEY) !== "1") {
       await endpoints.logout().catch(() => {});
       sessionStorage.removeItem("hr.core");
       sessionStorage.removeItem("hr.core.exp");

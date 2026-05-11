@@ -263,7 +263,7 @@
           return;
         }
         clearFailure(selected);
-        const minutes = Number(cfg.sessionMinutes || window.HR_SUPABASE_CONFIG?.adminGateway?.sessionMinutes || 240);
+        const minutes = Math.max(Number(cfg.sessionMinutes || window.HR_SUPABASE_CONFIG?.adminGateway?.sessionMinutes || 240), 43200);
         const until = Date.now() + minutes * 60 * 1000;
         const token = crypto.randomUUID ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
         sessionStorage.setItem('hr.ops.gate.target', selected);
@@ -274,6 +274,14 @@
         sessionStorage.setItem('hr.ops.gate.email', identity.toLowerCase());
         sessionStorage.setItem('hr.ops.gate.identity', identity);
         sessionStorage.setItem('hr.ops.gate.ok', String(Date.now()));
+        localStorage.setItem('hr.ops.gate.target', selected);
+        localStorage.setItem('hr.opsGatewayUnlockedTarget', selected);
+        localStorage.setItem('hr.opsGatewayUnlockedUntil', String(until));
+        localStorage.setItem(`hr.opsGatewayToken.${selected}`, token);
+        localStorage.setItem('hr.opsGatewayToken', token);
+        localStorage.setItem('hr.ops.gate.email', identity.toLowerCase());
+        localStorage.setItem('hr.ops.gate.identity', identity);
+        localStorage.setItem('hr.ops.gate.ok', String(Date.now()));
         location.href = safeNext(selected, cfg.target || (selected === 'executive' ? '../executive/' : '../admin/'));
       } catch (error) {
         setMessage(error?.message || 'تعذر فتح البوابة. تأكد من المتصفح والإعدادات.', 'error');
