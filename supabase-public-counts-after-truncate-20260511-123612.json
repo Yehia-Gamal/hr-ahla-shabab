@@ -1,0 +1,502 @@
+﻿[
+    {
+        "schema_name":  "public",
+        "table_name":  "access_control_events",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "admin_access_logs",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "admin_decision_acknowledgements",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "admin_decisions",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "announcement_reads",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "announcements",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "approval_chains",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "attachments",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "attendance_daily",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "attendance_device_policy",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "attendance_events",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "attendance_exceptions",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "attendance_fallback_requests",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "attendance_identity_checks",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "attendance_points",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "attendance_policy_acknowledgements",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "attendance_risk_escalations",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "attendance_risk_events",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "attendance_risk_scores",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "attendance_rule_runs",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "audit_logs",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "authorized_employee_roster",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "auto_backup_runs",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "backup_restore_jobs",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "backup_run_log",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "branch_qr_challenges",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "branch_qr_station_settings",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "branches",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "cleanup_089_employee_archive",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "committee_actions",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "complexes",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "credential_vault",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "daily_reports",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "database_migration_status",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "departments",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "dispute_cases",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "dispute_committee_minutes",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "dispute_committee_settings",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "dispute_minutes",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "employee_analytics_monthly",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "employee_announcements",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "employee_documents",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "employee_locations",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "employee_policies",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "employee_self_registration_log",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "employee_tasks",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "employees",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "end_of_day_reports",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "executive_presence_snapshots",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "executive_views",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "governorates",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "import_batches",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "integration_settings",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "internal_tasks",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "kpi_criteria_policy",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "kpi_cycles",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "kpi_evaluations",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "kpi_policy",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "leave_balances",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "leave_requests",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "live_location_requests",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "live_location_responses",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "location_requests",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "login_identifier_attempts",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "maintenance_runs",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "missions",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "monthly_pdf_report_runs",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "monthly_pdf_reports",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "monthly_report_exports",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "notification_delivery_log",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "notifications",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "official_message_receipts",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "official_messages",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "offline_attendance_sync_queue",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "offline_sync_queue",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "passkey_credentials",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "patch_markers",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "payroll_exports",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "permission_catalog",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "permissions",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "policy_acknowledgements",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "profiles",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "punch_selfies",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "push_notification_log",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "push_subscriptions",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "report_schedules",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "roles",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "sensitive_approvals",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "settings",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "shifts",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "smart_alert_events",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "smart_alert_rules",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "smart_alerts",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "system_backups",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "system_health_checks",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "system_runbooks",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "system_settings",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "trusted_device_approval_requests",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "trusted_devices",
+        "row_count":  0
+    },
+    {
+        "schema_name":  "public",
+        "table_name":  "workflow_escalations",
+        "row_count":  0
+    }
+]
