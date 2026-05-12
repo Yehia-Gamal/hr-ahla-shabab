@@ -80,7 +80,7 @@
     el.dataset.count = String(end);
     const start = performance.now();
     const duration = Math.min(1400, Math.max(650, Math.abs(end) * 22));
-    const formatter = new Intl.NumberFormat('ar-EG', { maximumFractionDigits: Number.isInteger(end) ? 0 : 1 });
+    const formatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: Number.isInteger(end) ? 0 : 1 });
     function tick(now){
       const t = Math.min(1, (now - start) / duration);
       const eased = 1 - Math.pow(1 - t, 3);

@@ -112,7 +112,7 @@
     const end = numericValue(original);
     if (!Number.isFinite(end)) return;
     const suffix = original.replace(/[-+\d٠-٩۰-۹.,\s]/g, '');
-    const formatter = new Intl.NumberFormat('ar-EG', { maximumFractionDigits: Number.isInteger(end) ? 0 : 1 });
+    const formatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: Number.isInteger(end) ? 0 : 1 });
     const start = performance.now();
     const duration = Math.min(1450, Math.max(680, Math.abs(end) * 18));
     el.dataset.countDone = 'true';

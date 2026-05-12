@@ -68,7 +68,7 @@
       // Ease out cubic
       const eased = 1 - Math.pow(1 - progress, 3);
       const current = startVal + (endVal - startVal) * eased;
-      el.textContent = isFloat ? current.toFixed(decimals) : Math.round(current).toLocaleString('ar-EG');
+      el.textContent = isFloat ? current.toFixed(decimals) : Math.round(current).toLocaleString('en-US');
       if (progress < 1) requestAnimationFrame(step);
     }
     requestAnimationFrame(step);

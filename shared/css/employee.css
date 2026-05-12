@@ -2545,3 +2545,32 @@ body.employee-portal [data-punch-type="out"] {
   border: 2px solid var(--bg);
 }
 
+/* v116: more menu must show multiple icons per row on phones */
+body.employee-portal .employee-more-sheet {
+  width: min(calc(100vw - 16px), 520px) !important;
+  max-width: none !important;
+}
+body.employee-portal .employee-more-sheet .more-sheet-grid,
+body.employee-portal .more-sheet-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+body.employee-portal .more-sheet-grid button {
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 62px !important;
+  padding: 8px 5px !important;
+}
+@media (min-width: 430px) {
+  body.employee-portal .employee-more-sheet .more-sheet-grid,
+  body.employee-portal .more-sheet-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 330px) {
+  body.employee-portal .employee-more-sheet .more-sheet-grid,
+  body.employee-portal .more-sheet-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}

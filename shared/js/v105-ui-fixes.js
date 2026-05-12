@@ -58,7 +58,7 @@
       try {
         el.textContent = isFloat
           ? v.toFixed(1)
-          : Math.round(v).toLocaleString('ar-EG');
+          : Math.round(v).toLocaleString('en-US');
       } catch (_) {
         el.textContent = Math.round(v);
       }
@@ -444,7 +444,7 @@
   setInterval(function () {
     document.querySelectorAll('[data-live-clock]').forEach(function (el) {
       try {
-        el.textContent = new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+        el.textContent = new Date().toLocaleTimeString('ar-EG-u-nu-latn', { hour: '2-digit', minute: '2-digit' });
       } catch (_) {}
     });
   }, 60000);

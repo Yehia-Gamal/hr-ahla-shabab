@@ -7015,3 +7015,10 @@ img.user-avatar[src=""], img.user-avatar:not([src]) {
 .live-location-request-card strong{font-size:clamp(16px,4vw,19px)!important}
 .live-location-request-card .button{min-width:132px!important;min-height:42px!important}
 @media (max-width:760px){.topbar{padding:10px!important}.executive-topbar{gap:10px!important;padding:10px!important}.executive-tabs{width:100%!important;overflow-x:auto!important;padding-bottom:4px!important}.executive-page-head{display:grid!important;gap:10px!important;text-align:center!important;justify-items:center!important}.live-location-request-card{grid-template-columns:1fr!important;text-align:center!important}.live-location-request-card .list-item-side,.live-location-request-card .button{width:100%!important}}
+
+/* v116: force the employee More sheet to use screen width with several icons per row */
+body.employee-portal .employee-more-sheet{width:min(calc(100vw - 16px),520px)!important;max-width:none!important}
+body.employee-portal .employee-more-sheet .more-sheet-grid,body.employee-portal .more-sheet-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important}
+body.employee-portal .more-sheet-grid button{width:100%!important;min-width:0!important;min-height:62px!important;padding:8px 5px!important}
+@media (min-width:430px){body.employee-portal .employee-more-sheet .more-sheet-grid,body.employee-portal .more-sheet-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}}
+@media (max-width:330px){body.employee-portal .employee-more-sheet .more-sheet-grid,body.employee-portal .more-sheet-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}

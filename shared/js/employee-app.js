@@ -1,4 +1,4 @@
-import { endpoints, unwrap } from "./api.js?v=v115-ui-ux-polish";
+import { endpoints, unwrap } from "./api.js?v=v116-location-ui-numbers";
 import { enableWebPushSubscription } from "./push.js?v=v39-consolidated-stable-110";
 import { getDeviceFingerprintHash, requestEmployeePasskey, filterEmployeePasskeys, calculateAttendanceRisk, rememberDevicePunch, capturePunchSelfie } from "./attendance-identity.js?v=v39-consolidated-stable-110";
 import { ensureAttendancePolicyAcknowledged, ensureTrustedDeviceApproval, requestBranchQrChallenge, analyzeLocationTrust, mergeRiskSignals, submitFallbackAttendanceRequest } from "./attendance-v3-security.js?v=v39-consolidated-stable-110";
@@ -118,11 +118,11 @@ function greeting() {
 }
 
 function timeNowText() {
-  try { return new Date().toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }); } catch { return ""; }
+  try { return englishDigits(new Date().toLocaleTimeString("ar-EG-u-nu-latn", { hour: "2-digit", minute: "2-digit" })); } catch { return ""; }
 }
 
 function fullDateText() {
-  try { return new Date().toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long" }); } catch { return ""; }
+  try { return englishDigits(new Date().toLocaleDateString("ar-EG-u-nu-latn", { weekday: "long", day: "numeric", month: "long" })); } catch { return ""; }
 }
 
 function actionCard(route, icon, title, text) {
@@ -728,7 +728,7 @@ function renderLoadingSkeleton(title = "جاري التحميل", subtitle = "ن
 }
 
 function escapeHtml(value = "") {
-  return String(value ?? "").replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#039;", '"': "&quot;" }[char]));
+  return englishDigits(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#039;", '"': "&quot;" }[char]));
 }
 
 function safeLocationDisplayRecord(record = {}) {
@@ -780,6 +780,14 @@ function validEgyptPhone(value = "") {
   return /^01[0125][0-9]{8}$/.test(normalizeEgyptPhone(value));
 }
 
+function englishDigits(value = "") {
+  const ar = "٠١٢٣٤٥٦٧٨٩";
+  const fa = "۰۱۲۳۴۵۶۷۸۹";
+  return String(value ?? "")
+    .replace(/[٠-٩]/g, (d) => String(ar.indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String(fa.indexOf(d)));
+}
+
 function fileToAvatarDataUrl(file) {
   if (!file || !String(file.type || "").startsWith("image/")) return Promise.resolve("");
   return new Promise((resolve, reject) => {
@@ -820,7 +828,7 @@ async function reverseGeocode(latitude, longitude) {
 
 function date(value) {
   if (!value) return "-";
-  try { return new Date(value).toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" }); } catch { return value; }
+  try { return englishDigits(new Date(value).toLocaleString("ar-EG-u-nu-latn", { dateStyle: "medium", timeStyle: "short" })); } catch { return englishDigits(value); }
 }
 
 function todayIso() {
@@ -1070,7 +1078,7 @@ function locationLabelFromRecord(record = {}) {
   const branchish = ["inside_branch", "inside_branch_low_accuracy", "inside", "in_range", "active", "approved"].includes(locationStatus)
     || (!locationStatus && ["check_in", "check_out", "present", "late", "checked_out", "manual_approved"].includes(attendanceStatus) && !record.requiresReview);
   if (branchish) return `${branchName()} — ${branchArea()}`;
-  return record.addressLabel || record.locationLabel || record.placeLabel || record.address || record.destinationName || (record.latitude && record.longitude ? "آخر موقع فعلي مسجل — افتح الخريطة للتفاصيل" : "لم يتم إرسال موقع بعد");
+  return record.addressLabel || record.locationLabel || record.placeLabel || record.address || record.destinationName || (record.latitude && record.longitude ? "موقع فعلي محفوظ — افتح الخريطة للتفاصيل" : "لم يتم إرسال موقع بعد");
 }
 
 function locationStatusBadge(record = {}) {
@@ -1097,7 +1105,7 @@ function readableLocationBlock(record = {}, { compact = false } = {}) {
   const distanceLabel = hasDistance && distance > 1500 ? "خارج نطاق مجمع أحلى شباب" : hasDistance ? `يبعد تقريبًا ${formatMeters(distance)} عن المجمع` : "";
   return `<div class="readable-location ${compact ? "compact" : ""}">
     <div>${locationStatusBadge(safeRecord)}<strong>${escapeHtml(label)}</strong><small>${escapeHtml(label.includes(BRANCH_DISPLAY_NAME) ? BRANCH_DISPLAY_AREA : "الموقع الفعلي المسجل")}</small></div>
-    <div class="location-meta-row">${accuracy ? `<span>الدقة ±${Math.round(accuracy)} م</span>` : ""}${distanceLabel ? `<span>${escapeHtml(distanceLabel)}</span>` : ""}${map ? `<a class="button ghost small" target="_blank" rel="noopener" href="${map}">فتح الخريطة</a>` : ""}</div>
+    <div class="location-meta-row">${accuracy ? `<span>الدقة ±${escapeHtml(Math.round(accuracy))} م</span>` : ""}${distanceLabel ? `<span>${escapeHtml(distanceLabel)}</span>` : ""}${map ? `<a class="button ghost small" target="_blank" rel="noopener" href="${map}">فتح الخريطة</a>` : ""}</div>
   </div>`;
 }
 
@@ -1400,9 +1408,11 @@ async function getVerifiedBrowserLocation(employeeId = "", options = {}) {
     allowed: Boolean(inside && !weak),
     requiresReview: Boolean((uncertain && !inside) || evaluation.requiresReview),
   };
+  const placeName = await reverseGeocode(merged.latitude, merged.longitude);
+  merged.placeLabel = placeName || merged.placeLabel || merged.locationLabel || "";
   if (merged.insideBranch) merged.addressLabel = `${branchName()} — ${branchArea()}`;
-  else if (merged.locationUncertain) merged.addressLabel = "الموقع غير مؤكد — سيتم إرساله للمراجعة بدل الحكم الخاطئ";
-  else merged.addressLabel = merged.addressLabel || "موقع خارج المجمع";
+  else if (merged.locationUncertain) merged.addressLabel = placeName || "الموقع غير مؤكد — سيتم إرساله للمراجعة بدل الحكم الخاطئ";
+  else merged.addressLabel = placeName || merged.addressLabel || "موقع خارج المجمع";
   return merged;
 }
 
@@ -1962,7 +1972,7 @@ async function renderKpi() {
   const mine = (payload.evaluations || []).find((item) => item.employeeId === employeeId) || {};
   const cycle = payload.cycle || {};
   const windowInfo = payload.windowInfo || cycle.window || {};
-  const monthName = cycle.name || `تقييم شهر ${new Date().toLocaleDateString("ar-EG", { month: "long", year: "numeric" })}`;
+  const monthName = cycle.name || `تقييم شهر ${englishDigits(new Date().toLocaleDateString("ar-EG-u-nu-latn", { month: "long", year: "numeric" }))}`;
   const scoreToPercent = (value, max) => {
     const n = Number(value || 0);
     if (!Number.isFinite(n) || n <= 0) return 0;

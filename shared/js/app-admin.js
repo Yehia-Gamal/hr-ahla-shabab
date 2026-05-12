@@ -1,4 +1,4 @@
-import { endpoints, unwrap } from "./api.js?v=v115-ui-ux-polish";
+import { endpoints, unwrap } from "./api.js?v=v116-location-ui-numbers";
 import { enableWebPushSubscription } from "./push.js?v=v39-consolidated-stable-110";
 import { runRuntimeDiagnostics, clearRuntimeCaches } from "./runtime-diagnostics.js?v=v39-consolidated-stable-110";
 
@@ -428,8 +428,16 @@ function setMessage(message = "", error = "") {
   state.error = error;
 }
 
-function escapeHtml(value) {
+function englishDigits(value = "") {
+  const ar = "٠١٢٣٤٥٦٧٨٩";
+  const fa = "۰۱۲۳۴۵۶۷۸۹";
   return String(value ?? "")
+    .replace(/[٠-٩]/g, (d) => String(ar.indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String(fa.indexOf(d)));
+}
+
+function escapeHtml(value) {
+  return englishDigits(value)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
@@ -439,13 +447,13 @@ function escapeHtml(value) {
 function date(value) {
   if (!value) return "-";
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString("ar-EG");
+  return Number.isNaN(parsed.getTime()) ? englishDigits(value) : englishDigits(parsed.toLocaleString("ar-EG-u-nu-latn"));
 }
 
 function dateOnly(value) {
   if (!value) return "-";
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? String(value).slice(0, 10) : parsed.toLocaleDateString("ar-EG");
+  return Number.isNaN(parsed.getTime()) ? englishDigits(String(value).slice(0, 10)) : englishDigits(parsed.toLocaleDateString("ar-EG-u-nu-latn"));
 }
 
 function metric(label, value, helper = "") {
@@ -551,6 +559,23 @@ function healthBadge(ok, label = "") {
 
 function formatMeters(value) {
   return value == null || value === "" || Number.isNaN(Number(value)) ? "-" : `${Math.round(Number(value))} متر`;
+}
+
+function locationPlaceLabel(record = {}) {
+  const status = String(record.locationStatus || record.geofenceStatus || record.status || "").toLowerCase();
+  if (record.addressLabel || record.locationLabel || record.placeLabel || record.address) return record.addressLabel || record.locationLabel || record.placeLabel || record.address;
+  if (status.includes("inside")) return "مجمع أحلى شباب — منيل شيحة";
+  if (status.includes("outside")) return "موقع خارج نطاق المجمع";
+  if (record.latitude && record.longitude) return "موقع GPS محفوظ — افتح الخريطة للتفاصيل";
+  return "لا يوجد موقع محفوظ";
+}
+
+function locationStatusText(record = {}) {
+  const status = String(record.locationStatus || record.geofenceStatus || record.status || "").toLowerCase();
+  if (status.includes("inside")) return "داخل نطاق مجمع أحلى شباب";
+  if (status.includes("outside")) return "خارج نطاق المجمع";
+  if (status.includes("uncertain") || status.includes("low_accuracy")) return "موقع يحتاج مراجعة";
+  return "موقع GPS محفوظ";
 }
 
 function initials(name) {
@@ -729,13 +754,13 @@ function exportHtmlTable(name, headers, rows) {
 function printReport(title, headers, rows) {
   const win = window.open("", "_blank", "width=1100,height=800");
   if (!win) return;
-  win.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8" /><title>${escapeHtml(title)}</title><style>body{font-family:Arial,sans-serif;padding:24px;direction:rtl;color:#111827}h1{font-size:22px}table{border-collapse:collapse;width:100%;margin-top:16px}th,td{border:1px solid #d1d5db;padding:8px;text-align:right;font-size:12px}th{background:#f3f4f6}.meta{color:#6b7280;margin-bottom:12px}@media print{button{display:none}}</style></head><body><button id="print-report-btn" type="button">طباعة / حفظ PDF</button><h1>${escapeHtml(title)}</h1><div class="meta">تاريخ التقرير: ${new Date().toLocaleString("ar-EG")}</div><table><thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table><script>document.getElementById("print-report-btn")?.addEventListener("click",()=>window.print());<\/script></body></html>`);
+  win.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8" /><title>${escapeHtml(title)}</title><style>body{font-family:Arial,sans-serif;padding:24px;direction:rtl;color:#111827}h1{font-size:22px}table{border-collapse:collapse;width:100%;margin-top:16px}th,td{border:1px solid #d1d5db;padding:8px;text-align:right;font-size:12px}th{background:#f3f4f6}.meta{color:#6b7280;margin-bottom:12px}@media print{button{display:none}}</style></head><body><button id="print-report-btn" type="button">طباعة / حفظ PDF</button><h1>${escapeHtml(title)}</h1><div class="meta">تاريخ التقرير: ${englishDigits(new Date().toLocaleString("ar-EG-u-nu-latn"))}</div><table><thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table><script>document.getElementById("print-report-btn")?.addEventListener("click",()=>window.print());<\/script></body></html>`);
   win.document.close();
 }
 function printBrandedReport(title, summaryHtml, headers, rows) {
   const win = window.open("", "_blank", "width=1200,height=850");
   if (!win) return;
-  win.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8" /><title>${escapeHtml(title)}</title><style>body{font-family:Arial,Tahoma,sans-serif;padding:28px;direction:rtl;color:#0f172a}.brand{display:flex;align-items:center;gap:14px;border-bottom:3px solid #0ea5e9;padding-bottom:16px;margin-bottom:18px}.brand img{width:68px;height:68px;object-fit:contain}.brand h1{margin:0;font-size:24px}.brand p{margin:4px 0 0;color:#64748b}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}.summary div{border:1px solid #dbeafe;background:#eff6ff;border-radius:14px;padding:10px}.summary strong{display:block;font-size:20px;color:#0369a1}.qr-print{display:block;margin:18px auto;width:300px;height:300px}table{border-collapse:collapse;width:100%;margin-top:16px}th,td{border:1px solid #d1d5db;padding:8px;text-align:right;font-size:12px}th{background:#e0f2fe}.meta{color:#64748b;margin:10px 0}.actions{margin-bottom:16px}@media print{.actions{display:none}.summary{break-inside:avoid}}</style></head><body><div class="actions"><button id="print-report-btn" type="button">طباعة / حفظ PDF</button></div><div class="brand"><img src="../shared/images/ahla-shabab-logo.png" data-hide-on-error="1" /><div><h1>${escapeHtml(title)}</h1><p>جمعية خواطر أحلى شباب الخيرية — مجمع منيل شيحة</p><p class="meta">تاريخ التقرير: ${new Date().toLocaleString("ar-EG")}</p></div></div>${summaryHtml}<table><thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table><script>document.getElementById("print-report-btn")?.addEventListener("click",()=>window.print());<\/script></body></html>`);
+  win.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8" /><title>${escapeHtml(title)}</title><style>body{font-family:Arial,Tahoma,sans-serif;padding:28px;direction:rtl;color:#0f172a}.brand{display:flex;align-items:center;gap:14px;border-bottom:3px solid #0ea5e9;padding-bottom:16px;margin-bottom:18px}.brand img{width:68px;height:68px;object-fit:contain}.brand h1{margin:0;font-size:24px}.brand p{margin:4px 0 0;color:#64748b}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}.summary div{border:1px solid #dbeafe;background:#eff6ff;border-radius:14px;padding:10px}.summary strong{display:block;font-size:20px;color:#0369a1}.qr-print{display:block;margin:18px auto;width:300px;height:300px}table{border-collapse:collapse;width:100%;margin-top:16px}th,td{border:1px solid #d1d5db;padding:8px;text-align:right;font-size:12px}th{background:#e0f2fe}.meta{color:#64748b;margin:10px 0}.actions{margin-bottom:16px}@media print{.actions{display:none}.summary{break-inside:avoid}}</style></head><body><div class="actions"><button id="print-report-btn" type="button">طباعة / حفظ PDF</button></div><div class="brand"><img src="../shared/images/ahla-shabab-logo.png" data-hide-on-error="1" /><div><h1>${escapeHtml(title)}</h1><p>جمعية خواطر أحلى شباب الخيرية — مجمع منيل شيحة</p><p class="meta">تاريخ التقرير: ${englishDigits(new Date().toLocaleString("ar-EG-u-nu-latn"))}</p></div></div>${summaryHtml}<table><thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`).join("")}</tbody></table><script>document.getElementById("print-report-btn")?.addEventListener("click",()=>window.print());<\/script></body></html>`);
   win.document.close();
 }
 
@@ -1306,7 +1331,7 @@ async function renderEmployeeProfile() {
         <div class="status-location-card">
           <strong>آخر موقع مسجل</strong>
           <p>${latestLocation ? `آخر موقع مرسل: ${date(latestLocation.date || latestLocation.requestedAt)}` : "لم يرسل الموظف موقعًا حديثًا بعد."}</p>
-          ${latestLocation ? `<div class="meta-grid"><span>Latitude: ${escapeHtml(latestLocation.latitude)}</span><span>Longitude: ${escapeHtml(latestLocation.longitude)}</span><span>الدقة: ${escapeHtml(latestLocation.accuracyMeters || "-")} متر</span><span>المصدر: ${escapeHtml(latestLocation.source || latestLocation.purpose || "-")}</span></div><a class="button ghost" target="_blank" rel="noopener" href="https://maps.google.com/?q=${escapeHtml(latestLocation.latitude)},${escapeHtml(latestLocation.longitude)}">فتح على الخريطة</a>` : ""}
+          ${latestLocation ? `<div class="meta-grid"><span>المكان: ${escapeHtml(locationPlaceLabel(latestLocation))}</span><span>الدقة: ${escapeHtml(latestLocation.accuracyMeters || "-")} متر</span><span>الحالة: ${escapeHtml(locationStatusText(latestLocation))}</span><span>المصدر: ${escapeHtml(latestLocation.source || latestLocation.purpose || "-")}</span></div><a class="button ghost" target="_blank" rel="noopener" href="https://maps.google.com/?q=${escapeHtml(latestLocation.latitude)},${escapeHtml(latestLocation.longitude)}">فتح على الخريطة</a>` : ""}
         </div>
       </article>
       <article class="panel profile-details">
@@ -1578,8 +1603,8 @@ async function renderEmployeePunch() {
           <p>${escapeHtml(branch.name || "مجمع غير محدد")}</p>
           <strong>${escapeHtml(cleanAddressText(address.address || branch.address || "مجمع منيل شيحة"))}</strong>
           <div class="meta-grid">
-            <span>Latitude: ${escapeHtml(address.latitude ?? "-")}</span>
-            <span>Longitude: ${escapeHtml(address.longitude ?? "-")}</span>
+            <span>المكان: ${escapeHtml(cleanAddressText(address.address || branch.address || "مجمع منيل شيحة"))}</span>
+            <span>الحالة: نطاق بصمة معتمد</span>
             <span>النطاق: ${escapeHtml(address.radiusMeters || branch.radiusMeters || 300)} متر</span>
             <span>أقصى دقة GPS: ${escapeHtml(address.maxAccuracyMeters || 500)} متر</span>
           </div>
@@ -2204,7 +2229,7 @@ async function renderLocations() {
           <span>طلبات مباشرة: ${escapeHtml(safeList(row.liveRequests).length)}</span>
         </div>
         ${pending ? `<div class="message warning compact">طلب الموقع مُرسل مباشرة للموظف. الرد المتوقع الآن هو إرسال الموقع فقط.</div>` : ""}
-        ${latest.latitude && latest.longitude ? `<div class="map-line"><span>Lat: ${escapeHtml(latest.latitude)}</span><span>Lng: ${escapeHtml(latest.longitude)}</span><span>الدقة: ${escapeHtml(accuracy || "-")} متر</span></div>` : `<div class="empty-box">لم يتم حفظ GPS لهذا الموظف بعد.</div>`}
+        ${latest.latitude && latest.longitude ? `<div class="map-line"><span>المكان: ${escapeHtml(locationPlaceLabel(latest))}</span><span>الدقة: ${escapeHtml(accuracy || "-")} متر</span><span>${escapeHtml(locationStatusText(latest))}</span></div>` : `<div class="empty-box">لم يتم حفظ GPS لهذا الموظف بعد.</div>`}
         ${table(["المصدر", "الحالة", "الوقت", "الرد"], [...safeList(row.liveRequests), ...safeList(row.classicRequests), ...safeList(row.liveResponses)].slice(0, 12).map((item) => `<tr><td>${escapeHtml(item.requestId ? "استجابة" : item.precision ? "طلب مباشر" : "طلب عادي")}</td><td>${badge(item.status || "ACTIVE")}</td><td>${date(item.createdAt || item.respondedAt || item.capturedAt || item.date)}</td><td>${escapeHtml(item.responseNote || item.note || item.reason || "-")}</td></tr>`))}
       </div>
     </article>`;
@@ -2717,7 +2742,7 @@ async function renderComplexSettings() {
         <div class="address-card compact-address-card">
           <strong>${escapeHtml(current.name)}</strong>
           <p>${escapeHtml(current.address)}</p>
-          <div class="meta-grid"><span>Lat: ${escapeHtml(current.latitude)}</span><span>Lng: ${escapeHtml(current.longitude)}</span><span>النطاق: ${escapeHtml(current.radiusMeters)} متر</span><span>الدقة: ${escapeHtml(current.maxAccuracyMeters)} متر</span></div>
+          <div class="meta-grid"><span>المكان: ${escapeHtml(current.address)}</span><span>الحالة: نقطة GPS محفوظة</span><span>النطاق: ${escapeHtml(current.radiusMeters)} متر</span><span>الدقة: ${escapeHtml(current.maxAccuracyMeters)} متر</span></div>
           <a class="button ghost map-open-btn" target="_blank" rel="noopener" href="https://maps.google.com/?q=${escapeHtml(current.latitude)},${escapeHtml(current.longitude)}">فتح على Google Maps</a>
         </div>
       </article>
@@ -2734,7 +2759,7 @@ async function renderComplexSettings() {
       const evaluation = await endpoints.evaluateGeofence(currentLocation);
       const ok = evaluation.allowed || evaluation.canRecord;
       result.classList.toggle("danger-box", !ok);
-      result.innerHTML = `<strong>${ok ? "الموقع مقبول" : "الموقع يحتاج مراجعة"}</strong><p>${escapeHtml(evaluation.message || "")}</p><div class="meta-grid"><span>دقة جهازك: ${formatMeters(currentLocation.accuracyMeters)}</span><span>المسافة: ${formatMeters(evaluation.distanceFromBranchMeters ?? evaluation.distanceMeters)}</span><span>Lat: ${escapeHtml(currentLocation.latitude || "-")}</span><span>Lng: ${escapeHtml(currentLocation.longitude || "-")}</span></div>`;
+      result.innerHTML = `<strong>${ok ? "الموقع مقبول" : "الموقع يحتاج مراجعة"}</strong><p>${escapeHtml(evaluation.message || "")}</p><div class="meta-grid"><span>المكان: ${escapeHtml(locationPlaceLabel(currentLocation))}</span><span>دقة جهازك: ${formatMeters(currentLocation.accuracyMeters)}</span><span>المسافة: ${formatMeters(evaluation.distanceFromBranchMeters ?? evaluation.distanceMeters)}</span></div>`;
     } catch (error) {
       result.classList.add("danger-box");
       result.textContent = error.message;
@@ -2962,7 +2987,7 @@ async function renderRealtime() {
     const ws = new WebSocket(`${protocol}//${location.host}/ws/live`);
     ws.onopen = () => { app.querySelector("#live-state").textContent = "متصل"; setMessage("تم الاتصال باللوحة اللحظية.", ""); };
     ws.onerror = () => setMessage("", "تعذر الاتصال اللحظي. تأكد من تفعيل Supabase Realtime أو تشغيل الخادم المحلي.");
-    ws.onmessage = (event) => { try { const msg = JSON.parse(event.data); if (msg.type === "dashboard.snapshot") app.querySelector("#live-state").textContent = `آخر تحديث ${new Date().toLocaleTimeString("ar-EG")}`; } catch {} };
+    ws.onmessage = (event) => { try { const msg = JSON.parse(event.data); if (msg.type === "dashboard.snapshot") app.querySelector("#live-state").textContent = `آخر تحديث ${englishDigits(new Date().toLocaleTimeString("ar-EG-u-nu-latn"))}`; } catch {} };
   });
 }
 
@@ -3512,7 +3537,7 @@ async function renderExecutiveMobile() {
     const latestLiveRequest = [...(detail.liveRequests || [])].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0] || null;
     const pendingLiveRequest = (detail.liveRequests || []).find((row) => String(row.status || "").toUpperCase() === "PENDING");
     const locationMessage = loc.latitude && loc.longitude
-      ? `<div class="executive-location-card"><div><span>آخر موقع فعلي</span><strong>${escapeHtml(loc.addressLabel || loc.locationLabel || loc.placeLabel || "موقع مباشر مرسل")}</strong><small>${escapeHtml(date(loc.capturedAt || loc.respondedAt || loc.createdAt || loc.date))}</small></div><div class="executive-location-meta"><span>الدقة: ${escapeHtml(formatMeters(loc.accuracyMeters || loc.accuracy))}</span><span>${escapeHtml(loc.latitude)}, ${escapeHtml(loc.longitude)}</span></div><a class="button primary" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${escapeHtml(loc.latitude)},${escapeHtml(loc.longitude)}">فتح اللوكيشن على الخريطة</a></div>`
+      ? `<div class="executive-location-card"><div><span>آخر موقع فعلي</span><strong>${escapeHtml(locationPlaceLabel(loc))}</strong><small>${escapeHtml(date(loc.capturedAt || loc.respondedAt || loc.createdAt || loc.date))}</small></div><div class="executive-location-meta"><span>الدقة: ${escapeHtml(formatMeters(loc.accuracyMeters || loc.accuracy))}</span><span>${escapeHtml(locationStatusText(loc))}</span></div><a class="button primary" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${escapeHtml(loc.latitude)},${escapeHtml(loc.longitude)}">فتح اللوكيشن على الخريطة</a></div>`
       : pendingLiveRequest
         ? `<div class="message warning">تم إرسال طلب الموقع للموظف وهو الآن بانتظار الرد. سيظهر GPS هنا بعد ضغط الموظف على "إرسال موقعي".</div>`
         : latestLiveRequest && String(latestLiveRequest.status || "").toUpperCase() === "REJECTED"
@@ -3543,7 +3568,7 @@ async function renderExecutiveMobile() {
             <article class="metric"><span>حالة اليوم</span><strong>${escapeHtml(statusLabel(today.status))}</strong><small>${escapeHtml(today.day || "")}</small></article>
             <article class="metric"><span>وقت الحضور</span><strong>${escapeHtml(date(today.checkInAt))}</strong><small>أول بصمة حضور</small></article>
             <article class="metric"><span>وقت الانصراف</span><strong>${escapeHtml(date(today.checkOutAt))}</strong><small>آخر بصمة انصراف</small></article>
-            <article class="metric"><span>آخر موقع</span><strong>${loc.latitude && loc.longitude ? formatMeters(loc.accuracyMeters) : "لا يوجد"}</strong><small>${escapeHtml(date(loc.capturedAt || loc.respondedAt || loc.date))}</small></article>
+            <article class="metric"><span>آخر موقع</span><strong>${loc.latitude && loc.longitude ? locationPlaceLabel(loc) : "لا يوجد"}</strong><small>${escapeHtml(date(loc.capturedAt || loc.respondedAt || loc.date))}</small></article>
           </div>
           ${locationMessage}
         </article>
@@ -4081,7 +4106,7 @@ function countUp(el, target, duration = 1000) {
     const p = Math.min((ts - start) / duration, 1);
     const eased = 1 - Math.pow(1 - p, 3);
     const val = from + (to - from) * eased;
-    el.textContent = isFloat ? val.toFixed(1) : Math.round(val).toLocaleString('ar-EG');
+    el.textContent = isFloat ? val.toFixed(1) : Math.round(val).toLocaleString('en-US');
     if (p < 1) requestAnimationFrame(step);
     else { el.classList.add('counting'); setTimeout(() => el.classList.remove('counting'), 300); }
   };

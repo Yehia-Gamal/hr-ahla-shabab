@@ -1,4 +1,4 @@
-import { endpoints, unwrap } from "./api.js?v=v115-ui-ux-polish";
+import { endpoints, unwrap } from "./api.js?v=v116-location-ui-numbers";
 
 const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
 const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };
@@ -24,23 +24,31 @@ const state = {
 const bundledEmployeePhotos = Object.freeze({});
 
 function escapeHtml(value) {
-  return String(value ?? "")
+  return englishDigits(value)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 }
 
+function englishDigits(value = "") {
+  const ar = "٠١٢٣٤٥٦٧٨٩";
+  const fa = "۰۱۲۳۴۵۶۷۸۹";
+  return String(value ?? "")
+    .replace(/[٠-٩]/g, (d) => String(ar.indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String(fa.indexOf(d)));
+}
+
 function date(value) {
   if (!value) return "-";
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString("ar-EG");
+  return Number.isNaN(parsed.getTime()) ? englishDigits(value) : englishDigits(parsed.toLocaleString("ar-EG-u-nu-latn"));
 }
 
 function dateOnly(value) {
   if (!value) return "-";
   const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? String(value).slice(0, 10) : parsed.toLocaleDateString("ar-EG");
+  return Number.isNaN(parsed.getTime()) ? englishDigits(String(value).slice(0, 10)) : englishDigits(parsed.toLocaleDateString("ar-EG-u-nu-latn"));
 }
 
 function normalizeList(value) {
@@ -213,6 +221,14 @@ function formatMeters(value) {
   return value == null || value === "" || Number.isNaN(Number(value)) ? "-" : `${Math.round(Number(value))} متر`;
 }
 
+function locationStatusLabel(record = {}) {
+  const status = String(record.locationStatus || record.geofenceStatus || record.status || "").toLowerCase();
+  if (status.includes("inside")) return "داخل نطاق مجمع أحلى شباب";
+  if (status.includes("outside")) return "خارج نطاق المجمع";
+  if (status.includes("uncertain") || status.includes("low_accuracy")) return "موقع يحتاج مراجعة";
+  return "موقع GPS محفوظ";
+}
+
 function liveResponseForRequest(detail = {}, request = {}) {
   return (detail.liveResponses || []).find((row) => row.requestId === request.id || row.request_id === request.id) || null;
 }
@@ -347,7 +363,7 @@ function setRoute(key, params = {}) {
 }
 
 function todayText() {
-  return new Date().toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  return englishDigits(new Date().toLocaleDateString("ar-EG-u-nu-latn", { weekday: "long", day: "numeric", month: "long", year: "numeric" }));
 }
 
 function metric(label, value, helper = "") {
@@ -761,7 +777,7 @@ async function renderEmployeeDetail(employeeId) {
   const latestResponse = latestLiveRequest ? liveResponseForRequest(detail, latestLiveRequest) : null;
   const latestPlace = loc.addressLabel || loc.locationLabel || loc.placeLabel || latestResponse?.note || "";
   const locationMessage = loc.latitude && loc.longitude
-    ? `<div class="executive-location-card"><div><span>آخر موقع فعلي</span><strong>${escapeHtml(latestPlace || "موقع مباشر مرسل")}</strong><small>${escapeHtml(date(loc.capturedAt || loc.respondedAt || loc.createdAt || loc.date))}</small></div><div class="executive-location-meta"><span>الدقة: ${escapeHtml(formatMeters(loc.accuracyMeters || loc.accuracy))}</span><span>${escapeHtml(loc.latitude)}, ${escapeHtml(loc.longitude)}</span></div><a class="button primary" target="_blank" rel="noopener" href="${escapeHtml(mapUrl(loc.latitude, loc.longitude))}">فتح اللوكيشن على الخريطة</a></div>`
+    ? `<div class="executive-location-card"><div><span>آخر موقع فعلي</span><strong>${escapeHtml(latestPlace || "موقع مباشر مرسل")}</strong><small>${escapeHtml(date(loc.capturedAt || loc.respondedAt || loc.createdAt || loc.date))}</small></div><div class="executive-location-meta"><span>الدقة: ${escapeHtml(formatMeters(loc.accuracyMeters || loc.accuracy))}</span><span>${escapeHtml(locationStatusLabel(loc))}</span></div><a class="button primary" target="_blank" rel="noopener" href="${escapeHtml(mapUrl(loc.latitude, loc.longitude))}">فتح اللوكيشن على الخريطة</a></div>`
     : pendingLiveRequest
       ? `<div class="message warning">تم إرسال طلب الموقع للموظف وهو الآن بانتظار الرد. سيظهر GPS هنا بعد ضغط الموظف على "إرسال موقعي".</div>`
       : latestLiveRequest && String(latestLiveRequest.status || "").toUpperCase() === "POSTPONED"
@@ -780,7 +796,7 @@ async function renderEmployeeDetail(employeeId) {
           ${metric("حالة اليوم", statusLabel(today.status), dateOnly(today.day))}
           ${metric("الحضور", date(today.checkInAt), "أول بصمة")}
           ${metric("الانصراف", date(today.checkOutAt), "آخر بصمة")}
-          ${metric("آخر موقع", loc.latitude && loc.longitude ? `${Math.round(Number(loc.accuracyMeters || 0))} متر` : "لا يوجد", date(loc.capturedAt || loc.respondedAt || loc.date))}
+          ${metric("آخر موقع", loc.latitude && loc.longitude ? (latestPlace || "موقع محفوظ") : "لا يوجد", date(loc.capturedAt || loc.respondedAt || loc.date))}
         </div>
         ${locationMessage}
       </article>
@@ -890,7 +906,7 @@ const execCountObs = new IntersectionObserver(entries => {
     const isF = String(el.dataset.count||'').includes('.');
     const step = ts => {
       const p = Math.min((ts-start)/dur,1), v = from+(to-from)*(1-Math.pow(1-p,3));
-      el.textContent = isF ? v.toFixed(1) : Math.round(v).toLocaleString('ar-EG');
+      el.textContent = isF ? v.toFixed(1) : Math.round(v).toLocaleString('en-US');
       if(p<1) requestAnimationFrame(step);
     };
     requestAnimationFrame(step);

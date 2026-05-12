@@ -1,5 +1,5 @@
 import { seedDatabase } from "./database.js?v=v39-consolidated-stable-110";
-import { supabaseEndpoints, shouldUseSupabase, supabaseModeIsStrict } from "./supabase-api.js?v=v115-ui-ux-polish";
+import { supabaseEndpoints, shouldUseSupabase, supabaseModeIsStrict } from "./supabase-api.js?v=v116-location-ui-numbers";
 
 const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
 const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };
@@ -1229,7 +1229,7 @@ function currentKpiCycle(db) {
   if (!cycle || cycle.id !== id) {
     cycle = {
       id,
-      name: `تقييم أداء ${today.toLocaleDateString("ar-EG", { month: "long", year: "numeric" })}`,
+      name: `تقييم أداء ${today.toLocaleDateString("ar-EG-u-nu-latn", { month: "long", year: "numeric" })}`,
       periodType: "monthly",
       startsOn: startsOn.toISOString().slice(0, 10),
       endsOn: endsOn.toISOString().slice(0, 10),
@@ -1665,7 +1665,7 @@ function employeeArchiveLocal(db, employeeId) {
 
 function createAutomaticBackup(db, body = {}) {
   const policy = { keepLast: 30, ...(db.systemSettings?.backupPolicy || {}) };
-  const snapshot = { id: makeId("autobak"), title: body.title || "Backup تلقائي " + new Date().toLocaleString("ar-EG"), reason: body.reason || "manual", createdAt: now(), createdByUserId: currentUser(db)?.id || "system", counts: { employees: (db.employees || []).length, users: (db.users || []).length, attendance: (db.attendanceEvents || []).length, auditLogs: (db.auditLogs || []).length }, data: clone(db) };
+  const snapshot = { id: makeId("autobak"), title: body.title || "Backup تلقائي " + new Date().toLocaleString("ar-EG-u-nu-latn"), reason: body.reason || "manual", createdAt: now(), createdByUserId: currentUser(db)?.id || "system", counts: { employees: (db.employees || []).length, users: (db.users || []).length, attendance: (db.attendanceEvents || []).length, auditLogs: (db.auditLogs || []).length }, data: clone(db) };
   db.systemBackups ||= [];
   db.systemBackups.unshift(snapshot);
   db.systemBackups = db.systemBackups.slice(0, Number(policy.keepLast || 30));
