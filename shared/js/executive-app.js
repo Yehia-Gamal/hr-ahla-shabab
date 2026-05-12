@@ -336,11 +336,20 @@ function readForm(form) {
 }
 
 function table(headers, rows, className = "") {
+  const labelledRows = rows.map((row) => {
+    let cellIndex = 0;
+    return String(row).replace(/<td(\s[^>]*)?>/g, (match, attrs = "") => {
+      if (/\sdata-label=/.test(attrs)) return match;
+      const label = headers[cellIndex % headers.length] || "";
+      cellIndex += 1;
+      return `<td${attrs} data-label="${escapeHtml(label)}">`;
+    });
+  });
   return `
     <div class="table-wrap ${className}">
       <table>
         <thead><tr>${headers.map((item) => `<th>${escapeHtml(item)}</th>`).join("")}</tr></thead>
-        <tbody>${rows.length ? rows.join("") : `<tr><td colspan="${headers.length}" class="empty">لا توجد بيانات مطابقة</td></tr>`}</tbody>
+        <tbody>${labelledRows.length ? labelledRows.join("") : `<tr><td colspan="${headers.length}" class="empty">لا توجد بيانات مطابقة</td></tr>`}</tbody>
       </table>
     </div>
   `;
