@@ -1,4 +1,4 @@
-import { endpoints, unwrap } from "./api.js?v=v114-password-location-flow";
+import { endpoints, unwrap } from "./api.js?v=v115-ui-ux-polish";
 import { enableWebPushSubscription } from "./push.js?v=v39-consolidated-stable-110";
 import { runRuntimeDiagnostics, clearRuntimeCaches } from "./runtime-diagnostics.js?v=v39-consolidated-stable-110";
 

@@ -1,4 +1,4 @@
-import { endpoints, unwrap } from "./api.js?v=v114-password-location-flow";
+import { endpoints, unwrap } from "./api.js?v=v115-ui-ux-polish";
 import { enableWebPushSubscription } from "./push.js?v=v39-consolidated-stable-110";
 import { getDeviceFingerprintHash, requestEmployeePasskey, filterEmployeePasskeys, calculateAttendanceRisk, rememberDevicePunch, capturePunchSelfie } from "./attendance-identity.js?v=v39-consolidated-stable-110";
 import { ensureAttendancePolicyAcknowledged, ensureTrustedDeviceApproval, requestBranchQrChallenge, analyzeLocationTrust, mergeRiskSignals, submitFallbackAttendanceRequest } from "./attendance-v3-security.js?v=v39-consolidated-stable-110";
@@ -497,12 +497,19 @@ function pendingLiveLocationRequest(rows = []) {
     .sort((a, b) => new Date(b.createdAt || b.requestedAt || 0) - new Date(a.createdAt || a.requestedAt || 0))[0] || null;
 }
 
+function liveLocationRequesterName(item = {}) {
+  const name = String(item.requestedByName || item.requested_by_name || "").trim();
+  const reason = String(item.reason || "").trim();
+  if (reason.includes("متابعة تنفيذية") && name.includes("يحيي")) return "الشيخ محمد يوسف";
+  return name || "الإدارة";
+}
+
 async function showBrowserLocalNotificationForLiveRequest(item = {}) {
   try {
     if (!("Notification" in window) || Notification.permission !== "granted" || !("serviceWorker" in navigator)) return;
     const registration = await navigator.serviceWorker.ready;
     await registration.showNotification("طلب مشاركة موقعك الحالي", {
-      body: `${item.requestedByName || "الإدارة"} يطلب إرسال موقعك الآن. ${item.reason ? `السبب: ${item.reason}` : ""}`.trim(),
+      body: `${liveLocationRequesterName(item)} يطلب إرسال موقعك الآن. ${item.reason ? `السبب: ${item.reason}` : ""}`.trim(),
       icon: "../shared/images/icon-192.png",
       badge: "../shared/images/favicon-64.png",
       tag: `live-location-${item.id}`,
@@ -535,7 +542,7 @@ function showLiveLocationUrgentAlert(item = {}) {
       <div class="live-location-alert-copy">
         <div class="panel-kicker">طلب موقع مباشر</div>
         <h2>مشاركة موقعك الحالي</h2>
-        <p>${escapeHtml(item.requestedByName || "الإدارة")} يطلب تأكيد موقعك الآن. افتح صفحة الموقع واضغط إرسال GPS الحالي مباشرة.</p>
+        <p>${escapeHtml(liveLocationRequesterName(item))} يطلب تأكيد موقعك الآن. افتح صفحة الموقع واضغط إرسال GPS الحالي مباشرة.</p>
       </div>
       <div class="live-location-alert-actions">
         <button class="button primary" type="button" data-open-live-location>فتح وإرسال الموقع الآن</button>
@@ -832,6 +839,7 @@ function statusLabel(value = "") {
     REJECTED: "مرفوض",
     POSTPONED: "مؤجل 5 دقائق",
     EXPIRED: "منتهي",
+    SUPERSEDED: "أغلق بطلب أحدث",
     REJECTED_CONFIRMED: "رفض نهائي",
     MANUAL_APPROVED: "اعتماد يدوي",
     UNREAD: "جديد",
@@ -1767,7 +1775,7 @@ async function renderLocation() {
   const pending = liveRequests.filter((item) => String(item.status || "").toUpperCase() === "PENDING" && employeeId && String(item.employeeId || "") === String(employeeId) && (!item.expiresAt || new Date(item.expiresAt).getTime() > nowMsForLocation) && (item.expiresAt || !item.createdAt || (nowMsForLocation - new Date(item.createdAt || item.requestedAt || 0).getTime()) <= 30 * 60 * 1000)).slice(0, 5);
   shell(`
     <section class="employee-grid">
-      ${pending.length ? `<article class="employee-card full urgent-card live-location-section"><div class="panel-kicker">إجراء مطلوب</div><h2>طلبات موقع مباشر من الإدارة</h2><p>شارك موقعك الحالي الآن. لا يوجد تأجيل أو رفض في طلب الموقع المباشر؛ المطلوب فقط إرسال GPS الحالي للتأكد من الموقع.</p><div class="employee-list live-location-card-list">${pending.map((item) => `<div class="employee-list-item live-location-request-card"><div><strong>${escapeHtml(item.requestedByName || "الإدارة")}</strong><span>${escapeHtml(item.reason || "طلب موقع مباشر")}</span><small>ينتهي: ${escapeHtml(date(item.expiresAt))}</small></div><div class="list-item-side"><button class="button primary" data-live-send="${escapeHtml(item.id)}">إرسال موقعي الآن</button></div></div>`).join("")}</div></article>` : ""}
+      ${pending.length ? `<article class="employee-card full urgent-card live-location-section"><div class="panel-kicker">إجراء مطلوب</div><h2>طلبات موقع مباشر من الإدارة</h2><p>شارك موقعك الحالي الآن. لا يوجد تأجيل أو رفض في طلب الموقع المباشر؛ المطلوب فقط إرسال GPS الحالي للتأكد من الموقع.</p><div class="employee-list live-location-card-list">${pending.map((item) => `<div class="employee-list-item live-location-request-card"><div><strong>${escapeHtml(liveLocationRequesterName(item))}</strong><span>${escapeHtml(item.reason || "طلب موقع مباشر")}</span><small>ينتهي: ${escapeHtml(date(item.expiresAt))}</small></div><div class="list-item-side"><button class="button primary" data-live-send="${escapeHtml(item.id)}">إرسال موقعي الآن</button></div></div>`).join("")}</div></article>` : ""}
       <article class="employee-card full">
         <div class="panel-kicker">موقع مباشر</div>
         <h2>إرسال موقعي الحالي</h2>
@@ -1780,7 +1788,7 @@ async function renderLocation() {
         <div id="location-result" class="risk-box hidden"></div>
       </article>
       <article class="employee-card full location-history-card"><h2>سجل المواقع والطلبات</h2>${mine.length ? `<div class="employee-list">${mine.map((item) => `<div class="employee-list-item location-history-item"><div class="location-history-main"><strong>${statusLabel(item.status)}</strong><span>${date(item.requestedAt || item.date || item.createdAt)}</span>${item.latitude && item.longitude ? readableLocationBlock(item, { compact: true }) : `<small>لم يتم إرسال موقع بعد</small>`}</div><div class="list-item-side">${item.latitude && item.longitude ? `<a target="_blank" rel="noopener" class="button ghost small" href="https://www.google.com/maps?q=${escapeHtml(item.latitude)},${escapeHtml(item.longitude)}">خريطة</a>` : badge(item.status || "PENDING")}</div></div>`).join("")}</div>` : `<div class="empty-state">لا توجد طلبات موقع بعد.</div>`}</article>
-      <article class="employee-card full live-location-section"><h2>طلبات الموقع المباشر</h2>${liveRequests.length ? `<div class="employee-list live-location-card-list">${liveRequests.map((item) => `<div class="employee-list-item live-location-request-card"><div><strong>${escapeHtml(item.requestedByName || "الإدارة")}</strong><span>${escapeHtml(item.reason || "طلب موقع")}</span><small>${escapeHtml(date(item.createdAt))}</small></div><div class="list-item-side">${badge(item.status)}</div></div>`).join("")}</div>` : `<div class="empty-state">لا توجد طلبات مباشرة.</div>`}</article>
+      <article class="employee-card full live-location-section"><h2>طلبات الموقع المباشر</h2>${liveRequests.length ? `<div class="employee-list live-location-card-list">${liveRequests.slice(0, 10).map((item) => `<div class="employee-list-item live-location-request-card"><div><strong>${escapeHtml(liveLocationRequesterName(item))}</strong><span>${escapeHtml(item.reason || "طلب موقع")}</span><small>${escapeHtml(date(item.createdAt))}</small></div><div class="list-item-side">${badge(item.status)}</div></div>`).join("")}</div>` : `<div class="empty-state">لا توجد طلبات مباشرة.</div>`}</article>
     </section>
   `, "الموقع", "مشاركة الموقع المباشر بموافقة الموظف عند الطلب.");
   const result = app.querySelector("#location-result");

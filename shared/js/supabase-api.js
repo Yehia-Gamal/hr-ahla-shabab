@@ -3417,7 +3417,7 @@ export const supabaseEndpoints = {
     ]);
     const notes = notifications.filter((note) => (!note.employeeId || note.employeeId === employeeId || note.userId === user?.id) && !note.isRead).slice(0, 20);
     const actions = [
-      ...liveRequests.filter((item) => item.employeeId === employeeId && item.status === "PENDING").map((item) => ({ id: item.id, type: "LIVE_LOCATION", title: "طلب موقع مباشر", body: item.reason || "الإدارة تطلب موقعك الحالي", route: "location", severity: "HIGH" })),
+      ...liveRequests.filter((item) => item.employeeId === employeeId && item.status === "PENDING" && (!item.expiresAt || new Date(item.expiresAt).getTime() > Date.now())).map((item) => ({ id: item.id, type: "LIVE_LOCATION", title: "طلب موقع مباشر", body: item.reason || "الإدارة تطلب موقعك الحالي", route: "location", severity: "HIGH" })),
       ...tasks.filter((task) => !["DONE", "CLOSED", "CANCELLED"].includes(task.status)).slice(0, 10).map((task) => ({ id: task.id, type: "TASK", title: task.title, body: task.description || "مهمة مفتوحة", route: "tasks", severity: task.priority || "MEDIUM" })),
       ...docs.filter((doc) => ["EXPIRING_SOON", "EXPIRED", "MISSING", "REQUIRED"].includes(doc.status)).map((doc) => ({ id: doc.id, type: "DOCUMENT", title: "مستند يحتاج متابعة: " + doc.title, body: doc.notes || doc.status, route: "documents", severity: "MEDIUM" })),
       ...notes.map((note) => ({ id: note.id, type: "NOTIFICATION", title: note.title, body: note.body || "إشعار جديد", route: "notifications", severity: note.type || "LOW" })),

@@ -1,4 +1,4 @@
-import { endpoints, unwrap } from "./api.js?v=v114-password-location-flow";
+import { endpoints, unwrap } from "./api.js?v=v115-ui-ux-polish";
 
 const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
 const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };

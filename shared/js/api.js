@@ -1,5 +1,5 @@
 import { seedDatabase } from "./database.js?v=v39-consolidated-stable-110";
-import { supabaseEndpoints, shouldUseSupabase, supabaseModeIsStrict } from "./supabase-api.js?v=v114-password-location-flow";
+import { supabaseEndpoints, shouldUseSupabase, supabaseModeIsStrict } from "./supabase-api.js?v=v115-ui-ux-polish";
 
 const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
 const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };
@@ -4705,7 +4705,7 @@ const localEndpoints = {
     const unsignedDecisions = decisionRowsForCurrentUser(db).filter((decision) => decision.requiresAcknowledgement !== false && !decision.acknowledged);
     const actions = [];
     if (attendance && ["ABSENT_TEMP", "MISSING_CHECKOUT", "REVIEW"].includes(attendance.status)) actions.push({ id: "att-" + today, type: "ATTENDANCE", title: attendance.title, body: attendance.recommendation, route: "punch", severity: attendance.severity });
-    liveRequests.forEach((item) => actions.push({ id: item.id, type: "LIVE_LOCATION", title: "طلب موقع مباشر", body: item.reason || "الإدارة تطلب موقعك الحالي", route: "location", severity: "HIGH" }));
+    liveRequests.filter((item) => !item.expiresAt || new Date(item.expiresAt).getTime() > Date.now()).forEach((item) => actions.push({ id: item.id, type: "LIVE_LOCATION", title: "طلب موقع مباشر", body: item.reason || "الإدارة تطلب موقعك الحالي", route: "location", severity: "HIGH" }));
     tasks.slice(0, 10).forEach((task) => actions.push({ id: task.id, type: "TASK", title: task.title, body: task.description || "مهمة مفتوحة", route: "tasks", severity: task.priority || "MEDIUM" }));
     unsignedPolicies.forEach((policy) => actions.push({ id: policy.id, type: "POLICY", title: "توقيع سياسة: " + policy.title, body: policy.category || "سياسة", route: "policies", severity: "MEDIUM" }));
     unsignedDecisions.forEach((decision) => actions.push({ id: decision.id, type: "ADMIN_DECISION", title: "قرار إداري يحتاج اطلاع: " + decision.title, body: decision.body || "قرار رسمي", route: "decisions", severity: decision.priority || "HIGH" }));
