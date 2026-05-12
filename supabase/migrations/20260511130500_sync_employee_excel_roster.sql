@@ -1,4 +1,4 @@
--- Sync production employee roster from the official Excel file:
+﻿-- Sync production employee roster from the official Excel file:
 -- c:\Users\Elhamd\Desktop\بيانات الموظفين.xlsx
 
 begin;
@@ -8,7 +8,7 @@ alter table public.profiles disable trigger trg_profiles_prevent_duplicate_phone
 
 with roster(employee_code, full_name, phone, job_title, manager_employee_code) as (
   values
-    ('AHS-001', 'الشيخ محمد يوسف', '01004045849', 'المدير لتنفيذي للجمعية', ''),
+    ('AHS-001', 'الشيخ محمد يوسف', '01004045849', 'المدير التنفيذي للجمعية', ''),
     ('AHS-002', 'يحيي جمال ألسبع', '01154869616', 'السكرتير التنفيذي + تكنولوجيا المعلومات (IT) والبرمجة', 'AHS-001'),
     ('AHS-003', 'محمد ابو عمار', '01226905602', 'مدير تشغيل 1', 'AHS-001'),
     ('AHS-004', 'محمد عبدالعظيم محمد', '01092701744', 'مسؤول اللجنة الطبية', 'AHS-003'),
@@ -51,7 +51,7 @@ where a.employee_code = r.employee_code;
 
 with roster(employee_code, full_name, phone, job_title, manager_employee_code) as (
   values
-    ('AHS-001', 'الشيخ محمد يوسف', '01004045849', 'المدير لتنفيذي للجمعية', ''),
+    ('AHS-001', 'الشيخ محمد يوسف', '01004045849', 'المدير التنفيذي للجمعية', ''),
     ('AHS-002', 'يحيي جمال ألسبع', '01154869616', 'السكرتير التنفيذي + تكنولوجيا المعلومات (IT) والبرمجة', 'AHS-001'),
     ('AHS-003', 'محمد ابو عمار', '01226905602', 'مدير تشغيل 1', 'AHS-001'),
     ('AHS-004', 'محمد عبدالعظيم محمد', '01092701744', 'مسؤول اللجنة الطبية', 'AHS-003'),

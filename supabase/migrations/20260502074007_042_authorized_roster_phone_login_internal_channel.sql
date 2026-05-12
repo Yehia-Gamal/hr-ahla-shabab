@@ -1,4 +1,4 @@
--- =========================================================
+﻿-- =========================================================
 -- 042 Authorized employee roster + phone login policy
 -- Generated from: بيانات الموظفين.xlsx
 -- Purpose:
@@ -37,7 +37,7 @@ create table if not exists public.authorized_employee_roster (
 
 with roster(employee_code, full_name, phone, email, photo_url, job_title, role_slug, department_code, manager_employee_code) as (
   values
-    ('AHS-001', 'الشيخ محمد يوسف', 'PHONE_PLACEHOLDER_010', 'emp.demo010@ahla.local', 'employee-avatars/emp-executive-director.png', 'المدير لتنفيذي للجمعية', 'executive', 'EXEC', ''),
+    ('AHS-001', 'الشيخ محمد يوسف', 'PHONE_PLACEHOLDER_010', 'emp.demo010@ahla.local', 'employee-avatars/emp-executive-director.png', 'المدير التنفيذي للجمعية', 'executive', 'EXEC', ''),
     ('AHS-002', 'يحيي جمال السبع', 'PHONE_PLACEHOLDER_083', 'emp.demo083@ahla.local', 'employee-avatars/emp-executive-secretary.png', 'السكرتير التنفيذي + تكنولوجيا المعلومات (IT) والبرمجة', 'executive-secretary', 'EXEC', 'AHS-001'),
     ('AHS-003', 'محمد ابو عمار', 'PHONE_PLACEHOLDER_084', 'emp.demo084@ahla.local', 'employee-avatars/emp-direct-manager-01.png', 'مدير تشغيل 1', 'direct-manager', 'MGT', 'AHS-001'),
     ('AHS-004', 'محمد عبدالعظيم محمد', 'PHONE_PLACEHOLDER_072', 'emp.demo072@ahla.local', 'employee-avatars/emp-xlsx-004.png', 'مسؤول اللجنة الطبية', 'direct-manager', 'MGT', 'AHS-003'),

@@ -244,6 +244,13 @@ function fromCoreMap(map, id) {
   if (typeof map.get === "function") return map.get(id) || null;
   return map[id] || null;
 }
+function normalizeArabicDisplayText(value = "") {
+  return String(value || "")
+    .replace(/المدير\s+لتنفيذي/g, "المدير التنفيذي")
+    .replace(/المدير\s+للتنفيذي/g, "المدير التنفيذي")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
 async function core({ force = false } = {}) {
   if (!force && _coreCache && Date.now() < _coreExpiry) return _coreCache;
   try {
@@ -280,6 +287,8 @@ function enrichEmployee(row, c = {}) {
   return {
     ...employee,
     photoUrl: employee.photoUrl || employee.avatarUrl || "",
+    jobTitle: normalizeArabicDisplayText(employee.jobTitle),
+    position: normalizeArabicDisplayText(employee.position),
     isDeleted: Boolean(employee.isDeleted),
     role: fromCoreMap(c.roles, employee.roleId),
     branch: fromCoreMap(c.branches, employee.branchId),
@@ -300,6 +309,8 @@ function enrichProfile(row, c = {}) {
     fullName: profile.fullName || profile.name || profile.email,
     avatarUrl: profile.avatarUrl || profile.photoUrl || "",
     photoUrl: profile.photoUrl || profile.avatarUrl || "",
+    jobTitle: normalizeArabicDisplayText(profile.jobTitle),
+    position: normalizeArabicDisplayText(profile.position),
     employeeId: profile.employeeId || "",
     role,
     permissions: rolePermissions(role),

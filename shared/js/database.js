@@ -102,7 +102,7 @@ export const seedDatabase = {
         "email": "emp.demo010@ahla.local",
         "photoUrl": "employee-avatars/emp-executive-director.png",
         "avatarUrl": "employee-avatars/emp-executive-director.png",
-        "jobTitle": "المدير لتنفيذي للجمعية",
+        "jobTitle": "المدير التنفيذي للجمعية",
         "roleId": "role-executive",
         "branchId": "b-ahla-manil",
         "departmentId": "d-executive",

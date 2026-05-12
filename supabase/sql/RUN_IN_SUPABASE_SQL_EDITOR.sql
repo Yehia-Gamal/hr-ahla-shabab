@@ -1,4 +1,4 @@
--- =========================================================
+﻿-- =========================================================
 -- HR Ahla Shabab Production SQL Editor FINAL V28
 -- ملف واحد فقط للتشغيل من Supabase SQL Editor.
 -- يدمج 001..079 لتقليل التشتت وإلغاء تشغيل Hotfix فوق Hotfix.
@@ -5841,7 +5841,7 @@ create table if not exists public.authorized_employee_roster (
 
 with roster(employee_code, full_name, phone, email, photo_url, job_title, role_slug, department_code, manager_employee_code) as (
   values
-    ('AHS-001', 'الشيخ محمد يوسف', 'PHONE_PLACEHOLDER_010', 'emp.demo010@ahla.local', 'employee-avatars/emp-executive-director.png', 'المدير لتنفيذي للجمعية', 'executive', 'EXEC', ''),
+    ('AHS-001', 'الشيخ محمد يوسف', 'PHONE_PLACEHOLDER_010', 'emp.demo010@ahla.local', 'employee-avatars/emp-executive-director.png', 'المدير التنفيذي للجمعية', 'executive', 'EXEC', ''),
     ('AHS-002', 'يحيي جمال السبع', 'PHONE_PLACEHOLDER_083', 'emp.demo083@ahla.local', 'employee-avatars/emp-executive-secretary.png', 'السكرتير التنفيذي + تكنولوجيا المعلومات (IT) والبرمجة', 'executive-secretary', 'EXEC', 'AHS-001'),
     ('AHS-003', 'محمد ابو عمار', 'PHONE_PLACEHOLDER_084', 'emp.demo084@ahla.local', 'employee-avatars/emp-direct-manager-01.png', 'مدير تشغيل 1', 'direct-manager', 'MGT', 'AHS-001'),
     ('AHS-004', 'محمد عبدالعظيم محمد', 'PHONE_PLACEHOLDER_072', 'emp.demo072@ahla.local', 'employee-avatars/emp-xlsx-004.png', 'مسؤول اللجنة الطبية', 'direct-manager', 'MGT', 'AHS-003'),
@@ -8877,7 +8877,7 @@ alter table public.profiles disable trigger trg_profiles_prevent_duplicate_phone
 
 with roster(employee_code, full_name, phone, job_title, manager_employee_code) as (
   values
-    ('AHS-001', 'الشيخ محمد يوسف', '01004045849', 'المدير لتنفيذي للجمعية', ''),
+    ('AHS-001', 'الشيخ محمد يوسف', '01004045849', 'المدير التنفيذي للجمعية', ''),
     ('AHS-002', 'يحيي جمال ألسبع', '01154869616', 'السكرتير التنفيذي + تكنولوجيا المعلومات (IT) والبرمجة', 'AHS-001'),
     ('AHS-003', 'محمد ابو عمار', '01226905602', 'مدير تشغيل 1', 'AHS-001'),
     ('AHS-004', 'محمد عبدالعظيم محمد', '01092701744', 'مسؤول اللجنة الطبية', 'AHS-003'),
@@ -9331,7 +9331,7 @@ alter table public.profiles disable trigger trg_profiles_prevent_duplicate_phone
 
 with roster(employee_code, full_name, phone, job_title, manager_employee_code) as (
   values
-    ('AHS-001', 'الشيخ محمد يوسف', '01004045849', 'المدير لتنفيذي للجمعية', ''),
+    ('AHS-001', 'الشيخ محمد يوسف', '01004045849', 'المدير التنفيذي للجمعية', ''),
     ('AHS-002', 'يحيي جمال ألسبع', '01154869616', 'السكرتير التنفيذي + تكنولوجيا المعلومات (IT) والبرمجة', 'AHS-001'),
     ('AHS-003', 'محمد ابو عمار', '01226905602', 'مدير تشغيل 1', 'AHS-001'),
     ('AHS-004', 'محمد عبدالعظيم محمد', '01092701744', 'مسؤول اللجنة الطبية', 'AHS-003'),
@@ -9374,7 +9374,7 @@ where a.employee_code = r.employee_code;
 
 with roster(employee_code, full_name, phone, job_title, manager_employee_code) as (
   values
-    ('AHS-001', 'الشيخ محمد يوسف', '01004045849', 'المدير لتنفيذي للجمعية', ''),
+    ('AHS-001', 'الشيخ محمد يوسف', '01004045849', 'المدير التنفيذي للجمعية', ''),
     ('AHS-002', 'يحيي جمال ألسبع', '01154869616', 'السكرتير التنفيذي + تكنولوجيا المعلومات (IT) والبرمجة', 'AHS-001'),
     ('AHS-003', 'محمد ابو عمار', '01226905602', 'مدير تشغيل 1', 'AHS-001'),
     ('AHS-004', 'محمد عبدالعظيم محمد', '01092701744', 'مسؤول اللجنة الطبية', 'AHS-003'),

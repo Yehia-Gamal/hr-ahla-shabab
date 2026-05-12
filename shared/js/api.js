@@ -1,5 +1,5 @@
-import { seedDatabase } from "./database.js?v=v39-consolidated-stable-110";
-import { supabaseEndpoints, shouldUseSupabase, supabaseModeIsStrict } from "./supabase-api.js?v=v117-system-cleanup";
+﻿import { seedDatabase } from "./database.js?v=v39-consolidated-stable-110";
+import { supabaseEndpoints, shouldUseSupabase, supabaseModeIsStrict } from "./supabase-api.js?v=v118-system-polish";
 
 const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
 const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };

@@ -6666,6 +6666,14 @@ body.employee-portal .employee-more-sheet:not(.is-open) {
   transform: translateX(-50%) translateY(calc(100% + 140px)) !important;
 }
 
+/* v118: never show the offline banner while the browser reports an active connection. */
+.offline-banner {
+  display: none !important;
+}
+body.is-offline .offline-banner {
+  display: block !important;
+}
+
 body.employee-portal .more-drawer.is-open {
   visibility: visible !important;
   pointer-events: auto !important;

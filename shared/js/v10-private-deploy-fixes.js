@@ -346,6 +346,8 @@
   const update = () => {
     const isOnline = navigator.onLine;
     document.body.classList.toggle('is-offline', !isOnline);
+    banner.hidden = isOnline;
+    banner.style.display = isOnline ? 'none' : '';
 
     if (!isOnline) {
       /* Going offline: register Background Sync tag so the browser fires it
