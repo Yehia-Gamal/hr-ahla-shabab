@@ -1,4 +1,4 @@
-import { endpoints, unwrap } from "./api.js?v=v116-location-ui-numbers";
+import { endpoints, unwrap } from "./api.js?v=v117-system-cleanup";
 import { enableWebPushSubscription } from "./push.js?v=v39-consolidated-stable-110";
 import { runRuntimeDiagnostics, clearRuntimeCaches } from "./runtime-diagnostics.js?v=v39-consolidated-stable-110";
 
@@ -23,12 +23,12 @@ const state = {
 };
 
 const navGroups = [
-  ["مركز HR الأساسي", [["dashboard", "لوحة المتابعة"], ["hr-operations", "عمليات HR"], ["employees", "الموظفون"], ["attendance", "الحضور"], ["attendance-review", "مراجعة البصمات"], ["requests", "الطلبات والموافقات"], ["kpi", "KPI والتقييم"], ["kpi-month-center", "متابعة KPI الشهر"], ["kpi-executive-report", "تقرير KPI تنفيذي"], ["kpi-cycle-lock", "قفل دورة KPI"], ["report-center", "التقارير والتصدير"], ["notifications", "مراقبة الإشعارات"]]],
-  ["الموظفون والهيكل", [["management-structure", "هيكل الإدارة والفرق"], ["team-dashboard", "فريق المدير"], ["employee-archive", "صفحة موظف موحدة"], ["leave-balances", "أرصدة الإجازات"], ["documents", "مستندات الموظفين"], ["trusted-devices", "الأجهزة المعتمدة"], ["org-chart", "الهيكل الوظيفي"]]],
-  ["الحضور والموقع", [["presence-map", "خريطة الحضور"], ["attendance-risk", "مخاطر البصمة"], ["smart-attendance", "قواعد الحضور"], ["attendance-calendar", "تقويم الحضور"], ["locations", "مراقبة اللوكيشن"], ["employee-punch", "بصمة الموظف"]]],
-  ["الإدارة والاعتمادات", [["manager-suite", "لوحة المدير المباشر"], ["roles", "الأدوار"], ["permission-matrix", "مصفوفة الصلاحيات"], ["password-vault", "خزنة كلمات المرور"], ["sensitive-approvals", "اعتمادات حساسة"], ["disputes", "الشكاوى"], ["admin-decisions", "القرارات الإدارية"], ["policies", "السياسات والتوقيعات"]]],
-  ["التقارير والجودة", [["monthly-report", "تقرير شهري"], ["daily-reports", "التقارير اليومية"], ["control-room", "غرفة التحكم"], ["smart-alerts", "التنبيهات الذكية"], ["quality-center", "مركز الجودة"], ["workflow-automation", "مركز الربط والتشغيل"], ["audit", "سجل التدقيق"], ["security-log", "سجل الأمان"]]],
-  ["النظام", [["settings", "الإعدادات"], ["system-diagnostics", "تشخيص النظام"], ["mobile-alignment", "ربط الموبايل والصلاحيات"], ["health", "حالة النظام"], ["supabase-setup", "Supabase"], ["db-updates", "Database"], ["backup", "نسخ واستيراد"]]],
+  ["الرئيسية والتشغيل", [["dashboard", "لوحة المتابعة"], ["hr-operations", "عمليات HR"], ["employees", "الموظفون"], ["requests", "الطلبات والموافقات"], ["notifications", "الإشعارات"]]],
+  ["الحضور والموقع", [["attendance", "الحضور"], ["attendance-review", "مراجعة البصمات"], ["presence-map", "خريطة الحضور"], ["locations", "مراقبة اللوكيشن"], ["employee-punch", "بصمة الموظف"]]],
+  ["الموظفون والهيكل", [["management-structure", "هيكل الإدارة والفرق"], ["employee-archive", "ملف موظف موحد"], ["documents", "مستندات الموظفين"], ["trusted-devices", "الأجهزة المعتمدة"], ["org-chart", "الهيكل الوظيفي"]]],
+  ["الأداء والقرارات", [["kpi", "KPI والتقييم"], ["manager-suite", "لوحة المدير المباشر"], ["sensitive-approvals", "اعتمادات حساسة"], ["disputes", "الشكاوى"], ["admin-decisions", "القرارات الإدارية"], ["policies", "السياسات والتوقيعات"]]],
+  ["التقارير والجودة", [["report-center", "التقارير والتصدير"], ["daily-reports", "التقارير اليومية"], ["control-room", "غرفة التحكم"], ["smart-alerts", "التنبيهات الذكية"], ["quality-center", "مركز الجودة"]]],
+  ["النظام", [["settings", "الإعدادات"], ["system-diagnostics", "تشخيص النظام"], ["backup", "نسخ واستيراد"]]],
 ];
 
 // خريطة دمج بصري: هذه الصفحات ما زالت موجودة ومحمية بالصلاحيات،
@@ -61,6 +61,27 @@ const navAliasMap = {
   "offline-sync": "settings",
   "workflow-automation": "quality-center",
   "mobile-alignment": "settings",
+};
+
+// خريطة دمج فعلية للروابط القديمة أو الصفحات المتداخلة.
+// تبقى وظائف الصفحات الأصلية محفوظة في الكود، لكن المستخدم ينتقل للمركز الموحد.
+const routeMergeMap = {
+  "advanced-reports": "report-center",
+  "auto-backup": "backup",
+  "complex-settings": "settings",
+  "data-center": "backup",
+  "db-updates": "system-diagnostics",
+  "executive-pdf": "report-center",
+  health: "system-diagnostics",
+  integrations: "settings",
+  "access-control": "settings",
+  "offline-sync": "system-diagnostics",
+  "monthly-auto-pdf": "report-center",
+  "monthly-report": "report-center",
+  reports: "report-center",
+  "route-access": "settings",
+  "supabase-setup": "system-diagnostics",
+  users: "employees",
 };
 
 const routePermissions = {
@@ -263,7 +284,8 @@ function roleLabel(user = state.user) {
 }
 
 function activeNavKey(key = routeKey()) {
-  const baseKey = key === "employee-profile" ? "employees" : key;
+  const mergedKey = routeMergeMap[key] || key;
+  const baseKey = mergedKey === "employee-profile" ? "employees" : mergedKey;
   return navAliasMap[baseKey] || baseKey;
 }
 
@@ -3953,7 +3975,12 @@ async function render() {
     if (!state.user && routeKey() !== "login") return renderLogin();
     if (state.user && !isAdminPortalUser(state.user)) return isExecutiveOnlyRole(state.user) ? goExecutivePortal("home") : goEmployeePortal("home");
 
-    const key = routeKey();
+    const rawKey = routeKey();
+    const key = routeMergeMap[rawKey] || rawKey;
+    if (key !== rawKey) {
+      location.hash = key;
+      return;
+    }
     if (!canRoute(key)) {
       return shell(`<section class="panel"><h2>لا توجد صلاحية</h2><p>حسابك لا يملك صلاحية فتح هذه الصفحة. اطلب من مدير النظام تعديل الدور أو الصلاحيات.</p></section>`, "صلاحيات غير كافية", "تم منع الوصول للصفحة المطلوبة.");
     }

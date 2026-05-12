@@ -1,4 +1,4 @@
-import { endpoints, unwrap } from "./api.js?v=v116-location-ui-numbers";
+import { endpoints, unwrap } from "./api.js?v=v117-system-cleanup";
 import { enableWebPushSubscription } from "./push.js?v=v39-consolidated-stable-110";
 import { getDeviceFingerprintHash, requestEmployeePasskey, filterEmployeePasskeys, calculateAttendanceRisk, rememberDevicePunch, capturePunchSelfie } from "./attendance-identity.js?v=v39-consolidated-stable-110";
 import { ensureAttendancePolicyAcknowledged, ensureTrustedDeviceApproval, requestBranchQrChallenge, analyzeLocationTrust, mergeRiskSignals, submitFallbackAttendanceRequest } from "./attendance-v3-security.js?v=v39-consolidated-stable-110";
