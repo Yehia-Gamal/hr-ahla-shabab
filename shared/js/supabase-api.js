@@ -721,6 +721,15 @@ function assertEmployeePunchButtonIntent(body = {}) {
   }
 }
 
+function assertEmployeePunchPasskey(body = {}) {
+  const hasPasskey = Boolean(body.passkeyCredentialId || body.credentialId);
+  const method = String(body.biometricMethod || "").toLowerCase();
+  const identity = body.identityCheck || {};
+  if (!hasPasskey || !method.includes("passkey") || identity.passkeyVerified !== true) {
+    throw new Error("تم رفض تسجيل الحضور/الانصراف: يلزم تأكيد بصمة الهاتف أو Passkey قبل الحفظ.");
+  }
+}
+
 async function serverSharedDeviceFlags(client, employeeId, deviceFingerprintHash) {
   if (!deviceFingerprintHash || !employeeId) return [];
   const since = new Date(Date.now() - 30 * 60 * 1000).toISOString();
@@ -1777,6 +1786,7 @@ export const supabaseEndpoints = {
     const action = String(body.eventType || body.type || body.action || "").toLowerCase();
     const out = ["out", "checkout", "check_out", "انصراف"].includes(action);
     assertEmployeePunchButtonIntent(body);
+    assertEmployeePunchPasskey(body);
     try {
       return await recordPunch(out ? "CHECK_OUT" : "CHECK_IN", body, body.employeeId);
     } catch (error) {

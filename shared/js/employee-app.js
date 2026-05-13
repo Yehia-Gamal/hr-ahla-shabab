@@ -1,4 +1,4 @@
-﻿import { endpoints, unwrap } from "./api.js?v=v124-team-kpi-scope";
+﻿import { endpoints, unwrap } from "./api.js?v=v126-punch-passkey-guard";
 import { enableWebPushSubscription } from "./push.js?v=v39-consolidated-stable-110";
 import { getDeviceFingerprintHash, requestEmployeePasskey, filterEmployeePasskeys, calculateAttendanceRisk, rememberDevicePunch, capturePunchSelfie } from "./attendance-identity.js?v=v39-consolidated-stable-110";
 import { ensureAttendancePolicyAcknowledged, ensureTrustedDeviceApproval, requestBranchQrChallenge, analyzeLocationTrust, mergeRiskSignals, submitFallbackAttendanceRequest } from "./attendance-v3-security.js?v=v39-consolidated-stable-110";
@@ -1957,8 +1957,9 @@ async function renderPunch() {
     try {
       button.disabled = true;
       resultBox?.classList.remove("hidden", "danger-box");
-      if (resultBox) resultBox.textContent = `جاري قراءة GPS بدقة عالية لتسجيل ${actionText}...`;
-      const preFingerprint = await getDeviceFingerprintHash().catch(() => "");
+      if (resultBox) resultBox.textContent = `افتح بصمة الهاتف/قفل الشاشة لتأكيد ${actionText}...`;
+      const device = await requestBrowserPasskeyForAction(`تأكيد بصمة ${actionText}`, employee, { autoRegisterOnMissing: true, resultBox });
+      const preFingerprint = device.deviceFingerprintHash || await getDeviceFingerprintHash().catch(() => "");
       const policyAck = await ensureAttendancePolicyAcknowledged({ endpoints, employee, deviceFingerprintHash: preFingerprint });
       if (!state.lastLocation) await window.HRExplainAndEnableLocation?.();
       if (resultBox) resultBox.textContent = "جاري قراءة GPS والتقاط صورة تحقق...";
@@ -1972,7 +1973,6 @@ async function renderPunch() {
       }
       const selfie = await capturePunchSelfie({ endpoints, employeeId, resultBox }).catch((error) => ({ ok: false, reason: "SELFIE_CAPTURE_FAILED", message: error?.message || "تعذر التقاط صورة التحقق.", selfieUrl: "" }));
       if (!selfie.ok) throw new Error(selfie.message || "يلزم التقاط صورة تحقق قبل تسجيل البصمة.");
-      const device = { ok: true, deviceFingerprintHash: preFingerprint, passkeyCredentialId: "", trustedDeviceId: "", deviceRiskFlags: [] };
       const qr = isQrDisabled() ? { valid: true, status: "DISABLED", riskFlags: [], requiresReview: false } : await requestBranchQrChallenge({ endpoints, branchId: address.branch?.id || address.branchId || "main" }).catch(() => ({ status: "NOT_PROVIDED" }));
       const trustedDevice = await ensureTrustedDeviceApproval({ endpoints, employee, device: { ...device, deviceFingerprintHash: device.deviceFingerprintHash || preFingerprint }, selfieUrl: selfie.selfieUrl || selfie.url || "", location: current }).catch(() => ({ status: "VERIFIED_BY_SELFIE_GPS", requiresReview: false, riskFlags: [] }));
       const status = current.geofenceStatus || (current.canRecord ? "inside_branch" : (current.locationUncertain ? "location_uncertain" : "outside_branch"));
@@ -1992,7 +1992,7 @@ async function renderPunch() {
       const finalRiskLevel = directRecord ? "LOW" : (merged.riskLevel || risk.riskLevel || "MEDIUM");
       const notes = app.querySelector("#punch-notes")?.value || "";
       assertFreshEmployeePunchIntent(punchIntent, type);
-      const body = { ...current, ...punchIntent, type: type === "out" ? "CHECK_OUT" : "CHECK_IN", eventType: type, employeeId, notes, status, locationStatus: status, addressLabel: current.canRecord ? `${branchName()} — ${branchArea()}` : (current.addressLabel || current.locationLabel || (current.locationUncertain ? "الموقع غير مؤكد — مراجعة" : "خارج نطاق المجمع")), placeLabel: current.placeLabel || current.addressLabel || "", verificationStatus: "verified", biometricMethod: isQrDisabled() ? "face_selfie+gps" : "face_selfie+gps+qr", passkeyCredentialId: device.passkeyCredentialId, trustedDeviceId: device.trustedDeviceId, deviceFingerprintHash: device.deviceFingerprintHash || preFingerprint, browserInstallId: policyAck.browserInstallId || "", selfieUrl: selfie.selfieUrl || selfie.url || "", branchQrStatus: qr.status, branchQrChallengeId: qr.challengeId || "", antiSpoofingFlags: locationTrust.flags || [], riskScore: finalRiskScore, riskLevel: finalRiskLevel, riskFlags: finalRiskFlags, requiresReview: finalRequiresReview, identityCheck: { faceSelfieRequired: true, faceSelfieCaptured: true, faceMatchStatus: "MANUAL_REVIEW", livenessStatus: "PASS", locationPlaceName: current.addressLabel || current.placeLabel || "" } };
+      const body = { ...current, ...punchIntent, type: type === "out" ? "CHECK_OUT" : "CHECK_IN", eventType: type, employeeId, notes, status, locationStatus: status, addressLabel: current.canRecord ? `${branchName()} — ${branchArea()}` : (current.addressLabel || current.locationLabel || (current.locationUncertain ? "الموقع غير مؤكد — مراجعة" : "خارج نطاق المجمع")), placeLabel: current.placeLabel || current.addressLabel || "", verificationStatus: "verified", biometricMethod: isQrDisabled() ? "passkey+face_selfie+gps" : "passkey+face_selfie+gps+qr", passkeyCredentialId: device.passkeyCredentialId || device.credentialId || "", trustedDeviceId: device.trustedDeviceId || "", deviceFingerprintHash: device.deviceFingerprintHash || preFingerprint, browserInstallId: policyAck.browserInstallId || "", selfieUrl: selfie.selfieUrl || selfie.url || "", branchQrStatus: qr.status, branchQrChallengeId: qr.challengeId || "", antiSpoofingFlags: locationTrust.flags || [], riskScore: finalRiskScore, riskLevel: finalRiskLevel, riskFlags: finalRiskFlags, requiresReview: finalRequiresReview, identityCheck: { passkeyRequired: true, passkeyVerified: true, faceSelfieRequired: true, faceSelfieCaptured: true, faceMatchStatus: "MANUAL_REVIEW", livenessStatus: "PASS", locationPlaceName: current.addressLabel || current.placeLabel || "" } };
       if (!device.ok || !selfie.ok || current.locationPermission === "denied") await createFormalFallbackRequest?.({ endpoints, reason: "IDENTITY_COMPONENT_FAILED", body }).catch(() => submitFallbackAttendanceRequest({ endpoints, reason: "IDENTITY_COMPONENT_FAILED", body }).catch(() => null));
       await endpoints.recordAttendance(body);
       rememberDevicePunch(body.deviceFingerprintHash, employeeId);

@@ -1,5 +1,5 @@
 ﻿import { seedDatabase } from "./database.js?v=v39-consolidated-stable-110";
-import { supabaseEndpoints, shouldUseSupabase, supabaseModeIsStrict } from "./supabase-api.js?v=v124-team-kpi-scope";
+import { supabaseEndpoints, shouldUseSupabase, supabaseModeIsStrict } from "./supabase-api.js?v=v126-punch-passkey-guard";
 
 const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
 const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };
@@ -46,6 +46,15 @@ function assertEmployeePunchButtonIntent(body = {}) {
     || age > 90 * 1000
   ) {
     throw new Error("تم رفض تسجيل الحضور: يجب الضغط على زر البصمة مباشرة من شاشة الموظف.");
+  }
+}
+
+function assertEmployeePunchPasskey(body = {}) {
+  const hasPasskey = Boolean(body.passkeyCredentialId || body.credentialId);
+  const method = String(body.biometricMethod || "").toLowerCase();
+  const identity = body.identityCheck || {};
+  if (!hasPasskey || !method.includes("passkey") || identity.passkeyVerified !== true) {
+    throw new Error("تم رفض تسجيل الحضور/الانصراف: يلزم تأكيد بصمة الهاتف أو Passkey قبل الحفظ.");
   }
 }
 
@@ -1101,6 +1110,7 @@ const remoteEndpoints = {
     const action = String(body.eventType || body.type || body.action || "").toLowerCase();
     const out = ["out", "checkout", "check_out", "انصراف"].includes(action);
     assertEmployeePunchButtonIntent(body);
+    assertEmployeePunchPasskey(body);
     return apiRequest("/employee/attendance", { method: "POST", body: { ...(body || {}), action: out ? "check_out" : "check_in" } });
   },
   selfCheckIn: (body) => apiRequest("/employee/attendance", { method: "POST", body: { ...(body || {}), action: "check_in" } }),
@@ -3162,6 +3172,7 @@ const localEndpoints = {
     const action = String(body.eventType || body.type || body.action || "").toLowerCase();
     const out = ["out", "checkout", "check_out", "انصراف"].includes(action);
     assertEmployeePunchButtonIntent(body);
+    assertEmployeePunchPasskey(body);
     return out ? localEndpoints.selfCheckOut(body) : localEndpoints.selfCheckIn(body);
   },
   adjustAttendance: async (body) => {
