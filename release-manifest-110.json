@@ -1,8 +1,8 @@
 {
-  "version": "v39-consolidated-stable-110",
-  "packageVersion": "1.7.0-v39-consolidated-stable-110",
+  "version": "v45-punch-note-session-fix",
+  "packageVersion": "1.7.0-v45-punch-note-session-fix",
   "date": "2026-05-10",
-  "basedOn": "HR.zip (v38-mobile-ui-stability-106)",
+  "basedOn": "HR.zip (v45-punch-note-session-fix)",
   "noSupabaseChanges": true,
   "bugs_fixed": [
     "CSS BLOAT: 10 patch CSS files (v10-private-deploy through v109) loaded on every page (10 HTTP requests) → merged into 1 file: v110-consolidated.css",

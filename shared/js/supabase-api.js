@@ -86,12 +86,19 @@ export function supabaseModeIsStrict() {
 async function getSupabase() {
   if (!shouldUseSupabase()) return null;
   if (!clientPromise) {
+    const portal = location.pathname.includes("/admin/")
+      ? "admin"
+      : location.pathname.includes("/executive/")
+        ? "executive"
+        : location.pathname.includes("/employee/")
+          ? "employee"
+          : "default";
     clientPromise = import(SUPABASE_CDN).then(({ createClient }) => createClient(CONFIG().url, CONFIG().anonKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        storageKey: "ahla-shabab-hr.supabase-session",
+        storageKey: `ahla-shabab-hr.supabase-session.${portal}`,
         lock: async (_name, _acquireTimeout, fn) => await fn(),
       },
       realtime: { params: { eventsPerSecond: 10 } },
@@ -520,7 +527,7 @@ async function compressImageFile(file, { maxSide = 900, quality = 0.82 } = {}) {
   if (!blob) return file;
   return new File([blob], String(file.name || "avatar.jpg").replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg", lastModified: Date.now() });
 }
-async function uploadFile(bucket, folder, file, { privateFile = false } = {}) {
+async function uploadFile(bucket, folder, file, { privateFile = false, signedUrlSeconds = null } = {}) {
   if (!file) return privateFile ? { url: "", bucket, path: "" } : "";
   const client = await sb();
   const safe = String(file.name || "file").replace(/[^\w.\-]+/g, "-");
@@ -528,7 +535,7 @@ async function uploadFile(bucket, folder, file, { privateFile = false } = {}) {
   const { error } = await client.storage.from(bucket).upload(path, file, { upsert: false, contentType: file.type || "application/octet-stream" });
   fail(error, "تعذر رفع الملف.");
   if (privateFile) {
-    const expiresIn = Number(CONFIG().security?.attachmentSignedUrlSeconds || 3600);
+    const expiresIn = Number(signedUrlSeconds || CONFIG().security?.attachmentSignedUrlSeconds || 3600);
     const { data: signed, error: signError } = await client.storage.from(bucket).createSignedUrl(path, expiresIn);
     fail(signError, "تم رفع الملف لكن تعذر إنشاء رابط آمن مؤقت.");
     return { url: signed?.signedUrl || "", bucket, path, expiresIn };
@@ -725,7 +732,12 @@ function assertEmployeePunchPasskey(body = {}) {
   const hasPasskey = Boolean(body.passkeyCredentialId || body.credentialId);
   const method = String(body.biometricMethod || "").toLowerCase();
   const identity = body.identityCheck || {};
-  if (!hasPasskey || !method.includes("passkey") || identity.passkeyVerified !== true) {
+  const hasVerifiedFallback = identity.passkeyFallbackAccepted === true
+    && identity.faceSelfieCaptured === true
+    && Boolean(body.deviceFingerprintHash)
+    && Number.isFinite(Number(body.latitude))
+    && Number.isFinite(Number(body.longitude));
+  if ((!hasPasskey || !method.includes("passkey") || identity.passkeyVerified !== true) && !hasVerifiedFallback) {
     throw new Error("تم رفض تسجيل الحضور/الانصراف: يلزم تأكيد بصمة الهاتف أو Passkey قبل الحفظ.");
   }
 }
@@ -773,7 +785,10 @@ async function recordPunch(type, body = {}, forceEmployeeId = "") {
   body = await withServerIdentityRisk(client, employee.id, body);
   const address = await attendanceAddress(employee);
   const evaluation = evaluateGeo(address, body);
-  if (!evaluation.canRecord) {
+  const reviewOnlyAccepted = body.canRecord === true
+    || body.locationUncertain === true
+    || String(body.geofenceStatus || body.locationStatus || "").toLowerCase().includes("uncertain");
+  if (!evaluation.canRecord && !reviewOnlyAccepted) {
     throw new Error(`تم رفض البصمة: الموقع خارج النطاق أو دقة GPS غير كافية. المسافة ${evaluation.distanceFromBranchMeters ?? "-"} متر، الدقة ${evaluation.accuracyMeters ?? "-"} متر، النطاق ${address.radiusMeters} متر.`);
   }
   const requiresReview = !evaluation.canRecord;
@@ -1431,7 +1446,7 @@ export const supabaseEndpoints = {
   },
   logout: async () => {
     const client = await sb();
-    await client.auth.signOut();
+    await client.auth.signOut({ scope: "local" });
     return { ok: true };
   },
   changePassword: async (body = {}) => {
@@ -2040,6 +2055,68 @@ export const supabaseEndpoints = {
       .catch(() => null);
     return { created: rows.length, pushed };
   },
+  submitPunchNote: async (body = {}) => {
+    const client = await sb();
+    const note = String(body.note || "").trim().slice(0, 1000);
+    if (!note) return { created: 0, pushed: 0 };
+    const [employees, user] = await Promise.all([
+      supabaseEndpoints.employees().catch(() => []),
+      currentUser().catch(() => null),
+    ]);
+    const employeeId = body.employeeId || user?.employeeId || user?.employee?.id || "";
+    const employee = employees.find((item) => String(item.id || "") === String(employeeId)) || user?.employee || {};
+    const roleTargets = new Set(["executive-secretary", "hr-manager"]);
+    const idTargets = new Set(["emp-executive-secretary", "emp-hr-manager"]);
+    const recipients = employees.filter((item) => {
+      const roleSlug = item.role?.slug || item.roleSlug || "";
+      return idTargets.has(item.id) || roleTargets.has(roleSlug);
+    });
+    if (body.attendanceEventId) {
+      const { error } = await client.from("attendance_events").update({
+        notes: note,
+        updated_at: now(),
+      }).eq("id", body.attendanceEventId);
+      if (error) debugWarn("attendance punch note update skipped", error.message || error);
+    }
+    const actionText = body.actionText || (String(body.type || "").includes("OUT") ? "انصراف" : "حضور");
+    const title = `ملاحظة بصمة ${actionText}`;
+    const message = `${employee.fullName || user?.fullName || "موظف"}: ${note}`;
+    const data = {
+      route: "attendance-review",
+      attendanceEventId: body.attendanceEventId || "",
+      employeeId,
+      type: body.type || "",
+      eventAt: body.eventAt || now(),
+      note,
+    };
+    const rows = recipients.map((recipient) => ({
+      user_id: recipient.userId || null,
+      employee_id: recipient.id,
+      title,
+      body: message,
+      type: "ACTION_REQUIRED",
+      status: "UNREAD",
+      is_read: false,
+      route: "attendance-review",
+      data,
+      created_at: now(),
+    }));
+    const noteResult = await safeCreateNotifications(client, rows, { block: false });
+    let pushed = 0;
+    await client.functions.invoke("send-push-notifications", {
+      body: {
+        title,
+        body: message,
+        tag: "punch-note",
+        targetEmployeeIds: recipients.map((recipient) => recipient.id),
+        data,
+      },
+    }).then(({ data: pushData, error }) => {
+      if (!error) pushed = Number(pushData?.attempted || 0);
+    }).catch(() => null);
+    await audit("attendance.punch_note", "attendance_event", body.attendanceEventId || "", { employeeId, note, recipients: recipients.map((item) => item.id) }).catch(() => null);
+    return { created: noteResult.created || 0, pushed, note };
+  },
   markNotificationRead: async (id) => createOrUpdate("notifications", { status: "READ", is_read: true, read_at: now() }, id),
   reports: async () => {
     const schedules = await selectAll("report_schedules", "*", { limit: 100 }).then(toCamel).catch(() => []);
@@ -2404,7 +2481,7 @@ export const supabaseEndpoints = {
     const folder = `attendance/${employee?.id || body.employeeId || "unknown"}`;
     const file = body.file || null;
     if (!file) return { url: "" };
-    const result = await uploadFile(bucket, folder, file, { privateFile: false });
+    const result = await uploadFile(bucket, folder, file, { privateFile: true, signedUrlSeconds: 7 * 24 * 60 * 60 });
     if (typeof result === "string") return { url: result };
     return { url: result.url || "", bucket: result.bucket, path: result.path };
   },

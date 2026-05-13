@@ -124,7 +124,7 @@ async function handleRequest(req: Request): Promise<Response> {
   let createClient: any;
   let webpush: any;
   try {
-    const supabaseModule = await import('https://esm.sh/@supabase/supabase-js@2');
+    const supabaseModule = await import('https://esm.sh/@supabase/supabase-js@2.105.1');
     const webpushModule = await import('npm:web-push@3.6.7');
     createClient = supabaseModule.createClient;
     webpush = webpushModule.default || webpushModule;

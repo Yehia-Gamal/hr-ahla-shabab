@@ -1,6 +1,6 @@
-﻿import { endpoints, unwrap } from "./api.js?v=v118-system-polish";
-import { enableWebPushSubscription } from "./push.js?v=v39-consolidated-stable-110";
-import { runRuntimeDiagnostics, clearRuntimeCaches } from "./runtime-diagnostics.js?v=v39-consolidated-stable-110";
+import { endpoints, unwrap } from "./api.js?v=v45-punch-note-session-fix";
+import { enableWebPushSubscription } from "./push.js?v=v45-punch-note-session-fix";
+import { runRuntimeDiagnostics, clearRuntimeCaches } from "./runtime-diagnostics.js?v=v45-punch-note-session-fix";
 
 const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
 const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };

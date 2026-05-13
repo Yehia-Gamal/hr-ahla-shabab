@@ -1,4 +1,4 @@
-﻿-- =========================================================
+-- =========================================================
 -- HR Ahla Shabab Production SQL Editor FINAL V28
 -- ملف واحد فقط للتشغيل من Supabase SQL Editor.
 -- يدمج 001..079 لتقليل التشتت وإلغاء تشغيل Hotfix فوق Hotfix.
@@ -11291,7 +11291,7 @@ insert into public.system_settings (key, value, description, updated_at)
 values (
   'v104_release',
   jsonb_build_object(
-    'version', 'v38-mobile-ui-stability-106',
+    'version', 'v45-punch-note-session-fix',
     'release', 'v104-royal-blue-overhaul',
     'expectedPatch', '104_royal_blue_full_migration',
     'releasedAt', '2026-05-09',

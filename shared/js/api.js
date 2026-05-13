@@ -1,5 +1,5 @@
-﻿import { seedDatabase } from "./database.js?v=v39-consolidated-stable-110";
-import { supabaseEndpoints, shouldUseSupabase, supabaseModeIsStrict } from "./supabase-api.js?v=v126-punch-passkey-guard";
+import { seedDatabase } from "./database.js?v=v45-punch-note-session-fix";
+import { supabaseEndpoints, shouldUseSupabase, supabaseModeIsStrict } from "./supabase-api.js?v=v45-punch-note-session-fix";
 
 const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
 const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };
@@ -53,7 +53,12 @@ function assertEmployeePunchPasskey(body = {}) {
   const hasPasskey = Boolean(body.passkeyCredentialId || body.credentialId);
   const method = String(body.biometricMethod || "").toLowerCase();
   const identity = body.identityCheck || {};
-  if (!hasPasskey || !method.includes("passkey") || identity.passkeyVerified !== true) {
+  const hasVerifiedFallback = identity.passkeyFallbackAccepted === true
+    && identity.faceSelfieCaptured === true
+    && Boolean(body.deviceFingerprintHash)
+    && Number.isFinite(Number(body.latitude))
+    && Number.isFinite(Number(body.longitude));
+  if ((!hasPasskey || !method.includes("passkey") || identity.passkeyVerified !== true) && !hasVerifiedFallback) {
     throw new Error("تم رفض تسجيل الحضور/الانصراف: يلزم تأكيد بصمة الهاتف أو Passkey قبل الحفظ.");
   }
 }
@@ -3478,6 +3483,23 @@ const localEndpoints = {
     saveDb(db);
     return ok({ created: employees.length });
   },
+  submitPunchNote: async (body = {}) => {
+    const db = loadDb();
+    const user = currentUser(db);
+    const employeeId = body.employeeId || user?.employeeId || user?.employee?.id || "";
+    const employee = findById(db.employees || [], employeeId) || user?.employee || {};
+    const note = String(body.note || "").trim().slice(0, 1000);
+    if (!note) return ok({ created: 0 });
+    const event = findById(db.attendanceEvents || [], body.attendanceEventId);
+    if (event) event.notes = note;
+    const recipients = ["emp-executive-secretary", "emp-hr-manager"].filter((id) => findById(db.employees || [], id));
+    const title = `ملاحظة بصمة ${body.actionText || (String(body.type || "").includes("OUT") ? "انصراف" : "حضور")}`;
+    const message = `${employee.fullName || user?.fullName || "موظف"}: ${note}`;
+    notifyManyEmployees(db, recipients, title, message, "ACTION_REQUIRED");
+    audit(db, "attendance.punch_note", "attendance_event", body.attendanceEventId || "", null, { employeeId, note, recipients });
+    saveDb(db);
+    return ok({ created: recipients.length, note });
+  },
   markNotificationRead: async (id) => {
     const db = loadDb();
     const item = findById(db.notifications, id);
@@ -3915,7 +3937,12 @@ const localEndpoints = {
   uploadPunchSelfie: async (body = {}) => {
     const file = body.file || null;
     if (!file) return ok({ url: "" });
-    const url = URL.createObjectURL(file);
+    const url = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("تعذر قراءة صورة السيلفي محليا."));
+      reader.readAsDataURL(file);
+    });
     return ok({ url, localPreviewOnly: true });
   },
   subscribePush: async (body = {}) => {

@@ -6,6 +6,8 @@ const SHARED_DEVICE_WINDOW_MS = 30 * 60 * 1000;
 const SELFIE_WIDTH = 720;
 const SELFIE_HEIGHT = 960;
 const SELFIE_QUALITY = 0.78;
+const MIN_SELFIE_BRIGHTNESS = 24;
+const MIN_SELFIE_VARIANCE = 28;
 
 function base64UrlToBuffer(value = "") {
   const normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
@@ -152,6 +154,75 @@ async function waitForVideoReady(video) {
   });
 }
 
+async function analyzeSelfieBlob(blob) {
+  const result = {
+    ok: true,
+    faceDetection: "UNSUPPORTED",
+    faceCount: null,
+    brightness: 0,
+    variance: 0,
+    reason: "",
+    message: "",
+  };
+  let bitmap = null;
+  try {
+    bitmap = await createImageBitmap(blob);
+    const canvas = document.createElement("canvas");
+    canvas.width = 96;
+    canvas.height = 128;
+    const ctx = canvas.getContext("2d", { alpha: false, willReadFrequently: true });
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let sum = 0;
+    const values = [];
+    for (let i = 0; i < data.length; i += 16) {
+      const luma = (data[i] * 0.2126) + (data[i + 1] * 0.7152) + (data[i + 2] * 0.0722);
+      values.push(luma);
+      sum += luma;
+    }
+    const mean = sum / Math.max(values.length, 1);
+    const variance = values.reduce((acc, value) => acc + ((value - mean) ** 2), 0) / Math.max(values.length, 1);
+    result.brightness = Math.round(mean);
+    result.variance = Math.round(variance);
+    if (mean < MIN_SELFIE_BRIGHTNESS || variance < MIN_SELFIE_VARIANCE) {
+      return {
+        ...result,
+        ok: false,
+        reason: "SELFIE_LOW_QUALITY",
+        message: "الصورة غير واضحة أو مظلمة. التقط سيلفي واضح للوجه في إضاءة جيدة.",
+      };
+    }
+    if ("FaceDetector" in window) {
+      try {
+        const detector = new FaceDetector({ fastMode: true, maxDetectedFaces: 2 });
+        const faces = await detector.detect(bitmap);
+        result.faceDetection = "RUN";
+        result.faceCount = faces.length;
+        if (!faces.length) {
+          return {
+            ...result,
+            ok: false,
+            reason: "NO_FACE_DETECTED",
+            message: "لم يتم العثور على وجه في الصورة. لا يمكن حفظ صورة لشخص غير واضح أو شيء غير وجه.",
+          };
+        }
+      } catch {
+        result.faceDetection = "ERROR";
+      }
+    }
+    return result;
+  } catch {
+    return {
+      ...result,
+      ok: false,
+      reason: "SELFIE_ANALYSIS_FAILED",
+      message: "تعذر فحص صورة السيلفي. حاول التقاط الصورة مرة أخرى.",
+    };
+  } finally {
+    try { bitmap?.close?.(); } catch {}
+  }
+}
+
 export async function capturePunchSelfie({ endpoints = null, employeeId = "", employeeName = "الموظف", stream: providedStream = null } = {}) {
   const camera = providedStream ? { ok: true, stream: providedStream } : await requestPunchCameraStream();
   if (!camera.ok) return camera;
@@ -161,8 +232,8 @@ export async function capturePunchSelfie({ endpoints = null, employeeId = "", em
     overlay.className = "identity-selfie-overlay";
     overlay.innerHTML = `
       <div class="identity-selfie-panel" role="dialog" aria-modal="true" aria-label="سيلفي البصمة">
-        <h2>تأكيد هوية ${employeeName}</h2>
-        <p>التقط صورة سيلفي واضحة الآن. ستُستخدم للمراجعة ومنع تسجيل موظف عن موظف آخر.</p>
+        <h2>صورة مراجعة البصمة - ${employeeName}</h2>
+        <p>التقط سيلفي واضحا للوجه. هذه الصورة تحفظ للمراجعة الإدارية؛ التحقق الآلي من الهوية يتم عبر Passkey عند توفره.</p>
         <video class="identity-selfie-video" autoplay playsinline muted></video>
         <div class="identity-selfie-actions">
           <button class="button primary" type="button" data-selfie-capture>التقاط السيلفي</button>
@@ -185,13 +256,25 @@ export async function capturePunchSelfie({ endpoints = null, employeeId = "", em
       stopStream(stream);
       overlay.remove();
       if (!blob) return resolve({ ok: false, reason: "SELFIE_CAPTURE_FAILED", message: "تعذر التقاط صورة السيلفي." });
+      const analysis = await analyzeSelfieBlob(blob);
+      if (!analysis.ok) return resolve(analysis);
       const file = new File([blob], `punch-selfie-${Date.now()}.jpg`, { type: "image/jpeg" });
       let upload = {};
       if (endpoints?.uploadPunchSelfie) {
         try { upload = await endpoints.uploadPunchSelfie({ employeeId, file }).then((rows) => rows?.data || rows || {}); }
-        catch (error) { return resolve({ ok: false, reason: "SELFIE_UPLOAD_FAILED", message: error?.message || "تعذر رفع صورة التحقق.", file }); }
+        catch (error) {
+          return resolve({
+            ok: true,
+            file,
+            capturedAt: new Date().toISOString(),
+            selfieUrl: "",
+            uploadFailed: true,
+            uploadError: error?.message || "تعذر رفع صورة التحقق.",
+            analysis,
+          });
+        }
       }
-      resolve({ ok: true, file, capturedAt: new Date().toISOString(), selfieUrl: upload.url || upload.selfieUrl || "" });
+      resolve({ ok: true, file, capturedAt: new Date().toISOString(), selfieUrl: upload.url || upload.selfieUrl || "", storagePath: upload.path || "", storageBucket: upload.bucket || "", analysis });
     });
   });
 }

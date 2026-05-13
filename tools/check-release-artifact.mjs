@@ -22,8 +22,8 @@ function walk(dir) {
 walk(root);
 for (const file of requiredFiles) assert(existsSync(join(root, file)), `Required file missing: ${file}`);
 const config = readFileSync(join(root, 'shared/js/supabase-config.js'), 'utf8');
-assert(config.includes('packageVersion: "v38-mobile-ui-stability-106"'), 'Config packageVersion must be v38/v106.');
-assert(config.includes('cacheVersion: "v38-mobile-ui-stability-106"'), 'Config cacheVersion must be v38/v106.');
+assert(config.includes('packageVersion: "v45-punch-note-session-fix"'), 'Config packageVersion must be v38/v106.');
+assert(config.includes('cacheVersion: "v45-punch-note-session-fix"'), 'Config cacheVersion must be v38/v106.');
 assert(config.includes('expectedPatch: "104_royal_blue_full_migration"'), 'Config expectedPatch must be 104_royal_blue_full_migration.');
 const verifySql = readFileSync(join(root, 'supabase/sql/VERIFY_AFTER_SUPABASE_DEPLOY.sql'), 'utf8');
 assert(verifySql.includes('098_location_security_edge_hardening') && verifySql.includes('104_royal_blue_full_migration'), 'Supabase verify SQL must check 098 and 104_royal_blue_full_migration.');

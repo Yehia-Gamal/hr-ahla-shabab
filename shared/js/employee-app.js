@@ -1,8 +1,8 @@
-﻿import { endpoints, unwrap } from "./api.js?v=v126-punch-passkey-guard";
-import { enableWebPushSubscription } from "./push.js?v=v39-consolidated-stable-110";
-import { getDeviceFingerprintHash, requestEmployeePasskey, filterEmployeePasskeys, calculateAttendanceRisk, rememberDevicePunch, capturePunchSelfie } from "./attendance-identity.js?v=v39-consolidated-stable-110";
-import { ensureAttendancePolicyAcknowledged, ensureTrustedDeviceApproval, requestBranchQrChallenge, analyzeLocationTrust, mergeRiskSignals, submitFallbackAttendanceRequest } from "./attendance-v3-security.js?v=v39-consolidated-stable-110";
-import { evaluateAttendanceV4Controls, mergeV4RiskSignals, createFormalFallbackRequest } from "./attendance-v4-ops.js?v=v39-consolidated-stable-110";
+import { endpoints, unwrap } from "./api.js?v=v45-punch-note-session-fix";
+import { enableWebPushSubscription } from "./push.js?v=v45-punch-note-session-fix";
+import { getDeviceFingerprintHash, requestEmployeePasskey, filterEmployeePasskeys, calculateAttendanceRisk, rememberDevicePunch, capturePunchSelfie } from "./attendance-identity.js?v=v45-punch-note-session-fix";
+import { ensureAttendancePolicyAcknowledged, ensureTrustedDeviceApproval, requestBranchQrChallenge, analyzeLocationTrust, mergeRiskSignals, submitFallbackAttendanceRequest } from "./attendance-v3-security.js?v=v45-punch-note-session-fix";
+import { evaluateAttendanceV4Controls, mergeV4RiskSignals, createFormalFallbackRequest } from "./attendance-v4-ops.js?v=v45-punch-note-session-fix";
 
 const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
 const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };
@@ -218,6 +218,37 @@ function askText({ title = "إضافة ملاحظة", message = "اكتب الت
   });
 }
 
+function askPunchNote({ actionText = "حضور" } = {}) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-backdrop punch-note-modal-backdrop";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.innerHTML = `
+      <form class="confirm-modal punch-note-modal">
+        <div class="panel-head"><div><h2>تم تسجيل بصمة ${escapeHtml(actionText)}ك للعمل</h2><p>هل تريد ترك ملاحظة للسكرتير التنفيذي/التقني وHR؟</p></div></div>
+        <textarea name="note" rows="4" placeholder="مثال: مأمورية، ظرف طارئ، تأخير مواصلات..."></textarea>
+        <div class="form-actions">
+          <button class="button ghost" type="button" data-skip>بدون ملاحظة</button>
+          <button class="button primary" type="submit">إرسال الملاحظة</button>
+        </div>
+      </form>
+    `;
+    const form = overlay.querySelector("form");
+    const close = (value) => { overlay.remove(); document.removeEventListener("keydown", onKey); resolve(value); };
+    const onKey = (event) => { if (event.key === "Escape") close(""); };
+    overlay.addEventListener("click", (event) => { if (event.target === overlay) close(""); });
+    overlay.querySelector("[data-skip]")?.addEventListener("click", () => close(""));
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      close(String(new FormData(form).get("note") || "").trim());
+    });
+    document.addEventListener("keydown", onKey);
+    document.body.appendChild(overlay);
+    form.querySelector("textarea")?.focus();
+  });
+}
+
 
 window.addEventListener("hashchange", () => {
   state.route = location.hash.replace("#", "") || "home";
@@ -361,7 +392,6 @@ function resetIdleTimer() {
     if (!state.user) return;
     await endpoints.logout().catch(() => { });
     sessionStorage.removeItem(EMPLOYEE_TAB_SESSION_KEY);
-    localStorage.removeItem("hr-attendance.local-db.v7");
     sessionStorage.removeItem("hr.core");
     sessionStorage.removeItem("hr.core.exp");
     state.user = null;
@@ -446,9 +476,32 @@ async function requestBrowserPasskeyForAction(label = "تأكيد العملية
   try {
     return { ok: true, ...(await requestEmployeePasskey({ endpoints, user: state.user, employee, label })) };
   } catch (error) {
-    if (!options.autoRegisterOnMissing || !isMissingTrustedDeviceError(error)) throw error;
+    const softFallback = async (fallbackError = error) => ({
+      ok: false,
+      passkeyUnavailable: true,
+      passkeyCredentialId: "",
+      credentialId: "",
+      trustedDeviceId: "",
+      deviceFingerprintHash: await getDeviceFingerprintHash().catch(() => ""),
+      passkeyUserVerified: false,
+      passkeyError: friendlyError(fallbackError, "تعذر تأكيد Passkey."),
+      deviceRiskFlags: ["PASSKEY_UNAVAILABLE"],
+    });
+    if (!options.autoRegisterOnMissing || !isMissingTrustedDeviceError(error)) {
+      if (options.allowSoftFallback) return softFallback(error);
+      throw error;
+    }
     if (options.resultBox) options.resultBox.textContent = "لا توجد بصمة جهاز مسجلة لهذا الحساب. سيتم تسجيل بصمة هذا الموبايل الآن ثم إكمال العملية.";
-    const registered = await registerBrowserPasskey();
+    let registered;
+    try {
+      registered = await registerBrowserPasskey();
+    } catch (registerError) {
+      if (options.allowSoftFallback) {
+        if (options.resultBox) options.resultBox.textContent = "تعذر تسجيل Passkey. سيتم إكمال البصمة بسيلفي وGPS وتظهر للمراجعة.";
+        return softFallback(registerError);
+      }
+      throw registerError;
+    }
     if (options.resultBox) options.resultBox.textContent = "تم تسجيل بصمة الجهاز. جارٍ إكمال العملية...";
     return registered;
   }
@@ -1120,16 +1173,13 @@ function geofenceMapPreview(record = {}) {
   const distance = Number(safeRecord.distanceFromBranchMeters ?? safeRecord.distanceFromBranch ?? safeRecord.distanceMeters ?? 0);
   const radius = Number(safeRecord.localRadiusMeters || target?.radiusMeters || 300);
   const outside = !safeRecord.insideBranch && !String(safeRecord.geofenceStatus || safeRecord.locationStatus || "").toLowerCase().includes("inside");
-  const ratio = radius > 0 && distance > 0 ? Math.min(1, distance / radius) : 0;
-  const markerOffset = outside ? 96 : Math.max(8, Math.round(ratio * 82));
-  const markerClass = outside ? "outside" : "inside";
   const embedUrl = osmEmbedUrl(safeRecord);
   const mapsUrl = mapUrlForLocation(safeRecord);
+  const statusText = outside
+    ? `خارج النطاق: ${formatMeters(distance)} من المجمع، والنطاق المعتمد ${formatMeters(radius)}.`
+    : `داخل نطاق المجمع المعتمد (${formatMeters(radius)}).`;
   return `<div class="gps-real-map">
-    <div class="gps-geofence-diagram ${markerClass}" style="--marker-offset:${markerOffset}%">
-      <div class="gps-geofence-ring"><span>دائرة 300 متر</span><i></i></div>
-      <small>${outside ? `أنت خارج النطاق: ${escapeHtml(formatMeters(distance))}` : "أنت داخل دائرة المجمع"}</small>
-    </div>
+    <div class="gps-range-summary ${outside ? "outside" : "inside"}">${escapeHtml(statusText)}</div>
     ${embedUrl ? `<iframe title="خريطة الموقع الفعلي" loading="lazy" referrerpolicy="no-referrer-when-downgrade" src="${escapeHtml(embedUrl)}"></iframe>` : ""}
     ${mapsUrl ? `<a class="button ghost small" target="_blank" rel="noopener" href="${escapeHtml(mapsUrl)}">فتح الخريطة الحقيقية</a>` : ""}
   </div>`;
@@ -1245,7 +1295,7 @@ function locationStatusBadge(record = {}) {
   return `<span class="pill warning">بحاجة للتحقق</span>`;
 }
 
-function readableLocationBlock(record = {}, { compact = false } = {}) {
+function readableLocationBlock(record = {}, { compact = false, showDetails = false } = {}) {
   const safeRecord = safeLocationDisplayRecord(record);
   const label = locationLabelFromRecord(safeRecord);
   const detailedLabel = safeRecord.addressLabel || safeRecord.locationLabel || safeRecord.placeLabel || label;
@@ -1256,13 +1306,9 @@ function readableLocationBlock(record = {}, { compact = false } = {}) {
   const distanceLabel = hasDistance && distance > 1500 ? "خارج نطاق مجمع أحلى شباب" : hasDistance ? `يبعد تقريبًا ${formatMeters(distance)} عن المجمع` : "";
   return `<div class="readable-location ${compact ? "compact" : ""}">
     <div>${locationStatusBadge(safeRecord)}<strong>${escapeHtml(label)}</strong><small>${escapeHtml(label.includes(BRANCH_DISPLAY_NAME) ? BRANCH_DISPLAY_AREA : "الموقع الفعلي المسجل")}</small></div>
-    ${detailedAddressBlock(detailedLabel)}
+    ${showDetails ? detailedAddressBlock(detailedLabel) : ""}
     <div class="location-meta-row">${accuracy ? `<span>الدقة ±${escapeHtml(Math.round(accuracy))} م</span>` : ""}${distanceLabel ? `<span>${escapeHtml(distanceLabel)}</span>` : ""}${map ? `<a class="button ghost small" target="_blank" rel="noopener" href="${map}">فتح الخريطة</a>` : ""}</div>
   </div>`;
-}
-
-function attendanceNoteField(value = "") {
-  return `<label class="span-2 punch-note-field">ملاحظة مع البصمة<textarea id="punch-notes" name="notes" rows="2" placeholder="اكتب ملاحظة إن وجدت: مأمورية، ظرف طارئ، تأخير مواصلات...">${escapeHtml(value)}</textarea></label>`;
 }
 
 function isMorningPunchTime() {
@@ -1377,7 +1423,6 @@ function shell(content, title = "تطبيق الموظف", subtitle = "") {
     await endpoints.logout();
     sessionStorage.removeItem(EMPLOYEE_TAB_SESSION_KEY);
     localStorage.removeItem(EMPLOYEE_PERSIST_SESSION_KEY);
-    localStorage.removeItem("hr-attendance.local-db.v7");
     sessionStorage.removeItem("hr.core");
     sessionStorage.removeItem("hr.core.exp");
     state.user = null;
@@ -1902,25 +1947,28 @@ async function renderPunch() {
   const suggestedType = preferredType || (todayEvents.length && isMorningPunchTime() === false ? "out" : (todayEvents.some((e) => String(e.type || e.eventType || "").toLowerCase().includes("in")) ? "out" : "in"));
   const primaryLabel = suggestedType === "in" ? "بصمة حضور الآن" : "بصمة انصراف الآن";
   const secondaryLabel = suggestedType === "in" ? "بصمة انصراف" : "بصمة حضور";
-  const exactBranchAddress = address.address || `${branchName()} ${branchArea()}`;
+  const lastEvent = todayEvents[0] || myEvents[0] || null;
+  const lastEventText = lastEvent ? `${statusLabel(lastEvent.type || lastEvent.eventType || "حركة")} - ${date(lastEvent.eventAt || lastEvent.createdAt)}` : "لا توجد بصمة مسجلة اليوم";
   shell(`
     <section class="employee-grid punch-mobile punch-redesigned">
-      <article class="employee-card full">
-        <div class="punch-focus">${employeeHeaderCell(employee)}<div class="punch-orb">👁</div></div>
-        <div class="branch-readable-card">
-          <div class="branch-circle">📍</div>
-          <div><strong>${branchName()}</strong><small>${branchArea()}</small></div>
+      <article class="employee-card full punch-command-card">
+        <div class="punch-command-head">
+          ${employeeHeaderCell(employee)}
+          <div class="punch-status-strip">
+            <span>آخر حالة</span>
+            <strong>${escapeHtml(lastEventText)}</strong>
+          </div>
         </div>
-        ${detailedAddressBlock(exactBranchAddress, { title: "عنوان البصمة المعتمد" })}
-        <div id="gps-map-preview" class="gps-map-preview"><div class="gps-geofence-diagram"><div class="gps-geofence-ring"><span>دائرة 300 متر</span><i></i></div><small>اضغط اختبار الموقع لعرض مكانك الحقيقي داخل/خارج النطاق.</small></div></div>
-        ${attendanceNoteField()}
+        <div class="punch-branch-summary">
+          <div><span>الموقع المعتمد</span><strong>${branchName()}</strong><small>${branchArea()}</small></div>
+          <button class="button ghost small" data-test-gps type="button">اختبار الموقع / عرض الخريطة</button>
+        </div>
+        <div id="gps-map-preview" class="gps-map-preview"><div class="gps-empty-state"><strong>اختبار الموقع</strong><span>اضغط الزر لعرض موقعك الحقيقي وحالة النطاق على الخريطة.</span></div></div>
         <div class="employee-actions-stack punch-actions-clear">
           <button class="button primary full" data-punch-type="${suggestedType}">${primaryLabel}</button>
           <button class="button ghost full" data-punch-type="${suggestedType === "in" ? "out" : "in"}">${secondaryLabel}</button>
-          <button class="button ghost small" data-test-gps type="button">اختبار الموقع / عرض الخريطة</button>
         </div>
         <div id="punch-result" class="message compact hidden"></div>
-        <p class="form-hint">تسجيل/تحديث بصمة الجهاز انتقل إلى: حسابي ← أمان الجهاز، حتى لا يختلط بزر البصمة.</p>
       </article>
       <article class="employee-card full"><h2>آخر بصماتي</h2>${myEvents.length ? `<div class="employee-list">${myEvents.slice(0, 5).map((item) => `<div class="employee-list-item"><div><strong>${escapeHtml(statusLabel(item.type || item.eventType || "حركة"))}</strong><span>${escapeHtml(date(item.eventAt || item.createdAt))}</span><small>${escapeHtml(locationLabelFromRecord(item))}</small>${item.notes ? `<small>ملاحظة: ${escapeHtml(item.notes)}</small>` : ""}</div><div class="list-item-side">${locationStatusBadge(item)}${badge(item.riskLevel || item.status || "")}</div></div>`).join("")}</div>` : `<div class="empty-state">لا توجد بصمات مسجلة.</div>`}</article>
     </section>
@@ -1958,7 +2006,7 @@ async function renderPunch() {
       button.disabled = true;
       resultBox?.classList.remove("hidden", "danger-box");
       if (resultBox) resultBox.textContent = `افتح بصمة الهاتف/قفل الشاشة لتأكيد ${actionText}...`;
-      const device = await requestBrowserPasskeyForAction(`تأكيد بصمة ${actionText}`, employee, { autoRegisterOnMissing: true, resultBox });
+      const device = await requestBrowserPasskeyForAction(`تأكيد بصمة ${actionText}`, employee, { autoRegisterOnMissing: true, allowSoftFallback: true, resultBox });
       const preFingerprint = device.deviceFingerprintHash || await getDeviceFingerprintHash().catch(() => "");
       const policyAck = await ensureAttendancePolicyAcknowledged({ endpoints, employee, deviceFingerprintHash: preFingerprint });
       if (!state.lastLocation) await window.HRExplainAndEnableLocation?.();
@@ -1982,21 +2030,41 @@ async function renderPunch() {
       const merged = mergeV4RiskSignals ? mergeV4RiskSignals(risk, v4) : risk;
       const faceDisabled = isFaceSelfieDisabled();
       const insideBranch = current.canRecord === true && String(status).includes("inside_branch");
-      const finalRiskFlags = Array.from(new Set(merged.riskFlags || risk.riskFlags || []))
-        .filter((flag) => !["MISSING_PASSKEY", "DEVICE_APPROVAL_CHECK_FAILED"].includes(String(flag)))
+      const finalRiskFlags = Array.from(new Set([...(merged.riskFlags || risk.riskFlags || []), ...(selfie.uploadFailed ? ["SELFIE_UPLOAD_FAILED"] : []), ...(selfie.analysis?.faceDetection === "UNSUPPORTED" ? ["FACE_DETECTION_NOT_SUPPORTED"] : [])]))
+        .filter((flag) => !["DEVICE_APPROVAL_CHECK_FAILED"].includes(String(flag)))
         .filter((flag) => !(faceDisabled && ["MISSING_SELFIE", "FACE_SELFIE_TEMP_DISABLED", "SELFIE_CAPTURE_FAILED"].includes(String(flag))));
       const weakGpsReview = String(status).includes("low_accuracy") || current.requiresReview === true;
       const directRecord = insideBranch && !weakGpsReview && device.ok !== false && current.locationPermission === "granted";
       const finalRequiresReview = directRecord ? false : Boolean(weakGpsReview || merged.requiresReview || risk.requiresReview || !String(status).includes("inside_branch"));
       const finalRiskScore = directRecord ? 0 : Number(merged.riskScore ?? risk.riskScore ?? 0);
       const finalRiskLevel = directRecord ? "LOW" : (merged.riskLevel || risk.riskLevel || "MEDIUM");
-      const notes = app.querySelector("#punch-notes")?.value || "";
       assertFreshEmployeePunchIntent(punchIntent, type);
-      const body = { ...current, ...punchIntent, type: type === "out" ? "CHECK_OUT" : "CHECK_IN", eventType: type, employeeId, notes, status, locationStatus: status, addressLabel: current.canRecord ? `${branchName()} — ${branchArea()}` : (current.addressLabel || current.locationLabel || (current.locationUncertain ? "الموقع غير مؤكد — مراجعة" : "خارج نطاق المجمع")), placeLabel: current.placeLabel || current.addressLabel || "", verificationStatus: "verified", biometricMethod: isQrDisabled() ? "passkey+face_selfie+gps" : "passkey+face_selfie+gps+qr", passkeyCredentialId: device.passkeyCredentialId || device.credentialId || "", trustedDeviceId: device.trustedDeviceId || "", deviceFingerprintHash: device.deviceFingerprintHash || preFingerprint, browserInstallId: policyAck.browserInstallId || "", selfieUrl: selfie.selfieUrl || selfie.url || "", branchQrStatus: qr.status, branchQrChallengeId: qr.challengeId || "", antiSpoofingFlags: locationTrust.flags || [], riskScore: finalRiskScore, riskLevel: finalRiskLevel, riskFlags: finalRiskFlags, requiresReview: finalRequiresReview, identityCheck: { passkeyRequired: true, passkeyVerified: true, faceSelfieRequired: true, faceSelfieCaptured: true, faceMatchStatus: "MANUAL_REVIEW", livenessStatus: "PASS", locationPlaceName: current.addressLabel || current.placeLabel || "" } };
+      const passkeyVerified = Boolean(device.passkeyCredentialId || device.credentialId) && device.ok !== false;
+      const biometricMethod = `${passkeyVerified ? "passkey+" : ""}face_selfie+gps${isQrDisabled() ? "" : "+qr"}`;
+      const body = { ...current, ...punchIntent, type: type === "out" ? "CHECK_OUT" : "CHECK_IN", eventType: type, employeeId, notes: "", status, locationStatus: status, addressLabel: current.canRecord ? `${branchName()} — ${branchArea()}` : (current.addressLabel || current.locationLabel || (current.locationUncertain ? "الموقع غير مؤكد — مراجعة" : "خارج نطاق المجمع")), placeLabel: current.placeLabel || current.addressLabel || "", verificationStatus: "verified", biometricMethod, passkeyCredentialId: device.passkeyCredentialId || device.credentialId || "", trustedDeviceId: device.trustedDeviceId || "", deviceFingerprintHash: device.deviceFingerprintHash || preFingerprint, browserInstallId: policyAck.browserInstallId || "", selfieUrl: selfie.selfieUrl || selfie.url || "", branchQrStatus: qr.status, branchQrChallengeId: qr.challengeId || "", antiSpoofingFlags: locationTrust.flags || [], riskScore: finalRiskScore, riskLevel: finalRiskLevel, riskFlags: finalRiskFlags, requiresReview: finalRequiresReview || !passkeyVerified || Boolean(selfie.uploadFailed), identityCheck: { passkeyRequired: true, passkeyVerified, passkeyFallbackAccepted: !passkeyVerified, passkeyFallbackReason: device.passkeyError || "", faceSelfieRequired: true, faceSelfieCaptured: true, selfieCapturedAt: selfie.capturedAt || "", selfieUploadFailed: Boolean(selfie.uploadFailed), selfieUploadError: selfie.uploadError || "", selfieStorageBucket: selfie.storageBucket || "", selfieStoragePath: selfie.storagePath || "", faceDetection: selfie.analysis?.faceDetection || "UNSUPPORTED", faceCount: selfie.analysis?.faceCount ?? null, selfieBrightness: selfie.analysis?.brightness ?? null, selfieVariance: selfie.analysis?.variance ?? null, faceMatchStatus: "NOT_RUN", livenessStatus: selfie.analysis?.faceDetection === "RUN" ? "MANUAL_REVIEW" : "NOT_RUN", locationPlaceName: current.addressLabel || current.placeLabel || "" } };
       if (!device.ok || !selfie.ok || current.locationPermission === "denied") await createFormalFallbackRequest?.({ endpoints, reason: "IDENTITY_COMPONENT_FAILED", body }).catch(() => submitFallbackAttendanceRequest({ endpoints, reason: "IDENTITY_COMPONENT_FAILED", body }).catch(() => null));
-      await endpoints.recordAttendance(body);
+      const savedPunch = unwrap(await endpoints.recordAttendance(body));
       rememberDevicePunch(body.deviceFingerprintHash, employeeId);
-      setMessage(String(status).includes("inside_branch") ? `تم تسجيل بصمة ${actionText} داخل مجمع أحلى شباب${weakGpsReview ? " مع مراجعة دقة GPS." : "."}` : (status === "location_uncertain" ? `تم تسجيل بصمة ${actionText} كموقع غير مؤكد وستظهر للمراجعة بدل الحكم بالخروج.` : `تم تسجيل بصمة ${actionText} خارج المجمع وستظهر للمراجعة مع المكان والملاحظة.`), "");
+      const successText = String(status).includes("inside_branch") ? `تم تسجيل بصمة ${actionText} داخل مجمع أحلى شباب${weakGpsReview ? " مع مراجعة دقة GPS." : "."}` : (status === "location_uncertain" ? `تم تسجيل بصمة ${actionText} كموقع غير مؤكد وستظهر للمراجعة بدل الحكم بالخروج.` : `تم تسجيل بصمة ${actionText} خارج المجمع وستظهر للمراجعة مع المكان.`);
+      setMessage(successText, "");
+      const note = await askPunchNote({ actionText });
+      if (note) {
+        let noteSent = false;
+        await endpoints.submitPunchNote?.({
+          attendanceEventId: savedPunch?.id || savedPunch?.event?.id || "",
+          employeeId,
+          type: body.type,
+          actionText,
+          note,
+          eventAt: savedPunch?.eventAt || savedPunch?.event?.eventAt || new Date().toISOString(),
+        }).then(() => {
+          noteSent = true;
+        }).catch((error) => {
+          debugWarn("تعذر إرسال ملاحظة البصمة", error?.message || error);
+          setMessage(successText, "تم تسجيل البصمة لكن تعذر إرسال الملاحظة للإدارة.");
+        });
+        if (noteSent) setMessage(`${successText} وتم إرسال الملاحظة للإدارة.`, "");
+      }
       renderPunch();
     } catch (error) {
       resultBox?.classList.remove("hidden");

@@ -1,5 +1,5 @@
 // Versioned cache name; bump when updating deployment.packageVersion or cacheVersion
-const CACHE_NAME = "hr-attendance-v38-mobile-ui-stability-106";
+const CACHE_NAME = "hr-attendance-v45-punch-note-session-fix";
 const DEFAULT_OPEN_URL = "./index.html#notifications";
 const ASSETS = [
   "./health.html",

@@ -423,7 +423,7 @@ insert into public.system_settings (key, value, description, updated_at)
 values (
   'v104_release',
   jsonb_build_object(
-    'version', 'v39-consolidated-stable-110',
+    'version', 'v45-punch-note-session-fix',
     'release', 'v111-fixed-deployment',
     'expectedPatch', '104_royal_blue_full_migration',
     'releasedAt', '2026-05-10',

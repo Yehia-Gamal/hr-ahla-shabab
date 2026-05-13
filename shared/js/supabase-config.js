@@ -83,14 +83,14 @@ window.HR_SUPABASE_CONFIG = Object.freeze({
   },
   deployment: {
     expectedPatch: "110_consolidated_stable_full_audit",
-    packageVersion: "v39-consolidated-stable-110",
+    packageVersion: "v45-punch-note-session-fix",
     hardeningLevel: "production-clean-secure-gate-csp-pwa",
   },
-  cacheVersion: "v39-consolidated-stable-110",
+  cacheVersion: "v45-punch-note-session-fix",
 });
 
 window.__HR_SUPABASE_CONFIG_LOADED__ = true;
-window.__HR_SUPABASE_CONFIG_VERSION__ = "v39-consolidated-stable-110";
+window.__HR_SUPABASE_CONFIG_VERSION__ = "v45-punch-note-session-fix";
 
 (function markSupabaseMode() {
   const cfg = window.HR_SUPABASE_CONFIG || {};

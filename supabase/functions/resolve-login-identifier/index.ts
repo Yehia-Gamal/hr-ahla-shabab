@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.105.1';
 import { options, json } from '../_shared/cors.ts';
 
 function normalizeLoginPhone(value: unknown) {

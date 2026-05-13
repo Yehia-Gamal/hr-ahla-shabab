@@ -1,6 +1,6 @@
 (function HR_v108_FinalBugfix(){
   'use strict';
-  const VERSION='v108-final-bugfix';
+  const VERSION='v45-punch-note-session-fix';
   const root=document.documentElement;
   if(root.dataset.v108FinalBugfix==='1') return;
   root.dataset.v108FinalBugfix='1';

@@ -15,9 +15,9 @@
   if (cfg.attendance.branchLocation) cfg.attendance.branchLocation.safetyBufferMeters = Math.max(50, Number(cfg.attendance.branchLocation.safetyBufferMeters || 0));
   cfg.security = Object.assign({ allowLocalFallback:false, blockInsecureGatewayDefaults:true }, cfg.security || {});
   try { delete cfg.security.allowLocalDemo; } catch {}
-  cfg.cacheVersion = cfg.cacheVersion || 'v39-consolidated-stable-110';
+  cfg.cacheVersion = cfg.cacheVersion || 'v45-punch-note-session-fix';
   cfg.deployment = Object.assign({}, cfg.deployment || {}, {
-    packageVersion: 'v39-consolidated-stable-110',
+    packageVersion: 'v45-punch-note-session-fix',
     expectedPatch: cfg.deployment?.expectedPatch || '104_royal_blue_full_migration'
   });
   window.HR_QR_REQUIRED = false;

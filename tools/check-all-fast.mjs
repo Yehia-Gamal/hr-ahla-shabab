@@ -26,7 +26,7 @@ const sw = read('sw.js');
 const reg = read('shared/js/register-sw.js');
 const supabaseApi = read('shared/js/supabase-api.js');
 const finalSql = read('supabase/sql/RUN_IN_SUPABASE_SQL_EDITOR.sql');
-assert(read('package.json').includes('v38-mobile-ui-stability-106'), 'Package version must be v38-mobile-ui-stability-106.');
+assert(read('package.json').includes('v45-punch-note-session-fix'), 'Package version must be v45-punch-note-session-fix.');
 assert(existsSync(join(root, 'shared/js/runtime-diagnostics.js')), 'Runtime diagnostics module must exist.');
 assert(read('health.html').includes('runRuntimeDiagnostics'), 'health.html must use runtime diagnostics.');
 assert(existsSync(join(root, 'supabase/sql/RUN_IN_SUPABASE_SQL_EDITOR.sql')), 'Final SQL Editor file must exist.');
@@ -37,7 +37,7 @@ for (const fn of ['managementStructure','assignManager','teamDashboard','hrOpera
 for (const fn of ['managementStructure','assignManager','teamDashboard','hrOperations','disputeWorkflow','reportCenter','exportManagementReport','monthlyEvaluations','runSmartAttendance','databaseMigrationsStatus','myActionCenter','executivePresenceDashboard','attendanceRiskCenter','adminDecisions','monthlyAutoPdfReports']) assert(supabaseApi.includes(`${fn}: async`), `Missing Supabase endpoint ${fn}.`);
 for (const scope of ['organization:manage','team:dashboard','hr:operations','disputes:escalate','reports:pdf','reports:excel','attendance:risk','decisions:manage','reports:monthly-pdf-auto']) assert(api.includes(scope) && db.includes(scope), `Missing permission ${scope}.`);
 assert(app.includes('حضور حلقة الشيخ وليد يوسف الأسبوعية') && app.includes('خاص بـ HR'), 'KPI HR-only fields must remain clear.');
-assert(sw.includes('v38-mobile-ui-stability-106') && reg.includes('v38-mobile-ui-stability-106'), 'Service worker cache must use v38-mobile-ui-stability-106.');
+assert(sw.includes('v45-punch-note-session-fix') && reg.includes('v45-punch-note-session-fix'), 'Service worker cache must use v45-punch-note-session-fix.');
 
 for (const asset of ['shared/css/v105-ui-fixes.css','shared/js/v105-ui-fixes.js','shared/css/v106-mobile-stability.css','shared/js/v106-mobile-stability.js']) {
   assert(existsSync(join(root, asset)), `${asset} must exist.`);
