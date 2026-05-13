@@ -419,6 +419,8 @@ function disputePayload(body = {}, employeeId = body.employeeId) {
     title: body.title || "شكوى / خلاف",
     description: body.description || "",
     employee_id: employeeId || undefined,
+    has_related_employee: Boolean(body.hasRelatedEmployee && body.relatedEmployeeId),
+    related_employee_id: body.hasRelatedEmployee && body.relatedEmployeeId ? body.relatedEmployeeId : undefined,
     status: body.status || "IN_REVIEW",
     severity: body.severity || "MEDIUM",
     committee_decision: body.committeeDecision,
@@ -702,6 +704,21 @@ function riskLevelFromScore(score = 0) {
   if (value >= 70) return "HIGH";
   if (value >= 35) return "MEDIUM";
   return "LOW";
+}
+
+function assertEmployeePunchButtonIntent(body = {}) {
+  const action = String(body.eventType || body.type || body.action || "").toLowerCase();
+  const expectedType = ["out", "checkout", "check_out", "انصراف", "Ø§Ù†ØµØ±Ø§Ù"].includes(action) ? "out" : "in";
+  const age = Date.now() - Number(body.punchIntentAt || 0);
+  if (
+    body.punchIntent !== "employee_punch_button"
+    || body.punchIntentType !== expectedType
+    || !body.punchIntentNonce
+    || age < 0
+    || age > 90 * 1000
+  ) {
+    throw new Error("تم رفض تسجيل الحضور: يجب الضغط على زر البصمة مباشرة من شاشة الموظف.");
+  }
 }
 
 async function serverSharedDeviceFlags(client, employeeId, deviceFingerprintHash) {
@@ -1440,6 +1457,16 @@ export const supabaseEndpoints = {
     employees.forEach((e) => { e.manager = byId.get(e.managerEmployeeId) || null; });
     return employees;
   },
+  disputeEmployees: async () => {
+    const client = await sb();
+    const directory = await client.rpc("dispute_employee_directory").catch(() => ({ data: null, error: true }));
+    if (!directory?.error && Array.isArray(directory?.data)) return toCamel(directory.data);
+    const c = await core();
+    const data = (await selectAll("employees", "*", { limit: 1000 }))
+      .filter((row) => row.is_deleted !== true)
+      .sort((a, b) => String(a.full_name || "").localeCompare(String(b.full_name || ""), "ar"));
+    return data.map((row) => enrichEmployee(row, c));
+  },
   employee: async (id) => employeeById(id),
   bulkEmployeeAction: async (body = {}) => {
     const ids = Array.isArray(body.ids) ? body.ids : [];
@@ -1744,6 +1771,7 @@ export const supabaseEndpoints = {
   recordAttendance: async (body = {}) => {
     const action = String(body.eventType || body.type || body.action || "").toLowerCase();
     const out = ["out", "checkout", "check_out", "انصراف"].includes(action);
+    assertEmployeePunchButtonIntent(body);
     try {
       return await recordPunch(out ? "CHECK_OUT" : "CHECK_IN", body, body.employeeId);
     } catch (error) {
@@ -2130,12 +2158,24 @@ export const supabaseEndpoints = {
   disputes: async () => tableRows("dispute_cases", "created_at", false).then(toCamel),
   createDispute: async (body = {}) => {
     const employeeId = body.employeeId || await selfEmployeeId();
-    const row = await createOrUpdate("dispute_cases", disputePayload(body, employeeId));
+    const relatedEmployeeId = body.hasRelatedEmployee && body.relatedEmployeeId && String(body.relatedEmployeeId) !== String(employeeId) ? body.relatedEmployeeId : "";
+    const row = await createOrUpdate("dispute_cases", disputePayload({ ...body, hasRelatedEmployee: Boolean(relatedEmployeeId), relatedEmployeeId }, employeeId));
     const committeeEmails = ["direct.manager.03@organization.local", "direct.manager.02@organization.local", "direct.manager.01@organization.local", "executive.secretary@organization.local", "executive.director@organization.local"];
     const client = await sb();
     const { data: profiles } = await client.from("profiles").select("id,employee_id,email").in("email", committeeEmails);
     const notes = (profiles || []).map((profile) => ({ user_id: profile.id, employee_id: profile.employee_id, title: "مشكلة جديدة للجنة حل المشاكل", body: body.title || "شكوى / خلاف", type: "ACTION_REQUIRED", status: "UNREAD", is_read: false }));
+    if (relatedEmployeeId) notes.push({
+      employee_id: relatedEmployeeId,
+      title: "تم ذكرك كطرف في خلاف",
+      body: "تم ذكرك كطرف في خلاف مع زميل آخر. سيتم التواصل معك من اللجنة عند الحاجة دون إظهار اسم مقدم الشكوى.",
+      type: "ACTION_REQUIRED",
+      status: "UNREAD",
+      is_read: false,
+      route: "action-center",
+      data: { route: "action-center", type: "DISPUTE_RELATED_PARTY", disputeCaseId: row.id, privacyLevel: "anonymous_counterparty" },
+    });
     if (notes.length) await safeCreateNotifications(client, notes).catch(() => null);
+    if (relatedEmployeeId) await client.functions.invoke("send-push-notifications", { body: { title: "تم ذكرك كطرف في خلاف", body: "تم ذكرك كطرف في خلاف مع زميل آخر. راجع إشعارات التطبيق عند الحاجة.", tag: "dispute-related-party", targetEmployeeIds: [relatedEmployeeId] } }).catch(() => null);
     return row;
   },
   updateDispute: async (id, body = {}) => createOrUpdate("dispute_cases", disputePayload(body), id),

@@ -7607,6 +7607,27 @@ create table if not exists public.dispute_committee_minutes (
 create index if not exists idx_dispute_cases_committee_due on public.dispute_cases(status, due_at);
 create index if not exists idx_dispute_cases_related_employee on public.dispute_cases(related_employee_id);
 
+create or replace function public.dispute_employee_directory()
+returns table (
+  id uuid,
+  full_name text,
+  job_title text,
+  status text
+)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select e.id, e.full_name, e.job_title, e.status
+  from public.employees e
+  where coalesce(e.is_deleted, false) = false
+    and coalesce(e.status, 'ACTIVE') <> 'DELETED'
+  order by e.full_name;
+$$;
+
+grant execute on function public.dispute_employee_directory() to authenticated;
+
 commit;
 
 -- =========================================================

@@ -34,6 +34,21 @@ function now() {
   return new Date().toISOString();
 }
 
+function assertEmployeePunchButtonIntent(body = {}) {
+  const action = String(body.eventType || body.type || body.action || "").toLowerCase();
+  const expectedType = ["out", "checkout", "check_out", "انصراف"].includes(action) ? "out" : "in";
+  const age = Date.now() - Number(body.punchIntentAt || 0);
+  if (
+    body.punchIntent !== "employee_punch_button"
+    || body.punchIntentType !== expectedType
+    || !body.punchIntentNonce
+    || age < 0
+    || age > 90 * 1000
+  ) {
+    throw new Error("تم رفض تسجيل الحضور: يجب الضغط على زر البصمة مباشرة من شاشة الموظف.");
+  }
+}
+
 function normalizeEmail(value = "") {
   return String(value || "").trim().toLowerCase();
 }
@@ -1085,6 +1100,7 @@ const remoteEndpoints = {
   recordAttendance: (body = {}) => {
     const action = String(body.eventType || body.type || body.action || "").toLowerCase();
     const out = ["out", "checkout", "check_out", "انصراف"].includes(action);
+    assertEmployeePunchButtonIntent(body);
     return apiRequest("/employee/attendance", { method: "POST", body: { ...(body || {}), action: out ? "check_out" : "check_in" } });
   },
   selfCheckIn: (body) => apiRequest("/employee/attendance", { method: "POST", body: { ...(body || {}), action: "check_in" } }),
@@ -1113,6 +1129,7 @@ const remoteEndpoints = {
   saveKpiEvaluation: (body) => apiRequest("/kpi/evaluations", { method: "POST", body }),
   updateKpiEvaluation: (id, body) => apiRequest(`/kpi/evaluations/${encodeURIComponent(id)}`, { method: "PATCH", body }),
   disputes: () => apiRequest("/disputes"),
+  disputeEmployees: () => apiRequest("/employees"),
   createDispute: (body) => apiRequest("/disputes", { method: "POST", body }),
   updateDispute: (id, body) => apiRequest(`/disputes/${encodeURIComponent(id)}`, { method: "PATCH", body }),
   locations: () => apiRequest("/location-requests"),
@@ -2818,6 +2835,10 @@ const localEndpoints = {
     return ok({ branch, complex });
   },
   employees: async () => ok(visibleEmployees(loadDb())),
+  disputeEmployees: async () => {
+    const db = loadDb();
+    return ok((db.employees || []).filter((employee) => !employee.isDeleted).map((employee) => enrichEmployee(db, employee)));
+  },
   bulkEmployeeAction: async (body = {}) => {
     const db = loadDb();
     const ids = Array.isArray(body.ids) ? body.ids : [];
@@ -3140,6 +3161,7 @@ const localEndpoints = {
   recordAttendance: async (body = {}) => {
     const action = String(body.eventType || body.type || body.action || "").toLowerCase();
     const out = ["out", "checkout", "check_out", "انصراف"].includes(action);
+    assertEmployeePunchButtonIntent(body);
     return out ? localEndpoints.selfCheckOut(body) : localEndpoints.selfCheckIn(body);
   },
   adjustAttendance: async (body) => {
@@ -3693,11 +3715,14 @@ const localEndpoints = {
     const user = currentUser(db);
     const employeeId = body.employeeId || user?.employeeId || "";
     const employee = findById(db.employees, employeeId);
+    const relatedEmployeeId = body.hasRelatedEmployee && body.relatedEmployeeId && body.relatedEmployeeId !== employeeId ? body.relatedEmployeeId : "";
+    const relatedEmployee = relatedEmployeeId ? findById(db.employees, relatedEmployeeId) : null;
     const committeeIds = disputeCommitteeEmployeeIds(db);
-    const item = { id: makeId("disp"), title: body.title || "شكوى / خلاف", employeeId, category: "شكوى", priority: body.priority || "MEDIUM", severity: body.severity || "MEDIUM", description: body.description || "", status: "IN_REVIEW", assignedCommittee: db.disputeCommittee?.members || [], assignedCommitteeEmployeeIds: committeeIds, committeeDecision: "", escalatedToExecutive: false, escalationPath: "اللجنة ← السكرتير التنفيذي ← المدير التنفيذي", workflow: [{ at: now(), by: user?.name || "النظام", action: "created", note: "تم إخطار لجنة حل المشاكل والخلافات" }], createdAt: now() };
+    const item = { id: makeId("disp"), title: body.title || "شكوى / خلاف", employeeId, category: "شكوى", priority: body.priority || "MEDIUM", severity: body.severity || "MEDIUM", description: body.description || "", hasRelatedEmployee: Boolean(relatedEmployeeId), relatedEmployeeId, status: "IN_REVIEW", assignedCommittee: db.disputeCommittee?.members || [], assignedCommitteeEmployeeIds: committeeIds, committeeDecision: "", escalatedToExecutive: false, escalationPath: "اللجنة ← السكرتير التنفيذي ← المدير التنفيذي", workflow: [{ at: now(), by: user?.name || "النظام", action: "created", note: "تم إخطار لجنة حل المشاكل والخلافات" }], createdAt: now() };
     db.disputeCases.unshift(item);
     audit(db, "create", "dispute_case", item.id, null, item);
     notifyManyEmployees(db, committeeIds, `مشكلة جديدة من ${employee?.fullName || "موظف"}`, item.title, "ACTION_REQUIRED");
+    if (relatedEmployee) notifyEmployee(db, relatedEmployee.id, "تم ذكرك كطرف في خلاف", "تم ذكرك كطرف في خلاف مع زميل آخر. سيتم التواصل معك من اللجنة عند الحاجة دون إظهار اسم مقدم الشكوى.", "ACTION_REQUIRED", { route: "action-center", disputeCaseId: item.id, privacyLevel: "anonymous_counterparty" });
     notify(db, "شكوى جديدة للجنة فض الخلافات", `${employee?.fullName || "موظف"}: ${item.title}`, "ACTION_REQUIRED");
     saveDb(db);
     return ok(enrichByEmployee(db, item));
