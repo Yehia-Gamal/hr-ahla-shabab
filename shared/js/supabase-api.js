@@ -647,7 +647,7 @@ async function attendanceAddress(employee = null) {
   const cfg = CONFIG?.().attendance || {};
   const branchCfg = cfg.branchLocation || {};
   const configuredRadius = Number(branchCfg.radiusMeters || 300);
-  const configuredMaxAccuracy = Number(cfg.gpsMaxAcceptableAccuracyMeters || branchCfg.maxAccuracyMeters || 50);
+  const configuredMaxAccuracy = Math.max(150, Number(cfg.gpsMaxAcceptableAccuracyMeters || branchCfg.maxAccuracyMeters || 150));
   return {
     employee: emp,
     branch,
@@ -656,7 +656,7 @@ async function attendanceAddress(employee = null) {
     latitude: Number.isFinite(lat) ? lat : DEFAULT_COMPLEX.latitude,
     longitude: Number.isFinite(lng) ? lng : DEFAULT_COMPLEX.longitude,
     radiusMeters: Math.min(Number(branch?.geofenceRadiusMeters || branch?.radiusMeters || configuredRadius || DEFAULT_COMPLEX.radiusMeters), configuredRadius || 300),
-    maxAccuracyMeters: Math.min(Number(branch?.maxAccuracyMeters || configuredMaxAccuracy || DEFAULT_COMPLEX.maxAccuracyMeters), configuredMaxAccuracy || 50),
+    maxAccuracyMeters: Math.max(Number(branch?.maxAccuracyMeters || configuredMaxAccuracy || DEFAULT_COMPLEX.maxAccuracyMeters), configuredMaxAccuracy || 150),
     strictGeofence: true,
   };
 }
@@ -677,7 +677,7 @@ function evaluateGeo(address, body = {}) {
   } else {
     distanceFromBranchMeters = distanceMeters(current, { latitude: address.latitude, longitude: address.longitude });
     const weakAccuracy = accuracyMeters == null || accuracyMeters > address.maxAccuracyMeters;
-    allowed = distanceFromBranchMeters != null && distanceFromBranchMeters <= address.radiusMeters && !weakAccuracy;
+    allowed = distanceFromBranchMeters != null && distanceFromBranchMeters <= address.radiusMeters;
     geofenceStatus = allowed ? (weakAccuracy ? "inside_branch_low_accuracy" : "inside_branch") : (weakAccuracy ? "location_low_accuracy" : "outside_branch");
     message = allowed
       ? (weakAccuracy ? `تم قبول الموقع مع دقة GPS ضعيفة (${accuracyMeters} متر). يفضل تشغيل الموقع عالي الدقة.` : "الموقع داخل العنوان المحدد ويمكن تسجيل البصمة.")
@@ -1459,7 +1459,12 @@ export const supabaseEndpoints = {
   },
   disputeEmployees: async () => {
     const client = await sb();
-    const directory = await client.rpc("dispute_employee_directory").catch(() => ({ data: null, error: true }));
+    let directory = { data: null, error: true };
+    try {
+      directory = await client.rpc("dispute_employee_directory");
+    } catch {
+      directory = { data: null, error: true };
+    }
     if (!directory?.error && Array.isArray(directory?.data)) return toCamel(directory.data);
     const c = await core();
     const data = (await selectAll("employees", "*", { limit: 1000 }))
@@ -2162,6 +2167,13 @@ export const supabaseEndpoints = {
     const row = await createOrUpdate("dispute_cases", disputePayload({ ...body, hasRelatedEmployee: Boolean(relatedEmployeeId), relatedEmployeeId }, employeeId));
     const committeeEmails = ["direct.manager.03@organization.local", "direct.manager.02@organization.local", "direct.manager.01@organization.local", "executive.secretary@organization.local", "executive.director@organization.local"];
     const client = await sb();
+    try {
+      const { error } = await client.rpc("notify_dispute_case_created", { p_case_id: row.id });
+      if (error) debugWarn("notify_dispute_case_created skipped", error.message || error);
+    } catch (error) {
+      debugWarn("notify_dispute_case_created unavailable", error?.message || error);
+    }
+    return row;
     const { data: profiles } = await client.from("profiles").select("id,employee_id,email").in("email", committeeEmails);
     const notes = (profiles || []).map((profile) => ({ user_id: profile.id, employee_id: profile.employee_id, title: "مشكلة جديدة للجنة حل المشاكل", body: body.title || "شكوى / خلاف", type: "ACTION_REQUIRED", status: "UNREAD", is_read: false }));
     if (relatedEmployeeId) notes.push({

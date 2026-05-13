@@ -9773,6 +9773,75 @@ a.nav-link,
   min-height: 36px;
 }
 
+/* Fix: bottom nav must show one active tab only. Punch has no permanent highlight. */
+body.employee-portal .employee-bottom-nav button:not(.is-active) {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+  color: #8fa1bd !important;
+}
+
+body.employee-portal .employee-bottom-nav button[data-route="punch"]:not(.is-active) {
+  background: transparent !important;
+  border: 0 !important;
+  color: #8fa1bd !important;
+  box-shadow: none !important;
+}
+
+body.employee-portal .employee-bottom-nav button[data-route="punch"]:not(.is-active) strong,
+body.employee-portal .employee-bottom-nav button[data-route="punch"]:not(.is-active) span {
+  color: inherit !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+body.employee-portal .employee-bottom-nav button.is-active {
+  background: linear-gradient(135deg, rgba(0, 194, 255, .18), rgba(26, 110, 255, .22)) !important;
+  border: 1px solid rgba(0, 194, 255, .26) !important;
+  color: #00c2ff !important;
+  box-shadow: 0 8px 24px rgba(0, 194, 255, .22) !important;
+}
+
+/* Fix: team page focus cards are rendered inside a narrow mobile shell even on desktop viewports. */
+body.employee-portal .team-manager-page .employee-org-focus-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)) !important;
+  align-items: stretch !important;
+}
+
+body.employee-portal .team-manager-page .employee-org-focus-person {
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+body.employee-portal .team-manager-page .employee-org-focus-person .employee-header-card,
+body.employee-portal .team-manager-page .employee-org-focus-person .person-cell {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+body.employee-portal .team-manager-page .employee-org-focus-person .employee-header-card {
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) !important;
+  align-items: center !important;
+  padding: 10px !important;
+  border-radius: 14px !important;
+}
+
+body.employee-portal .team-manager-page .employee-org-focus-person .employee-header-card span,
+body.employee-portal .team-manager-page .employee-org-focus-person .employee-header-card strong,
+body.employee-portal .team-manager-page .employee-org-focus-person .employee-header-card small {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+body.employee-portal .team-manager-page .employee-org-focus-person .employee-header-card strong,
+body.employee-portal .team-manager-page .employee-org-focus-person .employee-header-card small {
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+}
+
 /* Fix: operations-gate page — mobile card width */
 @media (max-width: 540px) {
   .gate {
@@ -10493,23 +10562,35 @@ body.employee-portal .related-employee-toggle small {
 }
 
 body.employee-portal .related-employee-field {
+  display: grid !important;
+  gap: 8px !important;
   padding-top: 2px !important;
+  min-width: 0 !important;
+  line-height: 1.35 !important;
 }
 
 body.employee-portal .related-employee-field select {
   appearance: auto !important;
   min-height: 50px !important;
+  height: auto !important;
+  margin-top: 0 !important;
+  padding: 12px 14px !important;
   border-radius: 14px !important;
   background: rgba(2, 8, 23, .72) !important;
   color: #f8fbff !important;
   font-size: 13px !important;
   font-weight: 900 !important;
+  line-height: 1.45 !important;
+  white-space: normal !important;
 }
 
 body.employee-portal .related-employee-field small {
+  display: block !important;
+  margin-top: 0 !important;
   color: rgba(186, 230, 255, .66) !important;
   font-size: 10.5px !important;
   line-height: 1.45 !important;
+  overflow-wrap: anywhere !important;
 }
 
 body.employee-portal .related-employee-field.hidden {

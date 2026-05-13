@@ -1,4 +1,4 @@
-﻿import { endpoints, unwrap } from "./api.js?v=v118-system-polish";
+﻿import { endpoints, unwrap } from "./api.js?v=v124-team-kpi-scope";
 import { enableWebPushSubscription } from "./push.js?v=v39-consolidated-stable-110";
 import { getDeviceFingerprintHash, requestEmployeePasskey, filterEmployeePasskeys, calculateAttendanceRisk, rememberDevicePunch, capturePunchSelfie } from "./attendance-identity.js?v=v39-consolidated-stable-110";
 import { ensureAttendancePolicyAcknowledged, ensureTrustedDeviceApproval, requestBranchQrChallenge, analyzeLocationTrust, mergeRiskSignals, submitFallbackAttendanceRequest } from "./attendance-v3-security.js?v=v39-consolidated-stable-110";
@@ -44,7 +44,7 @@ function createEmployeePunchIntent(type = "in") {
     punchIntentType: type === "out" ? "out" : "in",
     punchIntentNonce: crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
   };
-  try { sessionStorage.setItem(EMPLOYEE_PUNCH_INTENT_KEY, JSON.stringify(intent)); } catch {}
+  try { sessionStorage.setItem(EMPLOYEE_PUNCH_INTENT_KEY, JSON.stringify(intent)); } catch { }
   return intent;
 }
 
@@ -57,7 +57,7 @@ function assertFreshEmployeePunchIntent(intent = {}, type = "in") {
 }
 
 function setPreferredPunchType(type = "in") {
-  try { sessionStorage.setItem(EMPLOYEE_PREFERRED_PUNCH_TYPE_KEY, type === "out" ? "out" : "in"); } catch {}
+  try { sessionStorage.setItem(EMPLOYEE_PREFERRED_PUNCH_TYPE_KEY, type === "out" ? "out" : "in"); } catch { }
 }
 
 function consumePreferredPunchType() {
@@ -102,7 +102,7 @@ const employeeRoutes = [
 const moreEmployeeRoutes = [
   ["team", "فريقي", "👥"],
   ["manager-hub", "إدارة فريقي", "🧭"],
-  ["manager-kpi", "KPI فريقي", "📊"],
+  ["manager-kpi", "اعتماد KPI", "✅"],
   ["committee-hub", "لجنة الخلافات", "⚖️"],
   ["kpi", "تقييمي", "⭐"],
   ["requests", "الإجازات والمأموريات", "📋"],
@@ -132,7 +132,7 @@ function employeeMiniTable(headers = [], rows = []) {
 
 function greeting() {
   const h = new Date().getHours();
-  if (h >= 5  && h < 12) return "صباح الخير";
+  if (h >= 5 && h < 12) return "صباح الخير";
   if (h >= 12 && h < 14) return "نهارك سعيد";
   if (h >= 14 && h < 18) return "طاب مساؤكم";
   if (h >= 18 && h < 21) return "مساء النور";
@@ -154,13 +154,13 @@ function actionCard(route, icon, title, text) {
 
 function metricCard(label, value, hint, icon = "📊") {
   const num = parseFloat(String(value).replace(/[^0-9.]/g, ''));
-  const dc  = (!isNaN(num) && num >= 0) ? ` data-count="${num}"` : '';
+  const dc = (!isNaN(num) && num >= 0) ? ` data-count="${num}"` : '';
   return `<article class="employee-stat"><div class="stat-icon">${icon}</div><div class="stat-body"><span>${escapeHtml(label)}</span><strong${dc}>${escapeHtml(String(value))}</strong><small>${escapeHtml(hint)}</small></div></article>`;
 }
 
 function compactMetric(label, value, icon, route = "") {
   const num = parseFloat(String(value).replace(/[^0-9.]/g, ''));
-  const dc  = (!isNaN(num) && num >= 0) ? ` data-count="${num}"` : '';
+  const dc = (!isNaN(num) && num >= 0) ? ` data-count="${num}"` : '';
   return `<button type="button" class="compact-metric-badge" ${route ? `data-route="${escapeHtml(route)}"` : ''}><span class="badge-icon">${icon}</span><strong${dc}>${escapeHtml(String(value))}</strong><span>${escapeHtml(label)}</span></button>`;
 }
 
@@ -226,7 +226,13 @@ window.addEventListener("hashchange", () => {
 });
 
 function routeKey() {
-  return (state.route || "home").split("?")[0] || "home";
+  const hashRoute = String(location.hash || "").replace(/^#/, "").split("?")[0];
+  return (hashRoute || state.route || "home").split("?")[0] || "home";
+}
+
+function bottomNavActiveKey(current = routeKey()) {
+  if (employeeRoutes.some(([key]) => key === current && key !== "more")) return current;
+  return isMoreRoute(current) || current === "more" ? "more" : current;
 }
 
 function showToast(message = "", type = "info") {
@@ -261,7 +267,7 @@ function dailySeen(key) {
 }
 
 function markDailySeen(key) {
-  try { localStorage.setItem(key, todayKey()); } catch {}
+  try { localStorage.setItem(key, todayKey()); } catch { }
 }
 
 function hasCheckInToday(events = []) {
@@ -320,7 +326,7 @@ async function showAttendanceBrowserNotification() {
       ],
       data: { route: "punch", type: "ATTENDANCE_REMINDER", url: "./index.html#punch" },
     });
-  } catch {}
+  } catch { }
 }
 
 function consumeFlashMessage() {
@@ -353,7 +359,7 @@ function resetIdleTimer() {
   return;
   idleTimer = window.setTimeout(async () => {
     if (!state.user) return;
-    await endpoints.logout().catch(() => {});
+    await endpoints.logout().catch(() => { });
     sessionStorage.removeItem(EMPLOYEE_TAB_SESSION_KEY);
     localStorage.removeItem("hr-attendance.local-db.v7");
     sessionStorage.removeItem("hr.core");
@@ -374,7 +380,7 @@ function startIdleTimer() {
 }
 
 function haptic(pattern) {
-  try { if (navigator.vibrate) navigator.vibrate(pattern); } catch {}
+  try { if (navigator.vibrate) navigator.vibrate(pattern); } catch { }
 }
 
 
@@ -485,7 +491,7 @@ function playInternalAlertSound({ repeat = 5 } = {}) {
       osc.start(startAt + i * 0.3);
       osc.stop(startAt + i * 0.3 + 0.24);
     }
-  } catch {}
+  } catch { }
 }
 
 function seenNotificationIds() {
@@ -494,7 +500,7 @@ function seenNotificationIds() {
 }
 
 function saveSeenNotificationIds(ids) {
-  try { localStorage.setItem(NOTIFICATION_SOUND_SEEN_KEY, JSON.stringify([...ids].slice(-200))); } catch {}
+  try { localStorage.setItem(NOTIFICATION_SOUND_SEEN_KEY, JSON.stringify([...ids].slice(-200))); } catch { }
 }
 
 function seenLiveLocationRequestIds() {
@@ -503,7 +509,7 @@ function seenLiveLocationRequestIds() {
 }
 
 function saveSeenLiveLocationRequestIds(ids) {
-  try { localStorage.setItem(LIVE_LOCATION_ALERT_SEEN_KEY, JSON.stringify([...ids].slice(-200))); } catch {}
+  try { localStorage.setItem(LIVE_LOCATION_ALERT_SEEN_KEY, JSON.stringify([...ids].slice(-200))); } catch { }
 }
 
 function pendingLiveLocationRequest(rows = []) {
@@ -547,7 +553,7 @@ async function showBrowserLocalNotificationForLiveRequest(item = {}) {
       ],
       data: { route: "location", type: "LIVE_LOCATION_REQUEST", liveLocationRequestId: item.id, url: "./index.html#location" },
     });
-  } catch {}
+  } catch { }
 }
 
 function showLiveLocationUrgentAlert(item = {}) {
@@ -722,6 +728,7 @@ function bindPasswordStrength(form) {
 
 function renderLoadingSkeleton(title = "جاري التحميل", subtitle = "نجهز البيانات الآن...") {
   const current = routeKey();
+  const activeKey = bottomNavActiveKey(current);
   app.innerHTML = `
     <div class="employee-shell">
       <header class="employee-topbar"><div class="employee-brand"><img src="../shared/images/ahla-shabab-logo.png" alt="" data-hide-on-error="1" /><div><strong>أحلى شباب</strong><span>تطبيق الموظفين</span></div></div></header>
@@ -745,7 +752,7 @@ function renderLoadingSkeleton(title = "جاري التحميل", subtitle = "ن
         </section>
       </main>
       <nav class="employee-bottom-nav" aria-label="تنقل تطبيق الموظف">
-        ${employeeRoutes.map(([key, label, icon]) => `<button class="${current === key || (key === "more" && isMoreRoute(current)) ? "is-active" : ""}" type="button" disabled><strong>${icon}</strong><span>${escapeHtml(label)}</span></button>`).join("")}
+        ${employeeRoutes.map(([key, label, icon]) => `<button class="${activeKey === key ? "is-active" : ""}" type="button" disabled><strong>${icon}</strong><span>${escapeHtml(label)}</span></button>`).join("")}
       </nav>
     </div>`;
 }
@@ -859,9 +866,14 @@ function todayIso() {
 }
 
 function statusLabel(value = "") {
+  const normalized = String(value || "").trim().toUpperCase();
   const map = {
     CHECK_IN: "حضور",
     CHECK_OUT: "انصراف",
+    LOW: "منخفضة",
+    MEDIUM: "متوسطة",
+    HIGH: "عالية",
+    CRITICAL: "حرجة",
     PRESENT: "حاضر",
     LATE: "متأخر",
     ABSENT: "غائب",
@@ -876,6 +888,10 @@ function statusLabel(value = "") {
     UNREAD: "جديد",
     READ: "مقروء",
     IN_REVIEW: "أمام اللجنة",
+    COMMITTEE_REVIEW: "مراجعة اللجنة",
+    ESCALATED: "تم التصعيد",
+    RESOLVED: "تم الحل",
+    CLOSED: "مغلق",
     ON_LEAVE: "إجازة",
     ON_MISSION: "مأمورية",
     CHECKED_OUT: "انصرف",
@@ -888,7 +904,7 @@ function statusLabel(value = "") {
     SECRETARY_REVIEWED: "مراجعة السكرتير",
     EXECUTIVE_APPROVED: "اعتماد المدير التنفيذي",
   };
-  return map[value] || value || "-";
+  return map[normalized] || value || "-";
 }
 
 function badge(value, extra = "") {
@@ -1022,7 +1038,7 @@ function gpsPolicy() {
     samples: Math.max(18, Number(cfg.gpsSamples || 18)),
     windowMs: Math.max(30000, Number(cfg.gpsSampleWindowMs || 30000)),
     targetAccuracy: Math.min(15, Number(cfg.gpsTargetAccuracyMeters || 15)),
-    maxAcceptableAccuracy: Math.min(50, Number(cfg.gpsMaxAcceptableAccuracyMeters || 50)),
+    maxAcceptableAccuracy: Math.max(150, Number(cfg.gpsMaxAcceptableAccuracyMeters || 150)),
     safetyBuffer: 0,
     uncertainReviewOnly: cfg.gpsUncertainReviewOnly !== false,
   };
@@ -1050,7 +1066,7 @@ function configuredBranchTarget() {
     longitude,
     radiusMeters: Number(cfg.radiusMeters || 300),
     safetyBufferMeters: 0,
-    maxAccuracyMeters: Math.min(Number(cfg.maxAccuracyMeters || gpsPolicy().maxAcceptableAccuracy), gpsPolicy().maxAcceptableAccuracy),
+    maxAccuracyMeters: Math.max(Number(cfg.maxAccuracyMeters || gpsPolicy().maxAcceptableAccuracy), gpsPolicy().maxAcceptableAccuracy),
   };
 }
 
@@ -1285,6 +1301,7 @@ function isMoreRoute(key = routeKey()) {
 
 function shell(content, title = "تطبيق الموظف", subtitle = "") {
   const current = routeKey();
+  const activeKey = bottomNavActiveKey(current);
   const user = state.user || {};
   const employee = employeeSubject();
   app.innerHTML = `
@@ -1308,8 +1325,8 @@ function shell(content, title = "تطبيق الموظف", subtitle = "") {
       </main>
       <nav class="employee-bottom-nav" aria-label="تنقل تطبيق الموظف">
         ${employeeRoutes.map(([key, label, icon]) => key === "more"
-          ? `<button class="${isMoreRoute(current) ? "is-active" : ""}" type="button" data-more-menu aria-expanded="false"><strong>${icon}</strong><span>${escapeHtml(label)}</span></button>`
-          : `<button class="${current === key ? "is-active" : ""}" type="button" data-route="${key}"><strong>${icon}</strong><span>${escapeHtml(label)}</span></button>`).join("")}
+    ? `<button class="${activeKey === key ? "is-active" : ""}" type="button" data-more-menu aria-expanded="false"><strong>${icon}</strong><span>${escapeHtml(label)}</span></button>`
+    : `<button class="${activeKey === key ? "is-active" : ""}" type="button" data-route="${key}"><strong>${icon}</strong><span>${escapeHtml(label)}</span></button>`).join("")}
       </nav>
     </div>
   `;
@@ -1507,8 +1524,8 @@ async function getBrowserLocation(options = {}) {
     });
     const best = () => samples.slice().sort((a, b) => (a.accuracyMeters || 9999) - (b.accuracyMeters || 9999) || (b.timestamp || 0) - (a.timestamp || 0))[0] || null;
     const finish = (fallback = null) => {
-      try { if (watcher != null) navigator.geolocation.clearWatch(watcher); } catch {}
-      try { if (timer) window.clearTimeout(timer); } catch {}
+      try { if (watcher != null) navigator.geolocation.clearWatch(watcher); } catch { }
+      try { if (timer) window.clearTimeout(timer); } catch { }
       const value = best() || fallback || { locationPermission: "timeout", accuracyMeters: null };
       if (value.accuracyMeters && value.accuracyMeters > policy.maxAcceptableAccuracy) {
         value.locationWarning = "GPS_UNRELIABLE";
@@ -1561,9 +1578,9 @@ async function getVerifiedBrowserLocation(employeeId = "", options = {}) {
     insideBranch: Boolean(inside),
     locationUncertain: Boolean(uncertain && !inside),
     geofenceStatus: finalStatus,
-    canRecord: Boolean(inside && !weak),
-    allowed: Boolean(inside && !weak),
-    requiresReview: Boolean((uncertain && !inside) || evaluation.requiresReview),
+    canRecord: Boolean(inside || uncertain),
+    allowed: Boolean(inside || uncertain),
+    requiresReview: Boolean(weak || uncertain || evaluation.requiresReview),
   };
   const placeName = await reverseGeocode(merged.latitude, merged.longitude);
   merged.placeLabel = placeName || merged.placeLabel || merged.locationLabel || "";
@@ -1642,7 +1659,7 @@ async function renderHome() {
   const inside = String(lastStatus).toLowerCase().includes("inside") || String(lastStatus).toLowerCase().includes("active") || String(lastStatus).toLowerCase().includes("in_range");
   const pendingTotal = pendingLeaves + pendingMissions;
   const allPending = [...leaves.filter((x) => x.employeeId === employeeId && String(x.status || "").includes("PENDING")),
-                      ...missions.filter((x) => x.employeeId === employeeId && String(x.status || "").includes("PENDING"))];
+  ...missions.filter((x) => x.employeeId === employeeId && String(x.status || "").includes("PENDING"))];
 
   shell(`
     <section class="employee-home-flow">
@@ -1662,10 +1679,10 @@ async function renderHome() {
         </div>
         <div class="hero-meta">
           ${fridayHoliday
-            ? `<span class="hero-chip holiday">🎉 إجازة سعيدة</span>`
-            : todayEvents.length
-              ? `<span class="hero-chip success">✓ ${todayEvents.length} بصمة اليوم</span>`
-              : `<span class="hero-chip warning">⚠ لم تُسجّل حضورك بعد</span>`}
+      ? `<span class="hero-chip holiday">🎉 إجازة سعيدة</span>`
+      : todayEvents.length
+        ? `<span class="hero-chip success">✓ ${todayEvents.length} بصمة اليوم</span>`
+        : `<span class="hero-chip warning">⚠ لم تُسجّل حضورك بعد</span>`}
           ${pendingLive > 0 ? `<span class="hero-chip urgent hr-pulse">🔴 ${pendingLive} طلب موقع عاجل</span>` : ""}
           ${unread > 0 ? `<span class="hero-chip info">🔔 ${unread} إشعار جديد</span>` : ""}
           ${inside ? `<span class="hero-chip success-soft">📍 داخل النطاق</span>` : ""}
@@ -1711,8 +1728,8 @@ async function renderHome() {
         <p>${fridayHoliday ? "الجمعة إجازة أسبوعية." : todayEvents.length ? `آخر حركة: ${escapeHtml(date(lastEvent.eventAt || lastEvent.createdAt))} — ${escapeHtml(statusLabel(lastEvent.type || lastEvent.eventType || ""))}` : "سجّل حضورك عند وصولك أو أرسل موقعك عند طلب الإدارة."}</p>
         <div class="employee-actions-row home-punch-actions">
           ${fridayHoliday
-            ? `<button class="button ghost" data-route="action-center">عرض التنبيهات</button><button class="button ghost" data-route="location">إرسال موقعي</button>`
-            : `<button class="button primary home-punch-checkin" data-route="punch" data-punch-nav="in" type="button">👁 تسجيل حضور للعمل</button><button class="button danger home-punch-checkout" data-route="punch" data-punch-nav="out" type="button">↩ تسجيل انصراف من العمل</button><button class="button ghost home-location-send" data-route="location" type="button">📍 إرسال الموقع المباشر</button>`}
+      ? `<button class="button ghost" data-route="action-center">عرض التنبيهات</button><button class="button ghost" data-route="location">إرسال موقعي</button>`
+      : `<button class="button primary home-punch-checkin" data-route="punch" data-punch-nav="in" type="button">👁 تسجيل حضور للعمل</button><button class="button danger home-punch-checkout" data-route="punch" data-punch-nav="out" type="button">↩ تسجيل انصراف من العمل</button><button class="button ghost home-location-send" data-route="location" type="button">📍 إرسال الموقع المباشر</button>`}
         </div>
       </article>
 
@@ -1726,7 +1743,7 @@ async function renderHome() {
         ${compactMetric("تقييمي KPI", "فتح", "📊", "kpi")}
         ${compactMetric("شكوى/خلاف", "رفع", "⚖️", "disputes")}
         ${getManagerLikeRole() ? compactMetric("فريقي", "إدارة", "👥", "team") : ""}
-        ${getManagerLikeRole() ? compactMetric("KPI فريقي", "مراجعة", "📊", "manager-kpi") : ""}
+        ${getManagerLikeRole() ? compactMetric("اعتماد KPI", "مراجعة", "✅", "manager-kpi") : ""}
       </section>
 
       <!-- Location card -->
@@ -1749,7 +1766,7 @@ async function renderHome() {
           <button class="button ghost small" data-route="punch">عرض الكل</button>
         </div>
         ${myEvents.length
-          ? `<div class="employee-list">${myEvents.slice(0, 5).map((item) => `
+      ? `<div class="employee-list">${myEvents.slice(0, 5).map((item) => `
               <div class="employee-list-item hr-punch-row" data-punch-type="${item.type?.includes("OUT") || item.eventType?.includes("OUT") ? "out" : "in"}">
                 <div class="hr-punch-type-dot"></div>
                 <div style="flex:1;min-width:0">
@@ -1760,7 +1777,7 @@ async function renderHome() {
                 <div class="list-item-side">${locationStatusBadge(item)}</div>
               </div>`).join("")}
             </div>`
-          : `<div class="empty-state"><span class="hr-empty-icon">👁</span><strong>لا توجد بصمات بعد</strong><small>سجّل حضورك أولاً من صفحة البصمة.</small></div>`}
+      : `<div class="empty-state"><span class="hr-empty-icon">👁</span><strong>لا توجد بصمات بعد</strong><small>سجّل حضورك أولاً من صفحة البصمة.</small></div>`}
       </article>
 
       <!-- Pending requests summary (only if any) -->
@@ -1882,7 +1899,7 @@ async function renderPunch() {
   const myEvents = events.filter((event) => !employeeId || event.employeeId === employeeId);
   const todayEvents = myEvents.filter((event) => String(event.eventAt || event.createdAt || "").startsWith(todayIso()));
   const preferredType = consumePreferredPunchType();
-  const suggestedType = preferredType || (todayEvents.length && isMorningPunchTime() === false ? "out" : (todayEvents.some((e)=>String(e.type||e.eventType||"").toLowerCase().includes("in")) ? "out" : "in"));
+  const suggestedType = preferredType || (todayEvents.length && isMorningPunchTime() === false ? "out" : (todayEvents.some((e) => String(e.type || e.eventType || "").toLowerCase().includes("in")) ? "out" : "in"));
   const primaryLabel = suggestedType === "in" ? "بصمة حضور الآن" : "بصمة انصراف الآن";
   const secondaryLabel = suggestedType === "in" ? "بصمة انصراف" : "بصمة حضور";
   const exactBranchAddress = address.address || `${branchName()} ${branchArea()}`;
@@ -1945,7 +1962,7 @@ async function renderPunch() {
       const policyAck = await ensureAttendancePolicyAcknowledged({ endpoints, employee, deviceFingerprintHash: preFingerprint });
       if (!state.lastLocation) await window.HRExplainAndEnableLocation?.();
       if (resultBox) resultBox.textContent = "جاري قراءة GPS والتقاط صورة تحقق...";
-      const current = await getVerifiedBrowserLocation(employeeId, { samples: 22, windowMs: 35000, targetAccuracy: 15, maxAcceptableAccuracy: 50 });
+      const current = await getVerifiedBrowserLocation(employeeId, { samples: 22, windowMs: 35000, targetAccuracy: 15, maxAcceptableAccuracy: gpsPolicy().maxAcceptableAccuracy });
       state.lastLocation = current;
       if (!current.latitude || !current.longitude || current.locationPermission === "denied") throw new Error("لم يتم استلام إحداثيات GPS. فعّل الموقع من المتصفح واضغط اختبار الموقع أولاً.");
       if (!current.canRecord) {
@@ -1958,18 +1975,19 @@ async function renderPunch() {
       const device = { ok: true, deviceFingerprintHash: preFingerprint, passkeyCredentialId: "", trustedDeviceId: "", deviceRiskFlags: [] };
       const qr = isQrDisabled() ? { valid: true, status: "DISABLED", riskFlags: [], requiresReview: false } : await requestBranchQrChallenge({ endpoints, branchId: address.branch?.id || address.branchId || "main" }).catch(() => ({ status: "NOT_PROVIDED" }));
       const trustedDevice = await ensureTrustedDeviceApproval({ endpoints, employee, device: { ...device, deviceFingerprintHash: device.deviceFingerprintHash || preFingerprint }, selfieUrl: selfie.selfieUrl || selfie.url || "", location: current }).catch(() => ({ status: "VERIFIED_BY_SELFIE_GPS", requiresReview: false, riskFlags: [] }));
-      const status = current.canRecord ? "inside_branch" : (current.locationUncertain ? "location_uncertain" : "outside_branch");
+      const status = current.geofenceStatus || (current.canRecord ? "inside_branch" : (current.locationUncertain ? "location_uncertain" : "outside_branch"));
       const locationTrust = analyzeLocationTrust(current, { branch: address.branch || address, geofenceStatus: current.geofenceStatus || status });
       const risk = mergeRiskSignals(calculateAttendanceRisk({ employeeId, location: current, device, selfie, evaluation: { ...(trustedDevice || {}), geofenceStatus: status } }), locationTrust, qr, trustedDevice);
       const v4 = await evaluateAttendanceV4Controls({ endpoints, employee, device: { ...device, deviceFingerprintHash: device.deviceFingerprintHash || preFingerprint }, location: current, risk }).catch(() => ({}));
       const merged = mergeV4RiskSignals ? mergeV4RiskSignals(risk, v4) : risk;
       const faceDisabled = isFaceSelfieDisabled();
-      const insideBranch = status === "inside_branch" && current.canRecord === true;
+      const insideBranch = current.canRecord === true && String(status).includes("inside_branch");
       const finalRiskFlags = Array.from(new Set(merged.riskFlags || risk.riskFlags || []))
         .filter((flag) => !["MISSING_PASSKEY", "DEVICE_APPROVAL_CHECK_FAILED"].includes(String(flag)))
         .filter((flag) => !(faceDisabled && ["MISSING_SELFIE", "FACE_SELFIE_TEMP_DISABLED", "SELFIE_CAPTURE_FAILED"].includes(String(flag))));
-      const directRecord = insideBranch && device.ok !== false && current.locationPermission === "granted";
-      const finalRequiresReview = directRecord ? false : Boolean(merged.requiresReview || risk.requiresReview || status !== "inside_branch");
+      const weakGpsReview = String(status).includes("low_accuracy") || current.requiresReview === true;
+      const directRecord = insideBranch && !weakGpsReview && device.ok !== false && current.locationPermission === "granted";
+      const finalRequiresReview = directRecord ? false : Boolean(weakGpsReview || merged.requiresReview || risk.requiresReview || !String(status).includes("inside_branch"));
       const finalRiskScore = directRecord ? 0 : Number(merged.riskScore ?? risk.riskScore ?? 0);
       const finalRiskLevel = directRecord ? "LOW" : (merged.riskLevel || risk.riskLevel || "MEDIUM");
       const notes = app.querySelector("#punch-notes")?.value || "";
@@ -1978,7 +1996,7 @@ async function renderPunch() {
       if (!device.ok || !selfie.ok || current.locationPermission === "denied") await createFormalFallbackRequest?.({ endpoints, reason: "IDENTITY_COMPONENT_FAILED", body }).catch(() => submitFallbackAttendanceRequest({ endpoints, reason: "IDENTITY_COMPONENT_FAILED", body }).catch(() => null));
       await endpoints.recordAttendance(body);
       rememberDevicePunch(body.deviceFingerprintHash, employeeId);
-      setMessage(status === "inside_branch" ? `تم تسجيل بصمة ${actionText} داخل مجمع أحلى شباب.` : (status === "location_uncertain" ? `تم تسجيل بصمة ${actionText} كموقع غير مؤكد وستظهر للمراجعة بدل الحكم بالخروج.` : `تم تسجيل بصمة ${actionText} خارج المجمع وستظهر للمراجعة مع المكان والملاحظة.`), "");
+      setMessage(String(status).includes("inside_branch") ? `تم تسجيل بصمة ${actionText} داخل مجمع أحلى شباب${weakGpsReview ? " مع مراجعة دقة GPS." : "."}` : (status === "location_uncertain" ? `تم تسجيل بصمة ${actionText} كموقع غير مؤكد وستظهر للمراجعة بدل الحكم بالخروج.` : `تم تسجيل بصمة ${actionText} خارج المجمع وستظهر للمراجعة مع المكان والملاحظة.`), "");
       renderPunch();
     } catch (error) {
       resultBox?.classList.remove("hidden");
@@ -2461,7 +2479,7 @@ async function renderTeam() {
       ${managerLike ? `<article class="employee-card full">
         <div class="panel-kicker">فريقي المباشر</div>
         <h2>موظفو فريقي</h2>
-        ${team.length ? `<div class="employee-list my-team-focus-grid">${team.map((e)=>`<div class="employee-list-item"><div>${employeeHeaderCell(e)}</div><div class="list-item-side">${badge(e.status || "ACTIVE")}</div></div>`).join("")}</div>` : `<div class="empty-state">لا توجد بيانات فريق مرتبطة بحسابك حتى الآن.</div>`}
+        ${team.length ? `<div class="employee-list my-team-focus-grid">${team.map((e) => `<div class="employee-list-item"><div>${employeeHeaderCell(e)}</div><div class="list-item-side">${badge(e.status || "ACTIVE")}</div></div>`).join("")}</div>` : `<div class="empty-state">لا توجد بيانات فريق مرتبطة بحسابك حتى الآن.</div>`}
       </article>` : ""}
       ${abuAmmar ? `<article class="employee-card full sap-escalation-panel"><div class="panel-kicker">تصعيد تلقائي بعد ساعتين</div><h2>إجراءات محولة لأبو عمار</h2><p>أي طلب إجازة أو مأمورية لم يتم قبوله أو رفضه خلال ساعتين يظهر هنا لاتخاذ القرار.</p>${[...escalatedLeaves.map((item) => ({ ...item, _kind: "leave" })), ...escalatedMissions.map((item) => ({ ...item, _kind: "mission" }))].length ? renderManagerReviewList([...escalatedLeaves.map((item) => ({ ...item, _kind: "leave" })), ...escalatedMissions.map((item) => ({ ...item, _kind: "mission" }))], "escalated") : `<div class="empty-state">لا توجد طلبات متجاوزة مهلة الساعتين الآن.</div>`}</article>` : ""}
       ${managerPanels ? `<article class="employee-card full"><h2>طلبات إجازة تنتظر مراجعتي</h2>${pendingLeaves.length ? renderManagerReviewList(pendingLeaves, "leave") : `<div class="empty-state">لا توجد إجازات معلقة للمدير.</div>`}</article>` : ""}
@@ -2472,7 +2490,7 @@ async function renderTeam() {
     const viewport = app.querySelector(".employee-org-viewport");
     if (viewport) viewport.style.setProperty("--org-zoom", button.dataset.orgZoom || ".9");
   }));
-  app.querySelectorAll("[data-manager-review]").forEach((button)=>button.addEventListener("click", async()=>{
+  app.querySelectorAll("[data-manager-review]").forEach((button) => button.addEventListener("click", async () => {
     const [kind, id, action] = button.dataset.managerReview.split(":");
     const note = "";
     try {
@@ -2490,7 +2508,7 @@ async function renderTeam() {
 }
 
 function renderManagerReviewList(items = [], kind = "leave") {
-  return `<div class="employee-list">${items.map((item)=>{
+  return `<div class="employee-list">${items.map((item) => {
     const actualKind = kind === "escalated" ? item._kind : kind;
     return `<div class="employee-list-item sap-request-item ${kind === "escalated" ? "is-escalated" : ""}"><div><strong>${escapeHtml(item.title || item.leaveType || item.destinationName || "طلب")}</strong><span>${escapeHtml(item.startDate || item.plannedStart || item.createdAt || "-")}</span><small>${escapeHtml(item.reason || item.notes || item.destinationName || "")}</small>${kind === "escalated" ? sapRequestFlow(item, actualKind) : ""}</div><div class="list-item-side"><button class="button primary small" data-request-kind="${escapeHtml(actualKind)}" data-manager-review="${kind}:${escapeHtml(item.id)}:approve">اعتماد</button><button class="button danger small" data-request-kind="${escapeHtml(actualKind)}" data-manager-review="${kind}:${escapeHtml(item.id)}:reject">رفض</button></div></div>`;
   }).join("")}</div>`;
@@ -2505,7 +2523,7 @@ async function renderManagerKpi() {
     const employeeName = row.employeeName || row.employee?.fullName || row.employeeId || "-";
     return `<form class="employee-card full manager-kpi-review-card" data-manager-kpi-form="${escapeHtml(row.id)}"><div class="panel-head"><div><div class="panel-kicker">بانتظار مراجعة المدير</div><h2>${escapeHtml(employeeName)}</h2><p>هذا النموذج بدأه الموظف ذاتيًا، ويمكنك تأكيد النسب أو تعديلها ثم تسليمها إلى HR.</p></div>${badge(row.status || "SELF_SUBMITTED")}</div><input type="hidden" name="status" value="MANAGER_APPROVED" /><div class="kpi-mobile-score-grid"><label>الأهداف /40<input name="targetScore" type="number" min="0" max="40" step="0.5" value="${escapeHtml(row.targetScore ?? 0)}" /></label><label>الكفاءة /20<input name="efficiencyScore" type="number" min="0" max="20" step="0.5" value="${escapeHtml(row.efficiencyScore ?? 0)}" /></label><label>السلوك /5<input name="conductScore" type="number" min="0" max="5" step="0.5" value="${escapeHtml(row.conductScore ?? 0)}" /></label><label>المبادرات /5<input name="initiativesScore" type="number" min="0" max="5" step="0.5" value="${escapeHtml(row.initiativesScore ?? 0)}" /></label></div><label>ملاحظات المدير<textarea name="managerNotes" placeholder="اكتب سبب التعديل أو التأكيد">${escapeHtml(row.managerNotes || "")}</textarea></label><div class="employee-actions-row"><button class="button primary" type="submit">اعتماد وتسليم HR</button><button class="button ghost" type="button" data-route="team">عرض الفريق</button></div></form>`;
   }).join("");
-  shell(`<section class="stack manager-kpi-mobile-page"><article class="employee-card accent-card"><h2>KPI فريقي</h2><p>المدير لا يبدأ تقييم الموظف من الصفر. تظهر هنا فقط النماذج التي أرسلها الموظفون ذاتيًا، ثم تعدّل/تؤكد وتسلمها إلى HR.</p><div class="employee-metrics"><div><span>بانتظار مراجعتي</span><strong>${escapeHtml(rows.length)}</strong></div><div><span>أعضاء الفريق</span><strong>${escapeHtml(data.totals?.team || data.team?.length || 0)}</strong></div></div></article>${cards || `<article class="employee-card full"><div class="empty-state">لا توجد نماذج KPI مرسلة من الموظفين بانتظار المدير الآن.</div></article>`}</section>`, 'KPI فريقي', 'مراجعة واعتماد تقييمات فريقك من الموبايل.');
+  shell(`<section class="stack manager-kpi-mobile-page"><article class="employee-card accent-card"><h2>اعتماد KPI</h2><p>المدير لا يبدأ تقييم الموظف من الصفر. تظهر هنا فقط النماذج التي أرسلها الموظفون ذاتيًا، ثم تعدّل/تؤكد وتسلمها إلى HR.</p><div class="employee-metrics"><div><span>بانتظار مراجعتي</span><strong>${escapeHtml(rows.length)}</strong></div><div><span>أعضاء الفريق</span><strong>${escapeHtml(data.totals?.team || data.team?.length || 0)}</strong></div></div></article>${cards || `<article class="employee-card full"><div class="empty-state">لا توجد نماذج KPI مرسلة من الموظفين بانتظار المدير الآن.</div></article>`}</section>`, 'اعتماد KPI', 'مراجعة واعتماد تقييمات فريقك من الموبايل.');
   app.querySelectorAll('[data-manager-kpi-form]').forEach((form) => form.addEventListener('submit', async (event) => { event.preventDefault(); try { await endpoints.updateKpiEvaluation(form.dataset.managerKpiForm, readForm(form)); setMessage('تم اعتماد تقييم الموظف وتسليمه إلى HR.', ''); renderManagerKpi(); } catch (error) { setMessage('', error.message || 'تعذر اعتماد تقييم الفريق.'); } }));
 }
 
@@ -2513,9 +2531,9 @@ async function renderManagerHub() {
   const data = await endpoints.managerMobileHub().then(unwrap);
   shell(`<section class="stack manager-mobile-hub">
     <article class="employee-card accent-card"><h2>إدارة فريقي</h2><p>هذه الإضافات تظهر للمديرين داخل نفس تطبيق الموظف بدون تطبيق منفصل.</p><div class="employee-metrics"><div><span>الفريق</span><strong>${escapeHtml(data.totals?.team || data.team?.length || 0)}</strong></div><div><span>إجازات معلقة</span><strong>${escapeHtml(data.totals?.pendingLeaves || 0)}</strong></div><div><span>مأموريات معلقة</span><strong>${escapeHtml(data.totals?.pendingMissions || 0)}</strong></div><div><span>KPI ينتظر مراجعة</span><strong>${escapeHtml(data.totals?.kpiPending || 0)}</strong></div></div></article>
-    <article class="employee-card"><h3>أعضاء الفريق</h3>${employeeMiniTable(['الموظف','الهاتف','الحالة'], (data.team || []).map((employee) => `<tr><td>${escapeHtml(employee.fullName || employee.name || employee.id)}</td><td>${escapeHtml(employee.phone || '-')}</td><td>${escapeHtml(employee.status || employee.isActive ? 'نشط' : '—')}</td></tr>`))}</article>
-    <article class="employee-card"><h3>موافقات معلقة</h3>${employeeMiniTable(['النوع','الموظف','الحالة','التاريخ'], [...(data.pendingLeaves || []).map((r) => ({...r, kind: 'إجازة'})), ...(data.pendingMissions || []).map((r) => ({...r, kind: 'مأمورية'}))].map((row) => `<tr><td>${escapeHtml(row.kind)}</td><td>${escapeHtml(row.employeeName || row.employee?.fullName || row.employeeId || '-')}</td><td>${escapeHtml(row.status || '-')}</td><td>${date(row.createdAt || row.requestedAt)}</td></tr>`))}</article>
-    <article class="employee-card"><div class="panel-head"><div><h3>تقييمات الفريق</h3><p>تظهر فقط النماذج التي رفعها الموظف بنفسه.</p></div><button class="button ghost small" data-route="manager-kpi">فتح مركز KPI</button></div>${employeeMiniTable(['الموظف','الحالة','الشهر'], (data.kpiPending || []).map((row) => `<tr><td>${escapeHtml(row.employeeName || row.employee?.fullName || row.employeeId || '-')}</td><td>${escapeHtml(row.status || '-')}</td><td>${escapeHtml(row.month || row.cycleId || '-')}</td></tr>`))}</article>
+    <article class="employee-card"><h3>أعضاء الفريق</h3>${employeeMiniTable(['الموظف', 'الهاتف', 'الحالة'], (data.team || []).map((employee) => `<tr><td>${escapeHtml(employee.fullName || employee.name || employee.id)}</td><td>${escapeHtml(employee.phone || '-')}</td><td>${escapeHtml(employee.status || employee.isActive ? 'نشط' : '—')}</td></tr>`))}</article>
+    <article class="employee-card"><h3>موافقات معلقة</h3>${employeeMiniTable(['النوع', 'الموظف', 'الحالة', 'التاريخ'], [...(data.pendingLeaves || []).map((r) => ({ ...r, kind: 'إجازة' })), ...(data.pendingMissions || []).map((r) => ({ ...r, kind: 'مأمورية' }))].map((row) => `<tr><td>${escapeHtml(row.kind)}</td><td>${escapeHtml(row.employeeName || row.employee?.fullName || row.employeeId || '-')}</td><td>${escapeHtml(row.status || '-')}</td><td>${date(row.createdAt || row.requestedAt)}</td></tr>`))}</article>
+    <article class="employee-card"><div class="panel-head"><div><h3>تقييمات الفريق</h3><p>تظهر فقط النماذج التي رفعها الموظف بنفسه.</p></div><button class="button ghost small" data-route="manager-kpi">فتح مركز KPI</button></div>${employeeMiniTable(['الموظف', 'الحالة', 'الشهر'], (data.kpiPending || []).map((row) => `<tr><td>${escapeHtml(row.employeeName || row.employee?.fullName || row.employeeId || '-')}</td><td>${escapeHtml(row.status || '-')}</td><td>${escapeHtml(row.month || row.cycleId || '-')}</td></tr>`))}</article>
   </section>`, 'إدارة فريقي', 'متابعة مباشرة بدون مغادرة تطبيق الموظف.');
 }
 
@@ -2528,8 +2546,8 @@ async function renderCommitteeHub() {
   const data = await endpoints.committeeMobileHub().then(unwrap);
   shell(`<section class="stack committee-mobile-hub">
     <article class="employee-card disputes-hero-card"><h2>لجنة حل المشاكل والخلافات</h2><p>كل مشكلة جديدة تظهر هنا لأعضاء اللجنة مع إشعارات وتنبيهات متابعة.</p><div class="employee-metrics"><div><span>إجمالي الملفات</span><strong>${escapeHtml(data.totals?.total || data.rows?.length || 0)}</strong></div><div><span>عاجل</span><strong>${escapeHtml(data.totals?.urgent || 0)}</strong></div><div><span>مفتوح</span><strong>${escapeHtml(data.totals?.open || 0)}</strong></div></div></article>
-    <article class="employee-card"><h3>المشاكل الجديدة والمفتوحة</h3>${employeeMiniTable(['العنوان','الحالة','الأولوية','آخر تحديث'], (data.rows || []).map((row) => `<tr><td>${escapeHtml(row.title || row.subject || row.id || 'مشكلة')}</td><td>${escapeHtml(row.status || '-')}</td><td>${escapeHtml(row.priority || '-')}</td><td>${date(row.updatedAt || row.createdAt)}</td></tr>`))}</article>
-    <article class="employee-card"><h3>تنبيهات اللجنة</h3>${employeeMiniTable(['العنوان','المسار','الوقت'], (data.notifications || []).map((note) => `<tr><td>${escapeHtml(note.title || 'تنبيه')}</td><td>${escapeHtml(note.route || '-')}</td><td>${date(note.createdAt)}</td></tr>`))}</article>
+    <article class="employee-card"><h3>المشاكل الجديدة والمفتوحة</h3>${employeeMiniTable(['العنوان', 'الحالة', 'الأولوية', 'آخر تحديث'], (data.rows || []).map((row) => `<tr><td>${escapeHtml(row.title || row.subject || row.id || 'مشكلة')}</td><td>${escapeHtml(row.status || '-')}</td><td>${escapeHtml(row.priority || '-')}</td><td>${date(row.updatedAt || row.createdAt)}</td></tr>`))}</article>
+    <article class="employee-card"><h3>تنبيهات اللجنة</h3>${employeeMiniTable(['العنوان', 'المسار', 'الوقت'], (data.notifications || []).map((note) => `<tr><td>${escapeHtml(note.title || 'تنبيه')}</td><td>${escapeHtml(note.route || '-')}</td><td>${date(note.createdAt)}</td></tr>`))}</article>
   </section>`, 'لجنة الخلافات', 'متابعة وحل المشاكل داخل الموبايل.');
 }
 
@@ -2678,7 +2696,7 @@ async function render() {
   try {
     consumeFlashMessage();
     if (false && !state.user && !state.recoveryMode && sessionStorage.getItem(EMPLOYEE_TAB_SESSION_KEY) !== "1") {
-      await endpoints.logout().catch(() => {});
+      await endpoints.logout().catch(() => { });
       sessionStorage.removeItem("hr.core");
       sessionStorage.removeItem("hr.core.exp");
       return renderLogin();
@@ -2701,7 +2719,7 @@ async function render() {
     }
     if ((key === "manager-hub" || key === "manager-kpi") && !getManagerLikeRole()) {
       location.hash = "team";
-      setMessage("", "إدارة فريقي و KPI فريقي تظهر فقط للمدير الذي لديه موظفون تابعون بالفعل.");
+      setMessage("", "إدارة الفريق واعتماد KPI تظهر فقط للمدير الذي لديه موظفون مباشرون بانتظار المتابعة أو التقييم.");
       return renderTeam();
     }
     if (key === "action-center") return renderActionCenter();
@@ -2733,7 +2751,7 @@ document.addEventListener('click', (e) => {
   if (!btn) return;
   const rect = btn.getBoundingClientRect();
   const x = ((e.clientX - rect.left) / rect.width * 100).toFixed(1);
-  const y = ((e.clientY - rect.top)  / rect.height * 100).toFixed(1);
+  const y = ((e.clientY - rect.top) / rect.height * 100).toFixed(1);
   btn.style.setProperty('--x', `${x}%`);
   btn.style.setProperty('--y', `${y}%`);
 }, { passive: true });
@@ -2755,7 +2773,7 @@ document.addEventListener('click', (e) => {
 /* ── v101: Form field validation helper ── */
 function validateField(input, test, msg) {
   const valid = typeof test === 'function' ? test(input.value) : test;
-  input.classList.toggle('is-valid',   valid);
+  input.classList.toggle('is-valid', valid);
   input.classList.toggle('is-invalid', !valid);
   let err = input.parentElement?.querySelector('.field-error');
   if (!err) { err = document.createElement('span'); err.className = 'field-error'; input.after(err); }
@@ -2826,19 +2844,18 @@ function initMoreDrawer() {
 
   const moreRoutes = [
     { section: "الإشعارات والطلبات" },
-    ["action-center", "الإشعارات",  "🔔"],
-    ["requests",      "الإجازات والمأموريات",     "📋"],
+    ["action-center", "الإشعارات", "🔔"],
+    ["requests", "الإجازات والمأموريات", "📋"],
     { section: "الفريق والتقييم" },
-    ["team",          "فريقي",       "👥"],
-    ["manager-hub",   "إدارة فريقي","🧭"],
-    ["manager-kpi",   "KPI فريقي",  "📊"],
-    ["kpi",           "تقييمي",     "⭐"],
-    ["committee-hub", "لجنة الخلافات","⚖️"],
+    ["team", "فريقي", "👥"],
+    ["manager-hub", "إدارة فريقي", "🧭"],
+    ["manager-kpi", "اعتماد KPI", "✅"],
+    ["kpi", "تقييمي", "⭐"],
+    ["committee-hub", "لجنة الخلافات", "⚖️"],
     { section: "العمل اليومي" },
-    ["disputes",      "شكوى",       "⚠️"],
-    ["location",      "موقعي",      "📍"],
+    ["disputes", "شكوى", "⚠️"],
     { section: "المعلومات" },
-    ["profile",       "حسابي",      "👤"],
+    ["profile", "حسابي", "👤"],
   ].filter((item) => {
     if (item.section !== undefined) return true;
     if (item[0] === "committee-hub") return isDisputeCommitteeMember();
@@ -2857,18 +2874,21 @@ function initMoreDrawer() {
   drawer.setAttribute('aria-modal', 'true');
   drawer.setAttribute('aria-label', 'قائمة إضافية');
 
-  const currentRoute = location.hash.replace('#', '') || 'home';
+  const currentRoute = routeKey();
   let sectionsHtml = '';
   let gridHtml = '';
+  let currentSection = '';
+
+  const flushSection = () => {
+    if (!currentSection && !gridHtml) return;
+    sectionsHtml += `${currentSection ? `<div class="more-drawer-section-label">${escapeHtml(currentSection)}</div>` : ""}${gridHtml ? `<div class="more-drawer-grid">${gridHtml}</div>` : ""}`;
+    gridHtml = '';
+  };
 
   moreRoutes.forEach(item => {
     if (item.section !== undefined) {
-      if (gridHtml) {
-        sectionsHtml += `<div class="more-drawer-section-label">${escapeHtml(item.section)}</div><div class="more-drawer-grid">${gridHtml}</div>`;
-        gridHtml = '';
-      } else {
-        sectionsHtml += `<div class="more-drawer-section-label">${escapeHtml(item.section)}</div>`;
-      }
+      flushSection();
+      currentSection = item.section;
     } else {
       const [key, label, icon] = item;
       const active = currentRoute === key ? ' is-active' : '';
@@ -2878,9 +2898,7 @@ function initMoreDrawer() {
       </button>`;
     }
   });
-  if (gridHtml) {
-    sectionsHtml += `<div class="more-drawer-grid">${gridHtml}</div>`;
-  }
+  flushSection();
 
   drawer.innerHTML = `
     <div class="more-drawer-handle" aria-hidden="true"></div>
