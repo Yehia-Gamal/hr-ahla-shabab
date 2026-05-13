@@ -1,4 +1,4 @@
-const CACHE_NAME = "hr-attendance-v45-punch-note-session-fix";
+const CACHE_NAME = "hr-attendance-v47-smart-entry-gateway";
 const DEFAULT_OPEN_URL = "./employee/index.html#notifications";
 const ASSETS = [
   "./health.html",

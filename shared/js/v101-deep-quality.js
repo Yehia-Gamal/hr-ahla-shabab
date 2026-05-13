@@ -21,7 +21,7 @@
     return match ? Number(match[0]) : null;
   };
 
-  function toast(message, type = 'ok', timeout = 4200) {
+  function toast(message, type = 'ok', timeout = 8000) {
     if (!message || !doc.body) return;
     doc.querySelectorAll('.hr-qc-toast').forEach(el => el.remove());
     const el = doc.createElement('div');
@@ -33,7 +33,7 @@
     requestAnimationFrame(() => el.classList.add('is-visible'));
     window.setTimeout(() => {
       el.classList.remove('is-visible');
-      window.setTimeout(() => el.remove(), 260);
+      window.setTimeout(() => el.remove(), 520);
     }, timeout);
   }
 

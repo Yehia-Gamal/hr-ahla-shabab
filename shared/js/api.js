@@ -1,5 +1,5 @@
-import { seedDatabase } from "./database.js?v=v45-punch-note-session-fix";
-import { supabaseEndpoints, shouldUseSupabase, supabaseModeIsStrict } from "./supabase-api.js?v=v45-punch-note-session-fix";
+import { seedDatabase } from "./database.js?v=v47-smart-entry-gateway";
+import { supabaseEndpoints, shouldUseSupabase, supabaseModeIsStrict } from "./supabase-api.js?v=v47-smart-entry-gateway";
 
 const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
 const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };

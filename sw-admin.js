@@ -1,5 +1,5 @@
 // Versioned cache name; bump when updating deployment.packageVersion or cacheVersion
-const CACHE_NAME = "hr-attendance-v45-punch-note-session-fix";
+const CACHE_NAME = "hr-attendance-v47-smart-entry-gateway";
 const DEFAULT_OPEN_URL = "./admin/index.html";
 const ASSETS = [
   "./health.html",

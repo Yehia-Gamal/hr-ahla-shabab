@@ -15,15 +15,15 @@
   if (cfg.attendance.branchLocation) cfg.attendance.branchLocation.safetyBufferMeters = Math.max(50, Number(cfg.attendance.branchLocation.safetyBufferMeters || 0));
   cfg.security = Object.assign({ allowLocalFallback:false, blockInsecureGatewayDefaults:true }, cfg.security || {});
   try { delete cfg.security.allowLocalDemo; } catch {}
-  cfg.cacheVersion = cfg.cacheVersion || 'v45-punch-note-session-fix';
+  cfg.cacheVersion = cfg.cacheVersion || 'v47-smart-entry-gateway';
   cfg.deployment = Object.assign({}, cfg.deployment || {}, {
-    packageVersion: 'v45-punch-note-session-fix',
+    packageVersion: 'v47-smart-entry-gateway',
     expectedPatch: cfg.deployment?.expectedPatch || '104_royal_blue_full_migration'
   });
   window.HR_QR_REQUIRED = false;
   window.HR_PRIVATE_DEPLOY_BUNDLE = true;
 
-  function toast(msg,type='ok',ms=5000){
+  function toast(msg,type='ok',ms=8000){
     if(!msg) return;
     document.querySelectorAll('.hr-toast.v10').forEach(t=>t.remove());
     const el=document.createElement('div');
@@ -33,7 +33,7 @@
     el.setAttribute('aria-live','polite');
     document.body.appendChild(el);
     requestAnimationFrame(()=>el.classList.add('is-visible'));
-    setTimeout(()=>{el.classList.remove('is-visible'); setTimeout(()=>el.remove(),260)},ms);
+    setTimeout(()=>{el.classList.remove('is-visible'); setTimeout(()=>el.remove(),520)},ms);
   }
 
   function confirmDialog({title='تأكيد', message='', confirmLabel='تأكيد', cancelLabel='لاحقًا'}={}){

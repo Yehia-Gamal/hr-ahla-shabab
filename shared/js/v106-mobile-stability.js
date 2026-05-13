@@ -1,6 +1,6 @@
 (function HR_v106_MobileStability(){
   'use strict';
-  const VERSION = 'v45-punch-note-session-fix';
+  const VERSION = 'v47-smart-entry-gateway';
   const root = document.documentElement;
   if (root.dataset.v106MobileStability === '1') return;
   root.dataset.v106MobileStability = '1';

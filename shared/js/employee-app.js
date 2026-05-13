@@ -1,8 +1,8 @@
-import { endpoints, unwrap } from "./api.js?v=v45-punch-note-session-fix";
-import { enableWebPushSubscription } from "./push.js?v=v45-punch-note-session-fix";
-import { getDeviceFingerprintHash, requestEmployeePasskey, filterEmployeePasskeys, calculateAttendanceRisk, rememberDevicePunch, capturePunchSelfie } from "./attendance-identity.js?v=v45-punch-note-session-fix";
-import { ensureAttendancePolicyAcknowledged, ensureTrustedDeviceApproval, requestBranchQrChallenge, analyzeLocationTrust, mergeRiskSignals, submitFallbackAttendanceRequest } from "./attendance-v3-security.js?v=v45-punch-note-session-fix";
-import { evaluateAttendanceV4Controls, mergeV4RiskSignals, createFormalFallbackRequest } from "./attendance-v4-ops.js?v=v45-punch-note-session-fix";
+import { endpoints, unwrap } from "./api.js?v=v47-smart-entry-gateway";
+import { enableWebPushSubscription } from "./push.js?v=v47-smart-entry-gateway";
+import { getDeviceFingerprintHash, requestEmployeePasskey, filterEmployeePasskeys, calculateAttendanceRisk, rememberDevicePunch, capturePunchSelfie } from "./attendance-identity.js?v=v47-smart-entry-gateway";
+import { ensureAttendancePolicyAcknowledged, ensureTrustedDeviceApproval, requestBranchQrChallenge, analyzeLocationTrust, mergeRiskSignals, submitFallbackAttendanceRequest } from "./attendance-v3-security.js?v=v47-smart-entry-gateway";
+import { evaluateAttendanceV4Controls, mergeV4RiskSignals, createFormalFallbackRequest } from "./attendance-v4-ops.js?v=v47-smart-entry-gateway";
 
 const debugEnabled = () => Boolean(globalThis.HR_DEBUG_LOGS || globalThis.HR_SUPABASE_CONFIG?.debug === true);
 const debugWarn = (...args) => { if (debugEnabled()) globalThis.console?.warn?.(...args); };
@@ -269,7 +269,7 @@ function bottomNavActiveKey(current = routeKey()) {
 function showToast(message = "", type = "info") {
   if (!message) return;
   if (window.HRToast && !showToast.__delegating) {
-    try { showToast.__delegating = true; window.HRToast(message, type === "error" ? "error" : "ok"); return; }
+    try { showToast.__delegating = true; window.HRToast(message, type === "error" ? "error" : "ok", 8000); return; }
     finally { showToast.__delegating = false; }
   }
   document.querySelectorAll(".hr-toast").forEach((toast) => toast.remove());
@@ -282,7 +282,7 @@ function showToast(message = "", type = "info") {
   window.setTimeout(() => {
     toast.classList.remove("is-visible");
     window.setTimeout(() => toast.remove(), 240);
-  }, 5000);
+  }, 8000);
 }
 
 function isFriday(dateValue = new Date()) {
@@ -1185,6 +1185,42 @@ function geofenceMapPreview(record = {}) {
   </div>`;
 }
 
+function punchGeofenceVisual(record = {}, { empty = false } = {}) {
+  const safeRecord = safeLocationDisplayRecord(record);
+  const target = configuredBranchTarget();
+  const radius = Number(safeRecord.localRadiusMeters || target?.radiusMeters || 300);
+  const distance = Number(safeRecord.distanceFromBranchMeters ?? safeRecord.distanceFromBranch ?? safeRecord.distanceMeters ?? 0);
+  const status = String(safeRecord.geofenceStatus || safeRecord.locationStatus || "").toLowerCase();
+  const inside = !empty && (safeRecord.insideBranch || status.includes("inside"));
+  const uncertain = !empty && (safeRecord.locationUncertain || status.includes("uncertain") || status.includes("low_accuracy"));
+  const outside = !empty && !inside && !uncertain;
+  const signal = empty ? "بانتظار GPS" : inside ? "إشارة ممتازة" : uncertain ? "إشارة تحتاج مراجعة" : "خارج النطاق";
+  const title = empty ? "اختبر موقعك عند الوصول" : inside ? "أنت الآن داخل نطاق البصمة" : uncertain ? "موقعك قريب ويحتاج مراجعة" : "أنت خارج نطاق البصمة";
+  const detail = empty
+    ? "سيظهر نطاق المجمع والمسافة بعد الضغط على اختبار الموقع."
+    : inside
+      ? "جاهز لتسجيل الحضور أو الانصراف."
+      : uncertain
+        ? "الدقة الحالية لا تكفي للحكم النهائي؛ سيتم حفظها للمراجعة."
+        : `يبعد تقريبًا ${formatMeters(distance)} عن المجمع.`;
+  return `<div class="punch-place-visual ${inside ? "is-inside" : uncertain ? "is-uncertain" : outside ? "is-outside" : "is-idle"}">
+    <div class="punch-place-top">
+      <span class="punch-signal-dot"></span>
+      <strong>${escapeHtml(signal)}</strong>
+      <em>دائرة ${escapeHtml(formatMeters(radius))}</em>
+    </div>
+    <div class="punch-place-copy">
+      <span>${escapeHtml(branchName())}</span>
+      <h2>${escapeHtml(title)}</h2>
+      <p>${escapeHtml(detail)}</p>
+    </div>
+    <div class="punch-place-footer">
+      <span>${escapeHtml(branchArea())}</span>
+      ${!empty && Number.isFinite(distance) && distance > 0 ? `<strong>${escapeHtml(formatMeters(distance))}</strong>` : `<strong>GPS</strong>`}
+    </div>
+  </div>`;
+}
+
 function renderRequestList(requests = []) {
   if (!requests || !requests.length) return `<div class="empty-state">لا توجد طلبات مسجلة.</div>`;
   return `<div class="employee-list">${requests.map((item) => `<div class="employee-list-item"><div><strong>${escapeHtml(item.title || item.leaveType?.name || item.leaveType || item.type || "طلب")}</strong><span>${escapeHtml(date(item.createdAt || item.startDate || item.plannedStart || "-"))}</span><small>${escapeHtml(item.reason || item.notes || item.destinationName || "-")}</small></div><div class="list-item-side">${badge(item.finalStatus || item.workflowStatus || item.status)}</div></div>`).join("")}</div>`;
@@ -1628,10 +1664,16 @@ async function getVerifiedBrowserLocation(employeeId = "", options = {}) {
     requiresReview: Boolean(weak || uncertain || evaluation.requiresReview),
   };
   const placeName = await reverseGeocode(merged.latitude, merged.longitude);
-  merged.placeLabel = placeName || merged.placeLabel || merged.locationLabel || "";
-  if (merged.insideBranch) merged.addressLabel = `${branchName()} — ${branchArea()}`;
-  else if (merged.locationUncertain) merged.addressLabel = placeName || "الموقع غير مؤكد — سيتم إرساله للمراجعة بدل الحكم الخاطئ";
-  else merged.addressLabel = placeName || merged.addressLabel || "موقع خارج المجمع";
+  merged.reverseGeocodeLabel = placeName || "";
+  if (merged.insideBranch) {
+    merged.placeLabel = `${branchName()} — ${branchArea()}`;
+    merged.addressLabel = `${branchName()} — ${branchArea()}`;
+  } else {
+    merged.placeLabel = "";
+    merged.addressLabel = merged.locationUncertain
+      ? "الموقع غير مؤكد — سيتم إرساله للمراجعة بدل الحكم بعنوان عكسي غير مضمون"
+      : "موقع GPS خارج نطاق المجمع — افتح الخريطة للتفاصيل الدقيقة";
+  }
   return merged;
 }
 
@@ -1963,7 +2005,7 @@ async function renderPunch() {
           <div><span>الموقع المعتمد</span><strong>${branchName()}</strong><small>${branchArea()}</small></div>
           <button class="button ghost small" data-test-gps type="button">اختبار الموقع / عرض الخريطة</button>
         </div>
-        <div id="gps-map-preview" class="gps-map-preview"><div class="gps-empty-state"><strong>اختبار الموقع</strong><span>اضغط الزر لعرض موقعك الحقيقي وحالة النطاق على الخريطة.</span></div></div>
+        <div id="gps-map-preview" class="gps-map-preview">${punchGeofenceVisual({}, { empty: true })}</div>
         <div class="employee-actions-stack punch-actions-clear">
           <button class="button primary full" data-punch-type="${suggestedType}">${primaryLabel}</button>
           <button class="button ghost full" data-punch-type="${suggestedType === "in" ? "out" : "in"}">${secondaryLabel}</button>
@@ -1980,10 +2022,10 @@ async function renderPunch() {
       resultBox?.classList.remove("hidden", "danger-box");
       if (resultBox) resultBox.textContent = "جاري اختبار الموقع بدقة عالية...";
       const current = await getVerifiedBrowserLocation(employeeId);
-      const normalized = safeLocationDisplayRecord({ ...current, status: current.geofenceStatus || (current.canRecord ? "inside_branch" : (current.locationUncertain ? "location_uncertain" : "outside_branch")), addressLabel: current.canRecord ? `${branchName()} — ${branchArea()}` : (current.addressLabel || (current.locationUncertain ? "الموقع غير مؤكد" : "موقع خارج المجمع")) });
+      const normalized = safeLocationDisplayRecord({ ...current, status: current.geofenceStatus || (current.canRecord ? "inside_branch" : (current.locationUncertain ? "location_uncertain" : "outside_branch")), addressLabel: current.insideBranch ? `${branchName()} — ${branchArea()}` : (current.addressLabel || (current.locationUncertain ? "الموقع غير مؤكد" : "موقع GPS خارج نطاق المجمع")) });
       sessionStorage.setItem("hr.employee.lastGpsTest", JSON.stringify({ ...normalized, testedAt: new Date().toISOString() }));
       const preview = app.querySelector("#gps-map-preview");
-      if (preview) preview.innerHTML = `${readableLocationBlock(normalized)}${geofenceMapPreview(normalized)}`;
+      if (preview) preview.innerHTML = `${punchGeofenceVisual(normalized)}${readableLocationBlock(normalized)}${geofenceMapPreview(normalized)}`;
       if (resultBox) resultBox.textContent = current.canRecord ? "أنت داخل دائرة 300 متر الخاصة بمجمع أحلى شباب." : (current.locationUncertain ? "الموقع قريب أو دقته غير كافية؛ سيظهر للمراجعة مع المسافة والدقة." : `أنت خارج دائرة 300 متر. المسافة التقريبية: ${formatMeters(current.distanceFromBranchMeters)}.`);
     } catch (error) {
       resultBox?.classList.remove("hidden");
@@ -2041,7 +2083,7 @@ async function renderPunch() {
       assertFreshEmployeePunchIntent(punchIntent, type);
       const passkeyVerified = Boolean(device.passkeyCredentialId || device.credentialId) && device.ok !== false;
       const biometricMethod = `${passkeyVerified ? "passkey+" : ""}face_selfie+gps${isQrDisabled() ? "" : "+qr"}`;
-      const body = { ...current, ...punchIntent, type: type === "out" ? "CHECK_OUT" : "CHECK_IN", eventType: type, employeeId, notes: "", status, locationStatus: status, addressLabel: current.canRecord ? `${branchName()} — ${branchArea()}` : (current.addressLabel || current.locationLabel || (current.locationUncertain ? "الموقع غير مؤكد — مراجعة" : "خارج نطاق المجمع")), placeLabel: current.placeLabel || current.addressLabel || "", verificationStatus: "verified", biometricMethod, passkeyCredentialId: device.passkeyCredentialId || device.credentialId || "", trustedDeviceId: device.trustedDeviceId || "", deviceFingerprintHash: device.deviceFingerprintHash || preFingerprint, browserInstallId: policyAck.browserInstallId || "", selfieUrl: selfie.selfieUrl || selfie.url || "", branchQrStatus: qr.status, branchQrChallengeId: qr.challengeId || "", antiSpoofingFlags: locationTrust.flags || [], riskScore: finalRiskScore, riskLevel: finalRiskLevel, riskFlags: finalRiskFlags, requiresReview: finalRequiresReview || !passkeyVerified || Boolean(selfie.uploadFailed), identityCheck: { passkeyRequired: true, passkeyVerified, passkeyFallbackAccepted: !passkeyVerified, passkeyFallbackReason: device.passkeyError || "", faceSelfieRequired: true, faceSelfieCaptured: true, selfieCapturedAt: selfie.capturedAt || "", selfieUploadFailed: Boolean(selfie.uploadFailed), selfieUploadError: selfie.uploadError || "", selfieStorageBucket: selfie.storageBucket || "", selfieStoragePath: selfie.storagePath || "", faceDetection: selfie.analysis?.faceDetection || "UNSUPPORTED", faceCount: selfie.analysis?.faceCount ?? null, selfieBrightness: selfie.analysis?.brightness ?? null, selfieVariance: selfie.analysis?.variance ?? null, faceMatchStatus: "NOT_RUN", livenessStatus: selfie.analysis?.faceDetection === "RUN" ? "MANUAL_REVIEW" : "NOT_RUN", locationPlaceName: current.addressLabel || current.placeLabel || "" } };
+      const body = { ...current, ...punchIntent, type: type === "out" ? "CHECK_OUT" : "CHECK_IN", eventType: type, employeeId, notes: "", status, locationStatus: status, addressLabel: current.insideBranch ? `${branchName()} — ${branchArea()}` : (current.addressLabel || current.locationLabel || (current.locationUncertain ? "الموقع غير مؤكد — مراجعة" : "خارج نطاق المجمع")), placeLabel: current.placeLabel || "", verificationStatus: "verified", biometricMethod, passkeyCredentialId: device.passkeyCredentialId || device.credentialId || "", trustedDeviceId: device.trustedDeviceId || "", deviceFingerprintHash: device.deviceFingerprintHash || preFingerprint, browserInstallId: policyAck.browserInstallId || "", selfieUrl: selfie.selfieUrl || selfie.url || "", branchQrStatus: qr.status, branchQrChallengeId: qr.challengeId || "", antiSpoofingFlags: locationTrust.flags || [], riskScore: finalRiskScore, riskLevel: finalRiskLevel, riskFlags: finalRiskFlags, requiresReview: finalRequiresReview || !passkeyVerified || Boolean(selfie.uploadFailed), identityCheck: { passkeyRequired: true, passkeyVerified, passkeyFallbackAccepted: !passkeyVerified, passkeyFallbackReason: device.passkeyError || "", faceSelfieRequired: true, faceSelfieCaptured: true, selfieCapturedAt: selfie.capturedAt || "", selfieUploadFailed: Boolean(selfie.uploadFailed), selfieUploadError: selfie.uploadError || "", selfieStorageBucket: selfie.storageBucket || "", selfieStoragePath: selfie.storagePath || "", faceDetection: selfie.analysis?.faceDetection || "UNSUPPORTED", faceCount: selfie.analysis?.faceCount ?? null, selfieBrightness: selfie.analysis?.brightness ?? null, selfieVariance: selfie.analysis?.variance ?? null, faceMatchStatus: "NOT_RUN", livenessStatus: selfie.analysis?.faceDetection === "RUN" ? "MANUAL_REVIEW" : "NOT_RUN", locationPlaceName: current.addressLabel || current.placeLabel || "" } };
       if (!device.ok || !selfie.ok || current.locationPermission === "denied") await createFormalFallbackRequest?.({ endpoints, reason: "IDENTITY_COMPONENT_FAILED", body }).catch(() => submitFallbackAttendanceRequest({ endpoints, reason: "IDENTITY_COMPONENT_FAILED", body }).catch(() => null));
       const savedPunch = unwrap(await endpoints.recordAttendance(body));
       rememberDevicePunch(body.deviceFingerprintHash, employeeId);

@@ -3,7 +3,7 @@ import { join, relative } from 'node:path';
 import { Script } from 'node:vm';
 
 const root = process.cwd();
-const version = 'v45-punch-note-session-fix';
+const version = 'v47-smart-entry-gateway';
 const failures = [];
 const read = (file) => readFileSync(join(root, file), 'utf8');
 const assert = (condition, message) => { if (!condition) failures.push(message); };

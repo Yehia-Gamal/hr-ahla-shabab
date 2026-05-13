@@ -1,43 +1,376 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; img-src 'self' data: blob: https:; media-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://esm.sh https://cdn.jsdelivr.net; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://esm.sh https://nominatim.openstreetmap.org https://api.github.com; frame-src https://www.openstreetmap.org https://maps.google.com;" />
-    <meta name="theme-color" content="#050A1A" />
-    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
-    <link rel="manifest" href="./shared/pwa/manifest-employee.json?v=v111-mobile-location-polish" />
-    <link rel="icon" href="./shared/images/favicon-64.png" />
-    <link rel="stylesheet" href="./shared/css/styles.css?v=v45-punch-note-session-fix" />
-  <link rel="stylesheet" href="./shared/css/v104-royal-blue-overhaul.css?v=v45-punch-note-session-fix" />
-    <link rel="stylesheet" href="./shared/css/neon-admin-theme.css?v=v45-punch-note-session-fix" />
-    <link rel="stylesheet" href="./shared/css/v10-private-deploy-theme.css?v=v45-punch-note-session-fix" />
-      <link rel="stylesheet" href="shared/css/v101-deep-quality.css?v=v45-punch-note-session-fix" />
-<title>تحويل...</title>
-    <script>
-      // Redirect to the employee application by default
-      window.location.href = "./employee/";
-    </script>
-    <meta http-equiv="refresh" content="0;url=./employee/" />
-  <link rel="stylesheet" href="shared/css/v102-ui-overhaul.css?v=v45-punch-note-session-fix" />
-  <link rel="stylesheet" href="shared/css/v105-ui-fixes.css?v=v45-punch-note-session-fix" />
-  <link rel="stylesheet" href="./shared/css/v106-mobile-stability.css?v=v45-punch-note-session-fix" />
-  <link rel="stylesheet" href="./shared/css/v107-final-ui-polish.css?v=v45-punch-note-session-fix" />
-  <link rel="stylesheet" href="./shared/css/v108-final-bugfix.css?v=v45-punch-note-session-fix" />
-  <link rel="stylesheet" href="./shared/css/v109-final-system-fixes.css?v=v45-punch-note-session-fix" />
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; img-src 'self' data: blob: https:; media-src 'self' data: blob:; font-src 'self' https://fonts.gstatic.com data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://esm.sh https://cdn.jsdelivr.net; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://esm.sh https://nominatim.openstreetmap.org https://api.github.com; frame-src https://www.openstreetmap.org https://maps.google.com;" />
+  <meta name="theme-color" content="#050A1A" />
+  <meta name="description" content="بوابة الدخول الذكية لنظام الحضور والإدارة لمجمع أحلى شباب" />
+  <link rel="manifest" href="./shared/pwa/manifest-employee.json?v=v47-smart-entry-gateway" />
+  <link rel="icon" href="./shared/images/favicon-64.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <title>بوابة الدخول الذكية - أحلى شباب</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #030815;
+      --panel: rgba(5, 17, 39, .84);
+      --line: rgba(56, 199, 244, .34);
+      --text: #f8fbff;
+      --muted: rgba(203, 213, 225, .8);
+      --cyan: #22d3ee;
+      --blue: #0b72ff;
+      --green: #22c55e;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100svh;
+      font-family: "Cairo", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at 50% 10%, rgba(12, 92, 214, .22), transparent 34%), var(--bg);
+      color: var(--text);
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .gateway {
+      min-height: 100svh;
+      display: grid;
+      place-items: center;
+      padding: max(20px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom));
+      overflow: hidden;
+    }
+
+    .gateway-card {
+      width: min(100%, 520px);
+      min-height: min(920px, calc(100svh - 28px));
+      position: relative;
+      display: grid;
+      align-content: end;
+      gap: 14px;
+      padding: 24px 20px 26px;
+      border: 1px solid rgba(56, 199, 244, .24);
+      border-radius: 30px;
+      overflow: hidden;
+      isolation: isolate;
+      background:
+        linear-gradient(180deg, rgba(2, 8, 24, .12) 0%, rgba(2, 8, 24, .36) 40%, rgba(2, 8, 24, .95) 78%, #020816 100%),
+        url("./shared/images/smart-gateway-hero.png") center top / cover no-repeat;
+      box-shadow: 0 34px 100px rgba(0, 0, 0, .65), 0 0 70px rgba(14, 165, 233, .16);
+    }
+
+    .gateway-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(90deg, rgba(3, 8, 20, .78), transparent 22%, transparent 78%, rgba(3, 8, 20, .78)),
+        radial-gradient(circle at 50% 54%, rgba(34, 211, 238, .2), transparent 34%);
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .gateway-brand {
+      position: absolute;
+      top: 24px;
+      left: 20px;
+      right: 20px;
+      display: grid;
+      justify-items: center;
+      gap: 10px;
+      text-align: center;
+    }
+
+    .gateway-logo {
+      width: 132px;
+      max-width: 38vw;
+      filter: drop-shadow(0 0 22px rgba(11, 114, 255, .48));
+    }
+
+    .smart-pill,
+    .signal-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 36px;
+      padding: 6px 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(4, 19, 45, .78);
+      color: rgba(232, 240, 255, .94);
+      font-size: 13px;
+      font-weight: 900;
+      backdrop-filter: blur(12px);
+    }
+
+    .signal-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--green);
+      box-shadow: 0 0 18px rgba(34, 197, 94, .95);
+    }
+
+    .gateway-title {
+      margin: 0;
+      font-size: clamp(34px, 9vw, 58px);
+      line-height: 1.12;
+      font-weight: 950;
+      text-shadow: 0 5px 28px rgba(0, 0, 0, .78);
+    }
+
+    .gateway-subtitle {
+      margin: 0;
+      color: rgba(226, 242, 255, .86);
+      font-size: clamp(15px, 4vw, 21px);
+      font-weight: 800;
+      line-height: 1.55;
+      text-shadow: 0 3px 16px rgba(0, 0, 0, .82);
+    }
+
+    .gateway-content {
+      display: grid;
+      gap: 14px;
+      z-index: 1;
+    }
+
+    .location-card,
+    .feature-row,
+    .gateway-link {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 18px 54px rgba(0, 0, 0, .32), 0 0 0 1px rgba(255, 255, 255, .04) inset;
+    }
+
+    .location-card {
+      display: grid;
+      grid-template-columns: 54px minmax(0, 1fr) 24px;
+      gap: 12px;
+      align-items: center;
+      min-height: 86px;
+      padding: 14px;
+      border-radius: 22px;
+    }
+
+    .icon-ring {
+      width: 54px;
+      height: 54px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background: radial-gradient(circle, rgba(34, 211, 238, .24), rgba(11, 114, 255, .12));
+      border: 1px solid rgba(56, 199, 244, .36);
+      color: var(--cyan);
+      font-size: 27px;
+    }
+
+    .location-card strong,
+    .gateway-link strong,
+    .feature strong {
+      display: block;
+      color: var(--text);
+      font-size: 18px;
+      font-weight: 950;
+      line-height: 1.35;
+    }
+
+    .location-card span,
+    .gateway-link span,
+    .feature span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.55;
+    }
+
+    .chevron {
+      color: rgba(186, 230, 255, .82);
+      font-size: 30px;
+      line-height: 1;
+    }
+
+    .feature-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      border-radius: 20px;
+      overflow: hidden;
+    }
+
+    .feature {
+      display: grid;
+      justify-items: center;
+      gap: 7px;
+      min-height: 94px;
+      padding: 13px 8px;
+      text-align: center;
+      background: rgba(5, 19, 43, .62);
+    }
+
+    .feature .icon-ring {
+      width: 46px;
+      height: 46px;
+      font-size: 23px;
+    }
+
+    .feature strong { font-size: 13px; }
+    .feature span { font-size: 11px; }
+
+    .gateway-actions {
+      display: grid;
+      gap: 10px;
+    }
+
+    .gateway-link {
+      display: grid;
+      grid-template-columns: 56px minmax(0, 1fr) 24px;
+      align-items: center;
+      gap: 12px;
+      min-height: 72px;
+      padding: 12px 14px;
+      border-radius: 20px;
+      transition: transform .18s ease, border-color .18s ease, background .18s ease;
+    }
+
+    .gateway-link:hover,
+    .gateway-link:focus-visible {
+      transform: translateY(-2px);
+      border-color: rgba(34, 211, 238, .68);
+      background: rgba(7, 30, 70, .9);
+      outline: none;
+    }
+
+    .gateway-link.primary {
+      min-height: 84px;
+      border-color: rgba(34, 211, 238, .72);
+      background: linear-gradient(135deg, rgba(20, 184, 166, .86), rgba(11, 114, 255, .92));
+      box-shadow: 0 18px 60px rgba(14, 165, 233, .34);
+    }
+
+    .gateway-link.primary strong {
+      font-size: 25px;
+    }
+
+    .gateway-secondary {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .gateway-secondary .gateway-link {
+      grid-template-columns: 44px minmax(0, 1fr);
+      min-height: 66px;
+    }
+
+    .gateway-secondary .chevron {
+      display: none;
+    }
+
+    .guest-link,
+    .secure-note {
+      justify-self: center;
+      color: rgba(203, 213, 225, .78);
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .guest-link {
+      padding: 7px 12px;
+      border-radius: 999px;
+    }
+
+    .secure-note {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    @media (max-width: 460px) {
+      .gateway {
+        padding-inline: 0;
+      }
+
+      .gateway-card {
+        width: 100%;
+        min-height: 100svh;
+        border-radius: 0;
+        border-inline: 0;
+        padding-inline: 18px;
+      }
+
+      .gateway-secondary {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .gateway-link {
+        transition: none;
+      }
+    }
+  </style>
 </head>
-  <body>
-    <p>جاري التحويل إلى تطبيق الموظفين... <a href="./employee/">اضغط هنا إذا لم يتم التحويل تلقائياً</a></p>
-    <script src="./shared/js/v10-private-deploy-fixes.js?v=v111-mobile-location-polish" defer></script>
-      <script src="shared/js/v101-deep-quality.js?v=v45-punch-note-session-fix" defer></script>
-<script src="./shared/js/register-sw.js?v=v45-punch-note-session-fix" defer></script>
-  <script src="shared/js/v102-enhancements.js?v=v45-punch-note-session-fix" defer></script>
-  <script src="shared/js/v105-ui-fixes.js?v=v45-punch-note-session-fix" defer></script>
-  <script src="./shared/js/v106-mobile-stability.js?v=v45-punch-note-session-fix" defer></script>
-  <script src="./shared/js/v107-final-ui-polish.js?v=v45-punch-note-session-fix" defer></script>
-  <script src="./shared/js/v108-final-bugfix.js?v=v45-punch-note-session-fix" defer></script>
-  <script src="./shared/js/v109-final-system-fixes.js?v=v45-punch-note-session-fix" defer></script>
+<body>
+  <main class="gateway" aria-label="بوابة الدخول الذكية">
+    <section class="gateway-card">
+      <header class="gateway-brand">
+        <img class="gateway-logo" src="./shared/images/ahla-shabab-logo.png" alt="أحلى شباب" />
+        <span class="smart-pill">🛡 بوابة ذكية</span>
+        <div>
+          <h1 class="gateway-title">بوابة الدخول الذكية</h1>
+          <p class="gateway-subtitle">لنظام الحضور والإدارة لمجمع أحلى شباب</p>
+        </div>
+      </header>
+
+      <div class="gateway-content">
+        <span class="signal-pill"><i class="signal-dot"></i> جاهزة للتشغيل</span>
+
+        <a class="location-card" href="./employee/#punch" aria-label="فتح بصمة مجمع أحلى شباب">
+          <span class="icon-ring">⌖</span>
+          <span>
+            <strong>مجمع أحلى شباب - منيل شيحة</strong>
+            <span>شارع مزلقان العرب، منيل شيحة، أبو النمرس، الجيزة 12912</span>
+          </span>
+          <span class="chevron">›</span>
+        </a>
+
+        <div class="feature-row" aria-label="مميزات البوابة">
+          <div class="feature"><span class="icon-ring">☝</span><strong>بصمة ذكية</strong><span>تحقق سريع وآمن</span></div>
+          <div class="feature"><span class="icon-ring">⌖</span><strong>تحديد الموقع</strong><span>دقة عالية ونطاق آمن</span></div>
+          <div class="feature"><span class="icon-ring">▣</span><strong>دخول آمن</strong><span>حماية وخصوصية كاملة</span></div>
+        </div>
+
+        <nav class="gateway-actions" aria-label="روابط الدخول">
+          <a class="gateway-link primary" href="./employee/">
+            <span class="icon-ring">👤</span>
+            <span><strong>دخول الموظفين</strong><span>الحضور والانصراف والطلبات</span></span>
+            <span class="chevron">›</span>
+          </a>
+          <div class="gateway-secondary">
+            <a class="gateway-link" href="./operations-gate/?next=../admin/">
+              <span class="icon-ring">⚙</span>
+              <span><strong>دخول الإدارة</strong><span>لوحة HR والتحكم</span></span>
+              <span class="chevron">›</span>
+            </a>
+            <a class="gateway-link" href="./operations-gate/?next=../executive/">
+              <span class="icon-ring">◎</span>
+              <span><strong>المتابعة التنفيذية</strong><span>رؤية شاملة مباشرة</span></span>
+              <span class="chevron">›</span>
+            </a>
+          </div>
+        </nav>
+
+        <a class="guest-link" href="./health.html">متابعة كزائر</a>
+        <span class="secure-note">🛡 بياناتك آمنة ومشفرة</span>
+      </div>
+    </section>
+  </main>
+  <script src="./shared/js/register-sw.js?v=v47-smart-entry-gateway" defer></script>
 </body>
 </html>

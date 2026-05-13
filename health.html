@@ -8,8 +8,8 @@
   <meta name="theme-color" content="#050A1A" />
   <title>مركز فحص وتشغيل أحلى شباب HR</title>
   <link rel="icon" href="shared/images/favicon-64.png" />
-  <link rel="stylesheet" href="shared/css/styles.css?v=v45-punch-note-session-fix" />
-<link rel="stylesheet" href="shared/css/neon-admin-theme.css?v=v45-punch-note-session-fix" />
+  <link rel="stylesheet" href="shared/css/styles.css?v=v47-smart-entry-gateway" />
+<link rel="stylesheet" href="shared/css/neon-admin-theme.css?v=v47-smart-entry-gateway" />
   <link rel="stylesheet" href="./shared/css/v110-consolidated.css?v=v110" />
 <style>
     :root{--bg:#050A1A;--panel:#0B1628;--line:rgba(0,194,255,.20);--cyan:#00C2FF;--blue:#1A6EFF;--green:#00D68F;--amber:#FF8C00;--red:#FF3B6B;--text:#E8F0FF;--muted:#7A94C1}
@@ -67,9 +67,9 @@
     </section>
     <section class="health-grid"><article class="health-card full"><h2>نتائج الفحص</h2><div id="results" class="muted">جاري الفحص...</div></article><article class="health-card"><h2>مشاكل مانعة</h2><div id="blockers" class="muted">--</div></article><article class="health-card"><h2>تحذيرات</h2><div id="warnings" class="muted">--</div></article><article class="health-card full"><h2>Raw report</h2><div id="raw" class="log-box">--</div></article></section>
   </main>
-  <script src="shared/js/supabase-config.js?v=v45-punch-note-session-fix"></script>
+  <script src="shared/js/supabase-config.js?v=v47-smart-entry-gateway"></script>
   <script type="module">
-    import { runRuntimeDiagnostics, clearRuntimeCaches, testLocalNotification, downloadDiagnosticsReport } from './shared/js/runtime-diagnostics.js?v=v45-punch-note-session-fix';
+    import { runRuntimeDiagnostics, clearRuntimeCaches, testLocalNotification, downloadDiagnosticsReport } from './shared/js/runtime-diagnostics.js?v=v47-smart-entry-gateway';
     let lastReport = null; const $ = (id) => document.getElementById(id);
     function notify(message, level = 'ok') { const el = document.createElement('div'); el.className = `health-toast ${level === 'bad' ? 'bad' : ''}`; el.textContent = message; document.body.appendChild(el); requestAnimationFrame(() => el.classList.add('show')); setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 240); }, 3800); }
     function label(level){ return level === 'ok' ? 'سليم' : level === 'bad' ? 'خطأ' : 'تحذير'; }
@@ -90,12 +90,12 @@
     $('test-notification').addEventListener('click', async () => { try { await testLocalNotification(); notify('تم إرسال اختبار الإشعار.'); } catch (error) { notify(error.message || 'تعذر اختبار الإشعار.', 'bad'); } });
     run();
   </script>
-  <script src="shared/js/v101-deep-quality.js?v=v45-punch-note-session-fix" defer></script>
-  <script src="shared/js/v102-enhancements.js?v=v45-punch-note-session-fix" defer></script>
-  <script src="shared/js/v105-ui-fixes.js?v=v45-punch-note-session-fix" defer></script>
-  <script src="shared/js/v106-mobile-stability.js?v=v45-punch-note-session-fix" defer></script>
-  <script src="./shared/js/v107-final-ui-polish.js?v=v45-punch-note-session-fix" defer></script>
-  <script src="./shared/js/v108-final-bugfix.js?v=v45-punch-note-session-fix" defer></script>
-  <script src="./shared/js/v109-final-system-fixes.js?v=v45-punch-note-session-fix" defer></script>
+  <script src="shared/js/v101-deep-quality.js?v=v47-smart-entry-gateway" defer></script>
+  <script src="shared/js/v102-enhancements.js?v=v47-smart-entry-gateway" defer></script>
+  <script src="shared/js/v105-ui-fixes.js?v=v47-smart-entry-gateway" defer></script>
+  <script src="shared/js/v106-mobile-stability.js?v=v47-smart-entry-gateway" defer></script>
+  <script src="./shared/js/v107-final-ui-polish.js?v=v47-smart-entry-gateway" defer></script>
+  <script src="./shared/js/v108-final-bugfix.js?v=v47-smart-entry-gateway" defer></script>
+  <script src="./shared/js/v109-final-system-fixes.js?v=v47-smart-entry-gateway" defer></script>
 </body>
 </html>

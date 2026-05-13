@@ -83,14 +83,14 @@ window.HR_SUPABASE_CONFIG = Object.freeze({
   },
   deployment: {
     expectedPatch: "110_consolidated_stable_full_audit",
-    packageVersion: "v45-punch-note-session-fix",
+    packageVersion: "v47-smart-entry-gateway",
     hardeningLevel: "production-clean-secure-gate-csp-pwa",
   },
-  cacheVersion: "v45-punch-note-session-fix",
+  cacheVersion: "v47-smart-entry-gateway",
 });
 
 window.__HR_SUPABASE_CONFIG_LOADED__ = true;
-window.__HR_SUPABASE_CONFIG_VERSION__ = "v45-punch-note-session-fix";
+window.__HR_SUPABASE_CONFIG_VERSION__ = "v47-smart-entry-gateway";
 
 (function markSupabaseMode() {
   const cfg = window.HR_SUPABASE_CONFIG || {};

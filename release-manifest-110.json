@@ -1,8 +1,8 @@
 {
-  "version": "v45-punch-note-session-fix",
-  "packageVersion": "1.7.0-v45-punch-note-session-fix",
+  "version": "v47-smart-entry-gateway",
+  "packageVersion": "1.7.0-v47-smart-entry-gateway",
   "date": "2026-05-10",
-  "basedOn": "HR.zip (v45-punch-note-session-fix)",
+  "basedOn": "HR.zip (v47-smart-entry-gateway)",
   "noSupabaseChanges": true,
   "bugs_fixed": [
     "CSS BLOAT: 10 patch CSS files (v10-private-deploy through v109) loaded on every page (10 HTTP requests) → merged into 1 file: v110-consolidated.css",

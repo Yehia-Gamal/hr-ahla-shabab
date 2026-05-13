@@ -3597,6 +3597,263 @@ body.employee-portal .more-drawer-section-label {
   color: rgba(186, 230, 255, .72) !important;
 }
 
+/* Absolute final overrides for employee alerts and punch GPS art */
+.hr-toast,
+.hr-qc-toast {
+  position: fixed !important;
+  top: calc(env(safe-area-inset-top, 0px) + 14px) !important;
+  bottom: auto !important;
+  left: 50% !important;
+  right: auto !important;
+  width: max-content !important;
+  min-width: min(280px, calc(100vw - 28px)) !important;
+  max-width: min(92vw, 520px) !important;
+  max-height: 30svh !important;
+  padding: 14px 18px !important;
+  border-radius: 18px !important;
+  background: linear-gradient(180deg, rgba(9, 22, 42, .99), rgba(5, 12, 28, .99)) !important;
+  color: #f8fbff !important;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, .58), 0 0 0 1px rgba(255,255,255,.04) inset !important;
+  opacity: 0 !important;
+  transform: translateX(-50%) translateY(70px) scale(.98) !important;
+  transition: none !important;
+  z-index: 999999 !important;
+}
+
+.hr-toast.is-visible,
+.hr-qc-toast.is-visible {
+  animation: hrToastFloatUp 8s cubic-bezier(.2, .8, .2, 1) forwards !important;
+}
+
+.hr-toast.error,
+.hr-qc-toast.error {
+  border-color: rgba(248, 113, 113, .62) !important;
+  background: linear-gradient(180deg, rgba(62, 18, 28, .99), rgba(18, 8, 18, .99)) !important;
+}
+
+.hr-toast.ok,
+.hr-toast.success,
+.hr-qc-toast.ok {
+  border-color: rgba(45, 212, 191, .5) !important;
+}
+
+body.employee-portal .message.compact {
+  position: static !important;
+  inset: auto !important;
+  transform: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  max-height: none !important;
+  overflow: visible !important;
+  z-index: auto !important;
+}
+
+/* Final alert and punch GPS visual polish */
+.hr-toast,
+.hr-qc-toast {
+  position: fixed !important;
+  top: calc(env(safe-area-inset-top, 0px) + 14px) !important;
+  bottom: auto !important;
+  left: 50% !important;
+  right: auto !important;
+  width: max-content !important;
+  min-width: min(280px, calc(100vw - 28px)) !important;
+  max-width: min(92vw, 520px) !important;
+  max-height: 30svh !important;
+  padding: 14px 18px !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(56, 199, 244, .34) !important;
+  background: linear-gradient(180deg, rgba(9, 22, 42, .99), rgba(5, 12, 28, .99)) !important;
+  color: #f8fbff !important;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, .58), 0 0 0 1px rgba(255,255,255,.04) inset !important;
+  opacity: 0 !important;
+  transform: translateX(-50%) translateY(70px) scale(.98) !important;
+  transition: none !important;
+  animation: none !important;
+  z-index: 999999 !important;
+}
+
+.hr-toast.is-visible,
+.hr-qc-toast.is-visible {
+  animation: hrToastFloatUp 8s cubic-bezier(.2, .8, .2, 1) forwards !important;
+}
+
+.hr-toast.error,
+.hr-qc-toast.error {
+  border-color: rgba(248, 113, 113, .62) !important;
+  background: linear-gradient(180deg, rgba(62, 18, 28, .99), rgba(18, 8, 18, .99)) !important;
+}
+
+.hr-toast.ok,
+.hr-toast.success,
+.hr-qc-toast.ok {
+  border-color: rgba(45, 212, 191, .5) !important;
+}
+
+@keyframes hrToastFloatUp {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(72px) scale(.98);
+  }
+  14% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(22px) scale(1);
+  }
+  76% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-18px) scale(.99);
+  }
+}
+
+body.employee-portal .message.compact {
+  position: static !important;
+  inset: auto !important;
+  transform: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  max-height: none !important;
+  overflow: visible !important;
+  z-index: auto !important;
+}
+
+body.employee-portal .punch-place-visual {
+  position: relative !important;
+  min-height: clamp(230px, 56vw, 360px) !important;
+  border: 1px solid rgba(56, 199, 244, .3) !important;
+  border-radius: 20px !important;
+  overflow: hidden !important;
+  isolation: isolate !important;
+  background:
+    linear-gradient(180deg, rgba(3, 9, 24, .24), rgba(3, 9, 24, .88)),
+    url("../images/punch-geofence-hero.png") center 39% / cover no-repeat !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .34), 0 0 46px rgba(34, 211, 238, .12) inset !important;
+}
+
+body.employee-portal .punch-place-visual::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 13% -14% -18% -14% !important;
+  border: 2px solid rgba(34, 211, 238, .72) !important;
+  border-radius: 50% !important;
+  box-shadow: 0 0 28px rgba(34, 211, 238, .8), 0 0 90px rgba(34, 211, 238, .24) inset !important;
+  z-index: -1 !important;
+}
+
+body.employee-portal .punch-place-visual::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  background: radial-gradient(circle at 78% 48%, rgba(244, 63, 94, .55), transparent 5%), linear-gradient(180deg, rgba(3, 9, 24, .08), rgba(3, 9, 24, .58)) !important;
+  z-index: -1 !important;
+}
+
+body.employee-portal .punch-place-top,
+body.employee-portal .punch-place-footer {
+  position: absolute !important;
+  left: 14px !important;
+  right: 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  z-index: 1 !important;
+}
+
+body.employee-portal .punch-place-top {
+  top: 14px !important;
+}
+
+body.employee-portal .punch-place-footer {
+  bottom: 14px !important;
+  padding: 10px 12px !important;
+  border: 1px solid rgba(56, 199, 244, .22) !important;
+  border-radius: 16px !important;
+  background: rgba(4, 13, 28, .82) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+body.employee-portal .punch-place-top strong,
+body.employee-portal .punch-place-top em,
+body.employee-portal .punch-place-footer span,
+body.employee-portal .punch-place-footer strong {
+  color: #f8fbff !important;
+  font-style: normal !important;
+  font-size: 12px !important;
+  font-weight: 950 !important;
+  line-height: 1.3 !important;
+}
+
+body.employee-portal .punch-place-top em,
+body.employee-portal .punch-place-footer strong {
+  color: #22d3ee !important;
+}
+
+body.employee-portal .punch-signal-dot {
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 999px !important;
+  background: #22c55e !important;
+  box-shadow: 0 0 18px rgba(34, 197, 94, .85) !important;
+}
+
+body.employee-portal .punch-place-copy {
+  position: absolute !important;
+  inset: 54px 16px auto !important;
+  display: grid !important;
+  justify-items: center !important;
+  gap: 6px !important;
+  text-align: center !important;
+  z-index: 1 !important;
+}
+
+body.employee-portal .punch-place-copy span {
+  color: #38bdf8 !important;
+  font-size: 13px !important;
+  font-weight: 950 !important;
+}
+
+body.employee-portal .punch-place-copy h2 {
+  margin: 0 !important;
+  color: #f8fbff !important;
+  font-size: clamp(22px, 6vw, 38px) !important;
+  line-height: 1.15 !important;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, .74) !important;
+}
+
+body.employee-portal .punch-place-copy p {
+  margin: 0 !important;
+  max-width: 32em !important;
+  color: rgba(226, 242, 255, .86) !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  line-height: 1.55 !important;
+}
+
+body.employee-portal .punch-place-visual.is-outside {
+  border-color: rgba(248, 113, 113, .45) !important;
+}
+
+body.employee-portal .punch-place-visual.is-outside .punch-signal-dot {
+  background: #f43f5e !important;
+  box-shadow: 0 0 18px rgba(244, 63, 94, .85) !important;
+}
+
+body.employee-portal .punch-place-visual.is-uncertain .punch-signal-dot {
+  background: #f59e0b !important;
+  box-shadow: 0 0 18px rgba(245, 158, 11, .85) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hr-toast.is-visible,
+  .hr-qc-toast.is-visible {
+    animation-duration: .01ms !important;
+  }
+}
+
 /* Punch screen layout repair: keep GPS, map, and actions from clipping/overlapping. */
 body.employee-portal .punch-redesigned .employee-card.full {
   display: grid !important;
@@ -11990,4 +12247,55 @@ body.employee-portal .more-drawer-section-label {
   line-height: 1.4 !important;
   text-align: start !important;
   color: rgba(186, 230, 255, .72) !important;
+}
+
+/* Absolute final overrides for employee alerts and punch GPS art */
+.hr-toast,
+.hr-qc-toast {
+  position: fixed !important;
+  top: calc(env(safe-area-inset-top, 0px) + 14px) !important;
+  bottom: auto !important;
+  left: 50% !important;
+  right: auto !important;
+  width: max-content !important;
+  min-width: min(280px, calc(100vw - 28px)) !important;
+  max-width: min(92vw, 520px) !important;
+  max-height: 30svh !important;
+  padding: 14px 18px !important;
+  border-radius: 18px !important;
+  background: linear-gradient(180deg, rgba(9, 22, 42, .99), rgba(5, 12, 28, .99)) !important;
+  color: #f8fbff !important;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, .58), 0 0 0 1px rgba(255,255,255,.04) inset !important;
+  opacity: 0 !important;
+  transform: translateX(-50%) translateY(70px) scale(.98) !important;
+  transition: none !important;
+  z-index: 999999 !important;
+}
+
+.hr-toast.is-visible,
+.hr-qc-toast.is-visible {
+  animation: hrToastFloatUp 8s cubic-bezier(.2, .8, .2, 1) forwards !important;
+}
+
+.hr-toast.error,
+.hr-qc-toast.error {
+  border-color: rgba(248, 113, 113, .62) !important;
+  background: linear-gradient(180deg, rgba(62, 18, 28, .99), rgba(18, 8, 18, .99)) !important;
+}
+
+.hr-toast.ok,
+.hr-toast.success,
+.hr-qc-toast.ok {
+  border-color: rgba(45, 212, 191, .5) !important;
+}
+
+body.employee-portal .message.compact {
+  position: static !important;
+  inset: auto !important;
+  transform: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  max-height: none !important;
+  overflow: visible !important;
+  z-index: auto !important;
 }
