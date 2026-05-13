@@ -365,6 +365,9 @@ function locationInsertPayload(body = {}, employeeId) {
     accuracy_meters: body.accuracyMeters ?? body.accuracy ?? undefined,
     source: body.source || "employee_app",
     attendance_event_id: body.attendanceEventId || body.attendance_event_id || undefined,
+    address_label: body.addressLabel || body.locationLabel || body.placeLabel || undefined,
+    location_status: body.locationStatus || body.geofenceStatus || undefined,
+    distance_from_branch: body.distanceFromBranchMeters ?? body.distanceFromBranch ?? body.distanceMeters ?? undefined,
     created_at: body.createdAt || now(),
   });
 }
@@ -639,6 +642,10 @@ async function attendanceAddress(employee = null) {
   const branch = emp ? (c.branches.get(emp.branchId) || emp.branch || null) : ([...c.branches.values()][0] || null);
   const lat = Number(branch?.latitude);
   const lng = Number(branch?.longitude);
+  const cfg = CONFIG?.().attendance || {};
+  const branchCfg = cfg.branchLocation || {};
+  const configuredRadius = Number(branchCfg.radiusMeters || 300);
+  const configuredMaxAccuracy = Number(cfg.gpsMaxAcceptableAccuracyMeters || branchCfg.maxAccuracyMeters || 50);
   return {
     employee: emp,
     branch,
@@ -646,8 +653,8 @@ async function attendanceAddress(employee = null) {
     hasConfiguredAddress: Number.isFinite(lat) && Number.isFinite(lng),
     latitude: Number.isFinite(lat) ? lat : DEFAULT_COMPLEX.latitude,
     longitude: Number.isFinite(lng) ? lng : DEFAULT_COMPLEX.longitude,
-    radiusMeters: Number(branch?.geofenceRadiusMeters || branch?.radiusMeters || DEFAULT_COMPLEX.radiusMeters),
-    maxAccuracyMeters: Number(branch?.maxAccuracyMeters || DEFAULT_COMPLEX.maxAccuracyMeters),
+    radiusMeters: Math.min(Number(branch?.geofenceRadiusMeters || branch?.radiusMeters || configuredRadius || DEFAULT_COMPLEX.radiusMeters), configuredRadius || 300),
+    maxAccuracyMeters: Math.min(Number(branch?.maxAccuracyMeters || configuredMaxAccuracy || DEFAULT_COMPLEX.maxAccuracyMeters), configuredMaxAccuracy || 50),
     strictGeofence: true,
   };
 }
@@ -667,10 +674,8 @@ function evaluateGeo(address, body = {}) {
     message = "لم يتم ضبط إحداثيات الفرع المعتمد.";
   } else {
     distanceFromBranchMeters = distanceMeters(current, { latitude: address.latitude, longitude: address.longitude });
-    const weakAccuracy = accuracyMeters != null && accuracyMeters > address.maxAccuracyMeters;
-    const safetyBufferMeters = Number(CONFIG?.().attendance?.gpsSafetyBufferMeters || CONFIG?.().attendance?.branchLocation?.safetyBufferMeters || 90);
-    const effectiveRadius = Number(address.radiusMeters || 300) + safetyBufferMeters + (accuracyMeters ? Math.min(Math.max(accuracyMeters, 0), Math.max(Number(address.maxAccuracyMeters || 500), 300)) : 0);
-    allowed = distanceFromBranchMeters != null && (distanceFromBranchMeters <= address.radiusMeters || (weakAccuracy && distanceFromBranchMeters <= effectiveRadius));
+    const weakAccuracy = accuracyMeters == null || accuracyMeters > address.maxAccuracyMeters;
+    allowed = distanceFromBranchMeters != null && distanceFromBranchMeters <= address.radiusMeters && !weakAccuracy;
     geofenceStatus = allowed ? (weakAccuracy ? "inside_branch_low_accuracy" : "inside_branch") : (weakAccuracy ? "location_low_accuracy" : "outside_branch");
     message = allowed
       ? (weakAccuracy ? `تم قبول الموقع مع دقة GPS ضعيفة (${accuracyMeters} متر). يفضل تشغيل الموقع عالي الدقة.` : "الموقع داخل العنوان المحدد ويمكن تسجيل البصمة.")
@@ -742,6 +747,9 @@ async function recordPunch(type, body = {}, forceEmployeeId = "") {
   body = await withServerIdentityRisk(client, employee.id, body);
   const address = await attendanceAddress(employee);
   const evaluation = evaluateGeo(address, body);
+  if (!evaluation.canRecord) {
+    throw new Error(`تم رفض البصمة: الموقع خارج النطاق أو دقة GPS غير كافية. المسافة ${evaluation.distanceFromBranchMeters ?? "-"} متر، الدقة ${evaluation.accuracyMeters ?? "-"} متر، النطاق ${address.radiusMeters} متر.`);
+  }
   const requiresReview = !evaluation.canRecord;
   if (requiresReview) await audit("attendance.accepted_with_review", "attendance_event", employee.id, { type, evaluation });
   const selfieUrl = "";
@@ -765,6 +773,9 @@ async function recordPunch(type, body = {}, forceEmployeeId = "") {
     accuracy_meters: body.accuracyMeters ?? body.accuracy ?? null,
     geofence_status: evaluation.geofenceStatus,
     distance_from_branch_meters: evaluation.distanceFromBranchMeters,
+    address_label: body.addressLabel || body.locationLabel || body.placeLabel || address.address || null,
+    location_status: body.locationStatus || body.geofenceStatus || evaluation.geofenceStatus,
+    distance_from_branch: evaluation.distanceFromBranchMeters,
     branch_id: employee.branchId || null,
     verification_status: body.verificationStatus || "verified",
     biometric_method: body.biometricMethod || "session_gps",
@@ -812,6 +823,8 @@ async function recordPunch(type, body = {}, forceEmployeeId = "") {
       anti_spoofing_flags: body.antiSpoofingFlags || [],
       location_trust: body.identityCheck?.locationTrust || {},
       liveness_status: body.identityCheck?.livenessStatus || "SELFIE_ONLY",
+      face_match_status: body.identityCheck?.faceMatchStatus || "MANUAL_REVIEW",
+      face_match_score: body.identityCheck?.faceMatchScore ?? null,
       identity_check: body.identityCheck || {},
       requires_review: Boolean(requiresReview || body.requiresReview),
     }));
@@ -835,7 +848,7 @@ async function recordPunch(type, body = {}, forceEmployeeId = "") {
   }
   const payload = basePayload;
   await upsertDaily(employee.id, payload);
-  await client.from("employee_locations").insert({ employee_id: employee.id, latitude: body.latitude, longitude: body.longitude, accuracy_meters: body.accuracyMeters ?? body.accuracy ?? null, source: "attendance", attendance_event_id: data.id, created_at: now() });
+  await client.from("employee_locations").insert(locationInsertPayload({ ...body, source: "attendance", attendanceEventId: data.id, distanceFromBranchMeters: evaluation.distanceFromBranchMeters, locationStatus: evaluation.geofenceStatus }, employee.id));
   await audit("attendance.punch", "attendance_event", data.id, data);
   return { ...mapEvent(data), evaluation };
 }

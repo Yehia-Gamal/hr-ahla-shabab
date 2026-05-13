@@ -36,8 +36,8 @@ window.HR_SUPABASE_CONFIG = Object.freeze({
     gpsSamples: 18,
     gpsSampleWindowMs: 30000,
     gpsTargetAccuracyMeters: 15,
-    gpsMaxAcceptableAccuracyMeters: 90,
-    gpsSafetyBufferMeters: 50,
+    gpsMaxAcceptableAccuracyMeters: 50,
+    gpsSafetyBufferMeters: 0,
     gpsUncertainReviewOnly: true,
     branchLocation: {
       name: "مجمع أحلى شباب",
@@ -45,8 +45,8 @@ window.HR_SUPABASE_CONFIG = Object.freeze({
       latitude: 29.95109939158933,
       longitude: 31.238741920853883,
       radiusMeters: 300,
-      safetyBufferMeters: 50,
-      maxAccuracyMeters: 90,
+      safetyBufferMeters: 0,
+      maxAccuracyMeters: 50,
     },
   },
   gateways: {

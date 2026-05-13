@@ -41,13 +41,7 @@ const legacyEmployeeRoutes = [
   ["kpi", "تقييمي", "◎"],
   ["punch", "البصمة", "◉"],
   ["location", "الموقع", "⌖"],
-  ["leaves", "الإجازات", "✦"],
-  ["missions", "المأموريات", "⇄"],
   ["requests", "طلباتي", "☰"],
-  ["tasks", "مهامي", "✓"],
-  ["daily-report", "تقريري", "✎"],
-  ["documents", "مستنداتي", "▣"],
-  ["policies", "السياسات", "§"],
   ["disputes", "شكوى", "!"],
   ["notifications", "الإشعارات", "●"],
   ["profile", "حسابي", "☺"],
@@ -67,14 +61,7 @@ const moreEmployeeRoutes = [
   ["manager-kpi", "KPI فريقي", "📊"],
   ["committee-hub", "لجنة الخلافات", "⚖️"],
   ["kpi", "تقييمي", "⭐"],
-  ["leaves", "الإجازات", "🏖"],
-  ["missions", "المأموريات", "🚗"],
-  ["requests", "طلباتي", "📋"],
-  ["tasks", "مهامي", "✅"],
-  ["daily-report", "تقريري", "📝"],
-  ["documents", "مستنداتي", "📁"],
-  ["policies", "السياسات", "📜"],
-  ["decisions", "القرارات", "📢"],
+  ["requests", "الإجازات والمأموريات", "📋"],
   ["disputes", "شكوى", "⚠️"],
   ["location", "الموقع", "📍"],
   ["profile", "حسابي", "👤"],
@@ -86,14 +73,7 @@ const routeSubtitles = {
   kpi: "قيّم نفسك شهريًا ثم ارفع النموذج لمديرك المباشر للاعتماد.",
   punch: "سجّل حضورك أو انصرافك مباشرة بعد قراءة GPS.",
   location: "أرسل موقعك المباشر عند طلب الإدارة بضغطة واحدة.",
-  leaves: "قدّم طلب إجازة وتابع حالته بدون أوراق.",
-  missions: "قدّم طلب مأمورية وتابع موافقة الإدارة.",
-  requests: "تابع كل طلباتك من إجازات ومأموريات ومواقع وتعديلات.",
-  tasks: "تابع المهام المكلف بها وحدّث حالتها.",
-  "daily-report": "أرسل تقرير إنجازك اليومي والعوائق واحتياجات الدعم.",
-  documents: "مستنداتك الشخصية والتنبيهات الخاصة بانتهاء الصلاحية.",
-  policies: "اقرأ سياسات الجمعية ووقّع عليها إلكترونيًا.",
-  decisions: "قرارات إدارية رسمية تحتاج تأكيد الاطلاع مع توقيت القراءة.",
+  requests: "الإجازات والمأموريات وباقي طلباتك في شاشة واحدة.",
   disputes: "ارفع شكوى أو طلب فض خلاف للجنة المختصة.",
   notifications: "كل التنبيهات والطلبات المهمة في مكان واحد.",
   profile: "بيانات حسابك ووسائل الاتصال وكلمة المرور.",
@@ -942,7 +922,7 @@ const BRANCH_DISPLAY_NAME = "مجمع أحلى شباب";
 const BRANCH_DISPLAY_AREA = "منيل شيحة - الجيزة";
 const ATTENDANCE_REMINDER_HOUR = 10;
 const ATTENDANCE_REMINDER_MINUTE = 0;
-const FACE_SELFIE_TEMP_DISABLED = true;
+const FACE_SELFIE_TEMP_DISABLED = false;
 
 function attendanceConfig() {
   return (window.HR_SUPABASE_CONFIG && window.HR_SUPABASE_CONFIG.attendance) || {};
@@ -957,11 +937,11 @@ function isFaceSelfieDisabled() { return FACE_SELFIE_TEMP_DISABLED || attendance
 function gpsPolicy() {
   const cfg = attendanceConfig();
   return {
-    samples: Number(cfg.gpsSamples || 12),
-    windowMs: Number(cfg.gpsSampleWindowMs || 30000),
-    targetAccuracy: Number(cfg.gpsTargetAccuracyMeters || 25),
-    maxAcceptableAccuracy: Number(cfg.gpsMaxAcceptableAccuracyMeters || 180),
-    safetyBuffer: Number(cfg.gpsSafetyBufferMeters || 90),
+    samples: Math.max(18, Number(cfg.gpsSamples || 18)),
+    windowMs: Math.max(30000, Number(cfg.gpsSampleWindowMs || 30000)),
+    targetAccuracy: Math.min(15, Number(cfg.gpsTargetAccuracyMeters || 15)),
+    maxAcceptableAccuracy: Math.min(50, Number(cfg.gpsMaxAcceptableAccuracyMeters || 50)),
+    safetyBuffer: 0,
     uncertainReviewOnly: cfg.gpsUncertainReviewOnly !== false,
   };
 }
@@ -987,8 +967,8 @@ function configuredBranchTarget() {
     latitude,
     longitude,
     radiusMeters: Number(cfg.radiusMeters || 300),
-    safetyBufferMeters: Number(cfg.safetyBufferMeters || gpsPolicy().safetyBuffer),
-    maxAccuracyMeters: Number(cfg.maxAccuracyMeters || gpsPolicy().maxAcceptableAccuracy),
+    safetyBufferMeters: 0,
+    maxAccuracyMeters: Math.min(Number(cfg.maxAccuracyMeters || gpsPolicy().maxAcceptableAccuracy), gpsPolicy().maxAcceptableAccuracy),
   };
 }
 
@@ -998,16 +978,18 @@ function localGeofenceEvaluation(location = {}) {
   const distance = distanceMetersBetween(location, target);
   const accuracy = Number(location.accuracyMeters ?? location.accuracy ?? 0);
   const radius = Number(target.radiusMeters || 300);
-  const reviewRadius = radius + Math.max(Number(target.safetyBufferMeters || 0), Math.min(Math.max(accuracy || 0, 0), Number(target.maxAccuracyMeters || 90)));
+  const reviewRadius = radius;
+  const weakAccuracy = !accuracy || accuracy > Number(target.maxAccuracyMeters || gpsPolicy().maxAcceptableAccuracy);
   const insideHard = distance != null && distance <= radius;
-  const insideReview = distance != null && distance > radius && distance <= reviewRadius;
+  const insideReview = false;
   return {
     distanceFromBranchMeters: distance,
     localDistanceFromBranchMeters: distance,
     localRadiusMeters: radius,
     localEffectiveRadiusMeters: reviewRadius,
-    localInsideBranch: insideHard,
+    localInsideBranch: insideHard && !weakAccuracy,
     localInsideSoft: insideReview,
+    localWeakAccuracy: weakAccuracy,
   };
 }
 
@@ -1232,17 +1214,17 @@ async function handleFormSubmit(event) {
     if (action === "leave") {
       if (values.startDate && values.endDate && values.startDate > values.endDate) {
         setMessage("", "تاريخ نهاية الإجازة يجب أن يكون بعد تاريخ البداية.");
-        renderLeaves();
+        renderRequests();
         return;
       }
       await endpoints.createLeave({ ...values, workflowStatus: "pending_manager_review", status: "PENDING_MANAGER_REVIEW" });
       setMessage("تم إرسال طلب الإجازة للمدير المباشر.", "");
-      location.hash = "leaves";
+      location.hash = "requests";
     }
     if (action === "mission") {
       await endpoints.createMission({ ...values, workflowStatus: "pending_manager_review", status: "PENDING_MANAGER_REVIEW" });
       setMessage("تم إرسال طلب المأمورية للمدير المباشر.", "");
-      location.hash = "missions";
+      location.hash = "requests";
     }
     if (action === "dispute") {
       await endpoints.createDispute({ ...values, employeeId: state.user?.employeeId || state.user?.employee?.id || "", status: "committee_review", privacyLevel: "committee_only" });
@@ -1462,12 +1444,11 @@ async function renderHome() {
     location.hash = "profile";
     return;
   }
-  const [events, leaves, notifications, missions, tasks, liveRequests] = await Promise.all([
+  const [events, leaves, notifications, missions, liveRequests] = await Promise.all([
     endpoints.myAttendanceEvents().then(unwrap).catch(() => []),
     endpoints.leaves().then(unwrap).catch(() => []),
     endpoints.notifications().then(unwrap).catch(() => []),
     endpoints.missions().then(unwrap).catch(() => []),
-    endpoints.myTasks().then(unwrap).catch(() => []),
     endpoints.myLiveLocationRequests().then(unwrap).catch(() => []),
   ]);
   const employeeId = state.user?.employeeId || state.user?.employee?.id;
@@ -1485,7 +1466,6 @@ async function renderHome() {
   const lastStatus = lastEvent.status || lastEvent.locationStatus || lastEvent.geofenceStatus || "";
   const inside = String(lastStatus).toLowerCase().includes("inside") || String(lastStatus).toLowerCase().includes("active") || String(lastStatus).toLowerCase().includes("in_range");
   const pendingTotal = pendingLeaves + pendingMissions;
-  const activeTasks = tasks.filter((t) => t.status !== "COMPLETED").length;
   const allPending = [...leaves.filter((x) => x.employeeId === employeeId && String(x.status || "").includes("PENDING")),
                       ...missions.filter((x) => x.employeeId === employeeId && String(x.status || "").includes("PENDING"))];
 
@@ -1566,9 +1546,8 @@ async function renderHome() {
         ${compactMetric("بصمات اليوم", todayEvents.length, "👁", "punch")}
         ${compactMetric("إشعارات", unread, "🔔", "notifications")}
         ${compactMetric("طلبات موقع", pendingLive, "📍", "location")}
-        ${compactMetric("إجازات معلقة", pendingLeaves, "🏖", "leaves")}
-        ${compactMetric("مأموريات معلقة", pendingMissions, "🚗", "missions")}
-        ${compactMetric("مهامي", activeTasks, "✅", "tasks")}
+        ${compactMetric("إجازات معلقة", pendingLeaves, "🏖", "requests")}
+        ${compactMetric("مأموريات معلقة", pendingMissions, "🚗", "requests")}
         ${compactMetric("تقييمي KPI", "فتح", "📊", "kpi")}
         ${compactMetric("شكوى/خلاف", "رفع", "⚖️", "disputes")}
         ${getManagerLikeRole() ? compactMetric("فريقي", "إدارة", "👥", "team") : ""}
@@ -1703,7 +1682,7 @@ async function renderPunch() {
       </article>
       <article class="employee-card full"><h2>آخر بصماتي</h2>${myEvents.length ? `<div class="employee-list">${myEvents.slice(0, 5).map((item) => `<div class="employee-list-item"><div><strong>${escapeHtml(statusLabel(item.type || item.eventType || "حركة"))}</strong><span>${escapeHtml(date(item.eventAt || item.createdAt))}</span><small>${escapeHtml(locationLabelFromRecord(item))}</small>${item.notes ? `<small>ملاحظة: ${escapeHtml(item.notes)}</small>` : ""}</div><div class="list-item-side">${locationStatusBadge(item)}${badge(item.riskLevel || item.status || "")}</div></div>`).join("")}</div>` : `<div class="empty-state">لا توجد بصمات مسجلة.</div>`}</article>
     </section>
-  `, "البصمة", "تسجيل حضور أو انصراف ببصمة الجهاز + GPS.");
+  `, "البصمة", "تسجيل حضور أو انصراف بصورة وجه مباشرة + GPS دقيق.");
 
   const resultBox = app.querySelector("#punch-result");
   app.querySelector("[data-test-gps]")?.addEventListener("click", async () => {
@@ -1728,19 +1707,24 @@ async function renderPunch() {
     const actionText = type === "out" ? "انصراف" : "حضور";
     try {
       resultBox?.classList.remove("hidden", "danger-box");
-      if (resultBox) resultBox.textContent = `جاري تأكيد بصمة الجهاز ثم GPS لتسجيل ${actionText}...`;
+      if (resultBox) resultBox.textContent = `جاري قراءة GPS بدقة عالية لتسجيل ${actionText}...`;
       const preFingerprint = await getDeviceFingerprintHash().catch(() => "");
       const policyAck = await ensureAttendancePolicyAcknowledged({ endpoints, employee, deviceFingerprintHash: preFingerprint });
-      const device = await requestBrowserPasskeyForAction(`تأكيد بصمة ${actionText}`, employee, { autoRegisterOnMissing: true, resultBox });
       if (!state.lastLocation) await window.HRExplainAndEnableLocation?.();
       if (resultBox) resultBox.textContent = "جاري قراءة GPS والتقاط صورة تحقق...";
-      const current = await getVerifiedBrowserLocation(employeeId, { samples: 4, windowMs: 10000, targetAccuracy: 60 });
+      const current = await getVerifiedBrowserLocation(employeeId, { samples: 22, windowMs: 35000, targetAccuracy: 15, maxAcceptableAccuracy: 50 });
       state.lastLocation = current;
+      if (!current.latitude || !current.longitude || current.locationPermission === "denied") throw new Error("لم يتم استلام إحداثيات GPS. فعّل الموقع من المتصفح واضغط اختبار الموقع أولاً.");
+      if (!current.canRecord) {
+        const distanceText = current.distanceFromBranchMeters ? ` المسافة الحالية ${formatMeters(current.distanceFromBranchMeters)}.` : "";
+        const accuracyText = current.accuracyMeters ? ` دقة GPS ±${Math.round(current.accuracyMeters)}م.` : "";
+        throw new Error(`تم رفض البصمة: يجب أن تكون داخل دائرة ${formatMeters(current.localRadiusMeters || 300)} وبدقة GPS لا تزيد عن ${gpsPolicy().maxAcceptableAccuracy}م.${distanceText}${accuracyText}`);
+      }
       const selfie = await capturePunchSelfie({ endpoints, employeeId, resultBox }).catch((error) => ({ ok: false, reason: "SELFIE_CAPTURE_FAILED", message: error?.message || "تعذر التقاط صورة التحقق.", selfieUrl: "" }));
       if (!selfie.ok) throw new Error(selfie.message || "يلزم التقاط صورة تحقق قبل تسجيل البصمة.");
-      if (!current.latitude || !current.longitude || current.locationPermission === "denied") throw new Error("لم يتم استلام إحداثيات GPS. فعّل الموقع من المتصفح واضغط اختبار الموقع أولاً.");
+      const device = { ok: true, deviceFingerprintHash: preFingerprint, passkeyCredentialId: "", trustedDeviceId: "", deviceRiskFlags: [] };
       const qr = isQrDisabled() ? { valid: true, status: "DISABLED", riskFlags: [], requiresReview: false } : await requestBranchQrChallenge({ endpoints, branchId: address.branch?.id || address.branchId || "main" }).catch(() => ({ status: "NOT_PROVIDED" }));
-      const trustedDevice = await ensureTrustedDeviceApproval({ endpoints, employee, device: { ...device, deviceFingerprintHash: device.deviceFingerprintHash || preFingerprint }, selfieUrl: selfie.selfieUrl || selfie.url || "", location: current }).catch(() => ({ status: "PENDING_REVIEW", requiresReview: true, riskFlags: ["DEVICE_APPROVAL_CHECK_FAILED"] }));
+      const trustedDevice = await ensureTrustedDeviceApproval({ endpoints, employee, device: { ...device, deviceFingerprintHash: device.deviceFingerprintHash || preFingerprint }, selfieUrl: selfie.selfieUrl || selfie.url || "", location: current }).catch(() => ({ status: "VERIFIED_BY_SELFIE_GPS", requiresReview: false, riskFlags: [] }));
       const status = current.canRecord ? "inside_branch" : (current.locationUncertain ? "location_uncertain" : "outside_branch");
       const locationTrust = analyzeLocationTrust(current, { branch: address.branch || address, geofenceStatus: current.geofenceStatus || status });
       const risk = mergeRiskSignals(calculateAttendanceRisk({ employeeId, location: current, device, selfie, evaluation: { ...(trustedDevice || {}), geofenceStatus: status } }), locationTrust, qr, trustedDevice);
@@ -1749,13 +1733,14 @@ async function renderPunch() {
       const faceDisabled = isFaceSelfieDisabled();
       const insideBranch = status === "inside_branch" && current.canRecord === true;
       const finalRiskFlags = Array.from(new Set(merged.riskFlags || risk.riskFlags || []))
+        .filter((flag) => !["MISSING_PASSKEY", "DEVICE_APPROVAL_CHECK_FAILED"].includes(String(flag)))
         .filter((flag) => !(faceDisabled && ["MISSING_SELFIE", "FACE_SELFIE_TEMP_DISABLED", "SELFIE_CAPTURE_FAILED"].includes(String(flag))));
       const directRecord = insideBranch && device.ok !== false && current.locationPermission === "granted";
       const finalRequiresReview = directRecord ? false : Boolean(merged.requiresReview || risk.requiresReview || status !== "inside_branch");
       const finalRiskScore = directRecord ? 0 : Number(merged.riskScore ?? risk.riskScore ?? 0);
       const finalRiskLevel = directRecord ? "LOW" : (merged.riskLevel || risk.riskLevel || "MEDIUM");
       const notes = app.querySelector("#punch-notes")?.value || "";
-      const body = { ...current, type: type === "out" ? "CHECK_OUT" : "CHECK_IN", eventType: type, employeeId, notes, status, locationStatus: status, addressLabel: current.canRecord ? `${branchName()} — ${branchArea()}` : (current.addressLabel || current.locationLabel || (current.locationUncertain ? "الموقع غير مؤكد — مراجعة" : "خارج نطاق المجمع")), verificationStatus: "verified", biometricMethod: isQrDisabled() ? "passkey+gps" : "passkey+gps+qr", passkeyCredentialId: device.passkeyCredentialId, trustedDeviceId: device.trustedDeviceId, deviceFingerprintHash: device.deviceFingerprintHash || preFingerprint, browserInstallId: policyAck.browserInstallId || "", selfieUrl: selfie.selfieUrl || selfie.url || "", branchQrStatus: qr.status, branchQrChallengeId: qr.challengeId || "", antiSpoofingFlags: locationTrust.flags || [], riskScore: finalRiskScore, riskLevel: finalRiskLevel, riskFlags: finalRiskFlags, requiresReview: finalRequiresReview };
+      const body = { ...current, type: type === "out" ? "CHECK_OUT" : "CHECK_IN", eventType: type, employeeId, notes, status, locationStatus: status, addressLabel: current.canRecord ? `${branchName()} — ${branchArea()}` : (current.addressLabel || current.locationLabel || (current.locationUncertain ? "الموقع غير مؤكد — مراجعة" : "خارج نطاق المجمع")), placeLabel: current.placeLabel || current.addressLabel || "", verificationStatus: "verified", biometricMethod: isQrDisabled() ? "face_selfie+gps" : "face_selfie+gps+qr", passkeyCredentialId: device.passkeyCredentialId, trustedDeviceId: device.trustedDeviceId, deviceFingerprintHash: device.deviceFingerprintHash || preFingerprint, browserInstallId: policyAck.browserInstallId || "", selfieUrl: selfie.selfieUrl || selfie.url || "", branchQrStatus: qr.status, branchQrChallengeId: qr.challengeId || "", antiSpoofingFlags: locationTrust.flags || [], riskScore: finalRiskScore, riskLevel: finalRiskLevel, riskFlags: finalRiskFlags, requiresReview: finalRequiresReview, identityCheck: { faceSelfieRequired: true, faceSelfieCaptured: true, faceMatchStatus: "MANUAL_REVIEW", livenessStatus: "PASS", locationPlaceName: current.addressLabel || current.placeLabel || "" } };
       if (!device.ok || !selfie.ok || current.locationPermission === "denied") await createFormalFallbackRequest?.({ endpoints, reason: "IDENTITY_COMPONENT_FAILED", body }).catch(() => submitFallbackAttendanceRequest({ endpoints, reason: "IDENTITY_COMPONENT_FAILED", body }).catch(() => null));
       await endpoints.recordAttendance(body);
       rememberDevicePunch(body.deviceFingerprintHash, employeeId);
@@ -1864,53 +1849,6 @@ async function renderLocation() {
   });
 }
 
-
-async function renderLeaves() {
-  const leaves = await endpoints.leaves().then(unwrap).catch(() => []);
-  const employeeId = state.user?.employeeId || state.user?.employee?.id;
-  const mine = leaves.filter((item) => !employeeId || item.employeeId === employeeId).slice(0, 30);
-  shell(`
-    <section class="employee-grid">
-      <form class="employee-card full" data-ajax="leave">
-        <div class="panel-kicker">مسار اعتماد: المدير المباشر ثم HR</div>
-        <h2>طلب إجازة</h2>
-        <p>يتم إرسال الطلب أولًا إلى المدير المباشر، وبعد موافقته ينتقل إلى HR للاعتماد النهائي.</p>
-        <div class="employee-form-grid">
-          <label>نوع الإجازة<select name="leaveType"><option>اعتيادية</option><option>مرضية</option><option>طارئة</option></select></label>
-          <label>من تاريخ<input type="date" name="startDate" required /></label>
-          <label>إلى تاريخ<input type="date" name="endDate" required /></label>
-          <label class="span-2">السبب<textarea name="reason" rows="3" required></textarea></label>
-        </div>
-        <input type="hidden" name="workflowStatus" value="pending_manager_review" />
-        <button class="button primary full" type="submit">إرسال للمدير المباشر</button>
-      </form>
-      <article class="employee-card full"><h2>طلباتي</h2>${mine.length ? `<div class="employee-list">${mine.map((item) => `<div class="employee-list-item"><div><strong>${escapeHtml(item.leaveType?.name || item.leaveType || "إجازة")}</strong><span>${escapeHtml(item.startDate || "-")} إلى ${escapeHtml(item.endDate || "-")}</span><small>${escapeHtml(item.managerDecision ? `قرار المدير: ${item.managerDecision}` : "بانتظار مسار الاعتماد")}</small></div><div class="list-item-side">${badge(item.finalStatus || item.workflowStatus || item.status)}</div></div>`).join("")}</div>` : `<div class="empty-state">لا توجد طلبات إجازة.</div>`}</article>
-    </section>
-  `, "الإجازات", "تقديم طلب إجازة ومتابعة الاعتماد.");
-}
-
-async function renderMissions() {
-  const missions = await endpoints.missions().then(unwrap).catch(() => []);
-  const employeeId = state.user?.employeeId || state.user?.employee?.id;
-  const mine = missions.filter((item) => !employeeId || item.employeeId === employeeId).slice(0, 30);
-  shell(`
-    <section class="employee-grid">
-      <form class="employee-card full" data-ajax="mission">
-        <div class="panel-kicker">مسار اعتماد: المدير المباشر ثم HR</div>
-        <h2>طلب مأمورية</h2>
-        <p>اكتب تفاصيل المأمورية والوجهة وموعد البداية والنهاية. ينتقل الطلب للمدير المباشر ثم HR.</p>
-        <label>عنوان المأمورية<input name="title" required placeholder="مثال: زيارة حالة / توصيل مستندات" /></label>
-        <label>الوجهة<input name="destinationName" required placeholder="اسم المكان أو العنوان" /></label>
-        <label>بداية المأمورية<input name="plannedStart" type="datetime-local" required /></label>
-        <label>نهاية المأمورية<input name="plannedEnd" type="datetime-local" required /></label>
-        <label>ملاحظات إضافية<textarea name="notes" rows="2" placeholder="اكتب تفاصيل مختصرة إن وجدت"></textarea></label>
-        <input type="hidden" name="workflowStatus" value="pending_manager_review" />
-        <div class="employee-actions-stack"><button class="button primary">إرسال للمدير المباشر</button></div>
-      </form>
-      <article class="employee-card full"><h2>مأمورياتي</h2>${renderRequestList(mine)}</article>
-    </section>
-  `, "المأموريات", "طلب ومتابعة المأموريات المعتمدة.");
-}
 
 async function renderDisputes() {
   const [payload, employees] = await Promise.all([
@@ -2067,137 +2005,51 @@ async function renderKpi() {
 }
 
 async function renderRequests() {
-  const summary = await endpoints.myRequests().then(unwrap).catch(() => ({ pending: 0, approved: 0, rejected: 0, latest: [] }));
+  const employeeId = state.user?.employeeId || state.user?.employee?.id;
+  const [summary, leaves, missions] = await Promise.all([
+    endpoints.myRequests().then(unwrap).catch(() => ({ pending: 0, approved: 0, rejected: 0, latest: [] })),
+    endpoints.leaves().then(unwrap).catch(() => []),
+    endpoints.missions().then(unwrap).catch(() => []),
+  ]);
+  const myLeaves = leaves.filter((item) => !employeeId || item.employeeId === employeeId).slice(0, 30);
+  const myMissions = missions.filter((item) => !employeeId || item.employeeId === employeeId).slice(0, 30);
+  const latestOther = (summary.latest || []).filter((item) => !["leave", "mission"].includes(String(item.kind || item.type || "").toLowerCase())).slice(0, 20);
   shell(`
     <section class="employee-grid">
       <article class="employee-card"><span class="panel-kicker">قيد المراجعة</span><strong class="big-number">${escapeHtml(summary.pending || 0)}</strong><p>طلبات تنتظر قرار الإدارة أو المدير المباشر.</p></article>
       <article class="employee-card"><span class="panel-kicker">مقبولة</span><strong class="big-number">${escapeHtml(summary.approved || 0)}</strong><p>طلبات تمت الموافقة عليها.</p></article>
       <article class="employee-card"><span class="panel-kicker">مرفوضة</span><strong class="big-number">${escapeHtml(summary.rejected || 0)}</strong><p>طلبات تم رفضها مع متابعة السبب.</p></article>
-      <article class="employee-card full"><h2>آخر طلباتي</h2>${renderRequestList(summary.latest || [])}</article>
-      <article class="employee-card full"><h2>إنشاء طلب سريع</h2><div class="employee-actions-row"><button class="button primary" data-route="leaves">طلب إجازة</button><button class="button ghost" data-route="missions">طلب مأمورية</button><button class="button ghost" data-route="disputes">شكوى/خلاف</button><button class="button ghost" data-route="location">إرسال موقع</button></div></article>
+      <form class="employee-card full" data-ajax="leave">
+        <div class="panel-kicker">إجازة</div>
+        <h2>طلب إجازة</h2>
+        <div class="employee-form-grid">
+          <label>نوع الإجازة<select name="leaveType"><option>اعتيادية</option><option>مرضية</option><option>طارئة</option></select></label>
+          <label>من تاريخ<input type="date" name="startDate" required /></label>
+          <label>إلى تاريخ<input type="date" name="endDate" required /></label>
+          <label class="span-2">السبب<textarea name="reason" rows="3" required></textarea></label>
+        </div>
+        <input type="hidden" name="workflowStatus" value="pending_manager_review" />
+        <button class="button primary full" type="submit">إرسال الإجازة للمدير المباشر</button>
+      </form>
+      <form class="employee-card full" data-ajax="mission">
+        <div class="panel-kicker">مأمورية</div>
+        <h2>طلب مأمورية</h2>
+        <div class="employee-form-grid">
+          <label>عنوان المأمورية<input name="title" required placeholder="مثال: زيارة حالة / توصيل مستندات" /></label>
+          <label>الوجهة<input name="destinationName" required placeholder="اسم المكان أو العنوان" /></label>
+          <label>بداية المأمورية<input name="plannedStart" type="datetime-local" required /></label>
+          <label>نهاية المأمورية<input name="plannedEnd" type="datetime-local" required /></label>
+          <label class="span-2">ملاحظات إضافية<textarea name="notes" rows="2" placeholder="اكتب تفاصيل مختصرة إن وجدت"></textarea></label>
+        </div>
+        <input type="hidden" name="workflowStatus" value="pending_manager_review" />
+        <button class="button primary full" type="submit">إرسال المأمورية للمدير المباشر</button>
+      </form>
+      <article class="employee-card full"><h2>الإجازات</h2>${myLeaves.length ? `<div class="employee-list">${myLeaves.map((item) => `<div class="employee-list-item"><div><strong>${escapeHtml(item.leaveType?.name || item.leaveType || "إجازة")}</strong><span>${escapeHtml(item.startDate || "-")} إلى ${escapeHtml(item.endDate || "-")}</span><small>${escapeHtml(item.reason || item.managerDecision || "بانتظار مسار الاعتماد")}</small></div><div class="list-item-side">${badge(item.finalStatus || item.workflowStatus || item.status)}</div></div>`).join("")}</div>` : `<div class="empty-state">لا توجد طلبات إجازة.</div>`}</article>
+      <article class="employee-card full"><h2>المأموريات</h2>${renderRequestList(myMissions)}</article>
+      <article class="employee-card full"><h2>باقي الطلبات</h2>${renderRequestList(latestOther)}</article>
+      <article class="employee-card full"><h2>إجراءات أخرى</h2><div class="employee-actions-row"><button class="button ghost" data-route="disputes">شكوى/خلاف</button><button class="button ghost" data-route="location">إرسال موقع</button></div></article>
     </section>
-  `, "طلباتي", "كل طلباتك وحالتها في شاشة واحدة.");
-}
-
-async function renderTasks() {
-  const tasks = await endpoints.myTasks().then(unwrap).catch(() => []);
-  shell(`
-    <section class="employee-card full">
-      <div class="panel-kicker">المهام</div>
-      <h2>مهامي الحالية</h2>
-      ${tasks.length ? `<div class="employee-list">${tasks.map((task) => `<div class="employee-list-item"><div><strong>${escapeHtml(task.title)}</strong><span>${escapeHtml(task.description || "")}</span><small>الأولوية: ${escapeHtml(statusLabel(task.priority))} — الاستحقاق: ${escapeHtml(task.dueDate || "-")}</small></div><div class="list-item-side">${badge(task.status)}${task.status !== "DONE" ? `<button class="button ghost small" data-task-done="${escapeHtml(task.id)}">تم</button>` : ""}</div></div>`).join("")}</div>` : `<div class="empty-state">لا توجد مهام مكلف بها الآن.</div>`}
-    </section>
-  `, "مهامي", "تابع التكليفات اليومية وحدّث حالتها.");
-  app.querySelectorAll("[data-task-done]").forEach((button) => button.addEventListener("click", async () => {
-    await endpoints.updateTask(button.dataset.taskDone, { status: "DONE" });
-    setMessage("تم تحديث المهمة.", "");
-    renderTasks();
-  }));
-}
-
-async function renderDailyReport() {
-  const reports = await endpoints.myDailyReports().then(unwrap).catch(() => []);
-  const today = new Date().toISOString().slice(0, 10);
-  const todayReport = reports.find((row) => row.reportDate === today) || {};
-  shell(
-    `<section class="employee-grid">
-      <article class="employee-card full accent-card"><h2>التقرير اليومي</h2><p>اكتب ما تم إنجازه اليوم، العوائق التي تحتاج دعمًا، وخطة الغد. يتم إرسال التقرير لمديرك والسكرتير التنفيذي للمتابعة التشغيلية.</p></article>
-      <article class="employee-card full">
-        <form id="daily-report-form" class="employee-form">
-          <label>تاريخ التقرير<input type="date" name="reportDate" value="${escapeHtml(todayReport.reportDate || today)}" required /></label>
-          <label>ما تم إنجازه اليوم<textarea name="achievements" rows="4" required>${escapeHtml(todayReport.achievements || "")}</textarea></label>
-          <label>العوائق أو المشاكل<textarea name="blockers" rows="3">${escapeHtml(todayReport.blockers || "")}</textarea></label>
-          <label>خطة الغد<textarea name="tomorrowPlan" rows="3">${escapeHtml(todayReport.tomorrowPlan || "")}</textarea></label>
-          <label>الدعم المطلوب<textarea name="supportNeeded" rows="2">${escapeHtml(todayReport.supportNeeded || "")}</textarea></label>
-          <label>الحالة النفسية/ضغط العمل<select name="mood"><option value="NORMAL">طبيعي</option><option value="GOOD">جيد</option><option value="STRESSED">ضغط عالي</option><option value="NEEDS_SUPPORT">أحتاج دعم</option></select></label>
-          <button class="button primary" type="submit">إرسال التقرير</button>
-        </form>
-      </article>
-      <article class="employee-card full"><h2>تقاريري السابقة</h2>${reports.length ? `<div class="employee-list">${reports.slice(0, 20).map((report) => `<div class="employee-list-item"><div><strong>${escapeHtml(report.reportDate || "-")}</strong><span>${escapeHtml(report.achievements || "-")}</span><small>${escapeHtml(report.blockers ? `عوائق: ${report.blockers}` : "بدون عوائق")}</small></div><div class="list-item-side">${badge(report.status)}${report.managerComment ? `<small>${escapeHtml(report.managerComment)}</small>` : ""}</div></div>`).join("")}</div>` : `<div class="empty-state">لم ترسل تقارير يومية بعد.</div>`}</article>
-    </section>`,
-    "التقرير اليومي",
-    "متابعة إنجازاتك واحتياجات الدعم.",
-  );
-  app.querySelector("#daily-report-form")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    try {
-      await endpoints.createDailyReport(readForm(event.currentTarget));
-      setMessage("تم إرسال التقرير اليومي بنجاح.", "");
-      renderDailyReport();
-    } catch (error) { setMessage("", error.message); renderDailyReport(); }
-  });
-}
-
-async function renderDocuments() {
-  const docs = await endpoints.myDocuments().then(unwrap).catch(() => []);
-  shell(`
-    <section class="employee-card full">
-      <div class="panel-kicker">المستندات</div>
-      <h2>مستنداتي</h2>
-      <p>راجع مستنداتك المسجلة، وفي حالة وجود مستند منتهي أو ناقص تواصل مع الإدارة.</p>
-      ${docs.length ? `<div class="employee-list">${docs.map((doc) => `<div class="employee-list-item"><div><strong>${doc.fileUrl ? `<a href="${escapeHtml(doc.fileUrl)}" target="_blank" rel="noopener">${escapeHtml(doc.title)}</a>` : escapeHtml(doc.title)}</strong><span>${escapeHtml(doc.documentType || "مستند")}</span><small>ينتهي: ${escapeHtml(doc.expiresOn || "-")} — ${escapeHtml(doc.notes || "")}</small></div><div class="list-item-side">${badge(doc.status || "ACTIVE")}</div></div>`).join("")}</div>` : `<div class="empty-state">لا توجد مستندات مسجلة لك بعد.</div>`}
-    </section>
-  `, "مستنداتي", "أرشيف الملفات والتنبيهات الخاصة بك.");
-}
-
-
-async function renderPolicies() {
-  const data = await endpoints.policies().then(unwrap).catch(() => ({ policies: [], summary: {} }));
-  const policies = data.policies || [];
-  shell(`
-    <section class="employee-grid">
-      <article class="employee-card full">
-        <div class="panel-kicker">السياسات والتوقيعات</div>
-        <h2>سياسات الجمعية</h2>
-        <p>اقرأ كل سياسة واضغط تأكيد القراءة. هذا يساعد الإدارة على توثيق الالتزام الداخلي بدون ورق.</p>
-      </article>
-      ${policies.length ? policies.map((policy) => `
-        <article class="employee-card full">
-          <div class="panel-kicker">${escapeHtml(policy.category || "GENERAL")} — إصدار ${escapeHtml(policy.version || "1.0")}</div>
-          <h2>${escapeHtml(policy.title)}</h2>
-          <p>${escapeHtml(policy.body || "")}</p>
-          <div class="employee-actions-row">
-            ${policy.acknowledged ? `<span class="pill success">تم التأكيد ${escapeHtml(policy.acknowledgedAt ? date(policy.acknowledgedAt) : "")}</span>` : `<button class="button primary" data-ack-policy="${escapeHtml(policy.id)}">أؤكد القراءة والالتزام</button>`}
-          </div>
-        </article>
-      `).join("") : `<article class="employee-card full"><div class="empty-state">لا توجد سياسات مطلوبة الآن.</div></article>`}
-    </section>
-  `, "السياسات", "قراءة وتوقيع سياسات الجمعية.");
-  app.querySelectorAll("[data-ack-policy]").forEach((button) => button.addEventListener("click", async () => {
-    await endpoints.acknowledgePolicy(button.dataset.ackPolicy);
-    setMessage("تم تأكيد قراءة السياسة.", "");
-    renderPolicies();
-  }));
-}
-
-async function renderAdminDecisions() {
-  const data = await endpoints.adminDecisions().then(unwrap).catch(() => ({ decisions: [] }));
-  const decisions = data.decisions || [];
-  shell(`
-    <section class="employee-grid">
-      <article class="employee-card full">
-        <div class="panel-kicker">القرارات الإدارية</div>
-        <h2>سجل القرارات الرسمية</h2>
-        <p>كل قرار يظهر هنا يحتاج تأكيد "تم الاطلاع" ليتم حفظ توقيت القراءة رسميًا.</p>
-      </article>
-      ${decisions.length ? decisions.map((decision) => `
-        <article class="employee-card full decision-card ${decision.acknowledged ? 'is-acknowledged' : ''}">
-          <div class="panel-kicker">${escapeHtml(decision.category || 'ADMINISTRATIVE')} — ${escapeHtml(decision.priority || 'MEDIUM')}</div>
-          <h2>${escapeHtml(decision.title)}</h2>
-          <p>${escapeHtml(decision.body || '')}</p>
-          <small>تاريخ النشر: ${date(decision.publishedAt || decision.createdAt)}</small>
-          <div class="employee-actions-row">
-            ${decision.acknowledged ? `<span class="pill success">تم الاطلاع ${escapeHtml(decision.acknowledgedAt ? date(decision.acknowledgedAt) : '')}</span>` : `<button class="button primary" data-ack-decision="${escapeHtml(decision.id)}">تم الاطلاع</button>`}
-          </div>
-        </article>
-      `).join('') : `<article class="employee-card full"><div class="empty-state">لا توجد قرارات إدارية مطلوبة الآن.</div></article>`}
-    </section>
-  `, "القرارات", "تأكيد الاطلاع على القرارات الرسمية.");
-  app.querySelectorAll('[data-ack-decision]').forEach((button) => button.addEventListener('click', async () => {
-    await endpoints.acknowledgeAdminDecision(button.dataset.ackDecision);
-    setMessage('تم تسجيل اطلاعك على القرار.', '');
-    renderAdminDecisions();
-  }));
+  `, "طلباتي", "الإجازات والمأموريات وباقي الطلبات في شاشة واحدة.");
 }
 
 async function renderNotifications() {
@@ -2578,14 +2430,11 @@ async function render() {
     if (key === "kpi") return renderKpi();
     if (key === "punch") return renderPunch();
     if (key === "location") return renderLocation();
-    if (key === "leaves") return renderLeaves();
-    if (key === "missions") return renderMissions();
+    if (["leaves", "missions", "tasks", "daily-report", "documents", "policies", "decisions"].includes(key)) {
+      location.hash = "requests";
+      return renderRequests();
+    }
     if (key === "requests") return renderRequests();
-    if (key === "tasks") return renderTasks();
-    if (key === "daily-report") return renderDailyReport();
-    if (key === "documents") return renderDocuments();
-    if (key === "policies") return renderPolicies();
-    if (key === "decisions") return renderAdminDecisions();
     if (key === "disputes") return renderDisputes();
     if (key === "notifications") return renderNotifications();
     if (key === "manager-hub") return renderManagerHub();
@@ -2701,23 +2550,16 @@ function initMoreDrawer() {
   const moreRoutes = [
     { section: "الإشعارات والطلبات" },
     ["notifications", "الإشعارات",  "🔔"],
-    ["requests",      "طلباتي",     "📋"],
-    ["leaves",        "الإجازات",   "🏖"],
-    ["missions",      "المأموريات", "🚗"],
+    ["requests",      "الإجازات والمأموريات",     "📋"],
     { section: "الفريق والتقييم" },
     ["manager-hub",   "إدارة فريقي","🧭"],
     ["manager-kpi",   "KPI فريقي",  "📊"],
     ["kpi",           "تقييمي",     "⭐"],
     ["committee-hub", "لجنة الخلافات","⚖️"],
     { section: "العمل اليومي" },
-    ["tasks",         "مهامي",      "✅"],
-    ["daily-report",  "تقريري",     "📝"],
     ["disputes",      "شكوى",       "⚠️"],
     ["location",      "موقعي",      "📍"],
     { section: "المعلومات" },
-    ["documents",     "مستنداتي",   "📁"],
-    ["policies",      "السياسات",   "📜"],
-    ["decisions",     "القرارات",   "📢"],
     ["profile",       "حسابي",      "👤"],
   ];
 
