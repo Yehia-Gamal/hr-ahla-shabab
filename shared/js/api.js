@@ -2184,10 +2184,21 @@ function buildAttendanceRiskCenter(db, options = {}) {
   return { days, counts, rows, generatedAt: now(), rules: ["تكرار بصمة خلال 10 دقائق", "خروج عن نطاق الفرع", "جهاز جديد", "حضور من مسافة بعيدة", "بصمة بدون موقع GPS"] };
 }
 
-function decisionVisibleToEmployee(decision, employeeId) {
+function managerEmployeeIds(db) {
+  const managerIds = new Set((db.employees || [])
+    .filter((employee) => !employee.isDeleted && (employee.roleId === "role-manager" || employee.roleId === "role-hr" || employee.roleId === "role-executive" || employee.roleId === "role-executive-secretary"))
+    .map((employee) => employee.id));
+  (db.employees || []).forEach((employee) => {
+    if (!employee.isDeleted && employee.managerEmployeeId) managerIds.add(employee.managerEmployeeId);
+  });
+  return [...managerIds].filter((id) => findById(db.employees || [], id));
+}
+
+function decisionVisibleToEmployee(decision, employeeId, db = null) {
   const scope = decision.scope || "ALL";
   if (scope === "ALL") return true;
   if (scope === "EMPLOYEES") return true;
+  if (scope === "MANAGERS") return db ? managerEmployeeIds(db).includes(employeeId) : Array.isArray(decision.targetEmployeeIds) && decision.targetEmployeeIds.includes(employeeId);
   if (scope === "TEAM") return Array.isArray(decision.targetEmployeeIds) && decision.targetEmployeeIds.includes(employeeId);
   if (scope === "SELECTED") return Array.isArray(decision.targetEmployeeIds) && decision.targetEmployeeIds.includes(employeeId);
   return true;
@@ -2196,7 +2207,7 @@ function decisionVisibleToEmployee(decision, employeeId) {
 function decisionRowsForCurrentUser(db) {
   const user = currentUser(db);
   const employeeId = user?.employeeId || user?.employee?.id || "";
-  const rows = (db.adminDecisions || []).filter((row) => row.status !== "DRAFT" && (!employeeId || decisionVisibleToEmployee(row, employeeId)));
+  const rows = (db.adminDecisions || []).filter((row) => row.status !== "DRAFT" && (!employeeId || decisionVisibleToEmployee(row, employeeId, db)));
   return rows.map((decision) => {
     const ack = (db.adminDecisionAcknowledgements || []).find((item) => item.decisionId === decision.id && item.employeeId === employeeId);
     return { ...decision, acknowledged: Boolean(ack), acknowledgedAt: ack?.acknowledgedAt || "", acknowledgement: ack || null };
@@ -2435,10 +2446,18 @@ const localEndpoints = {
     db.adminDecisions ||= [];
     const actor = currentUser(db);
     const targetEmployeeIds = Array.isArray(body.targetEmployeeIds) ? body.targetEmployeeIds.filter(Boolean) : String(body.targetEmployeeIds || "").split(/[،,\s]+/).filter(Boolean);
-    const decision = { id: makeId("decision"), title: body.title || "قرار إداري", body: body.body || body.description || "", category: body.category || "ADMINISTRATIVE", priority: body.priority || "MEDIUM", scope: body.scope || (targetEmployeeIds.length ? "SELECTED" : "ALL"), targetEmployeeIds, requiresAcknowledgement: body.requiresAcknowledgement !== false && body.requiresAcknowledgement !== "false", status: body.status || "PUBLISHED", issuedByUserId: actor?.id || "system", issuedByEmployeeId: actor?.employeeId || "", publishedAt: now(), createdAt: now(), updatedAt: now() };
+    const scope = body.scope || (targetEmployeeIds.length ? "SELECTED" : "ALL");
+    const issuerName = body.issuedByName || actor?.fullName || actor?.name || "الإدارة";
+    const issuerTitle = body.issuedByTitle || actor?.employee?.jobTitle || "";
+    const issuerPrefix = body.issuerPrefix || `قرار إداري من ${issuerName}${issuerTitle ? ` ${issuerTitle}` : ""}`;
+    const decision = { id: makeId("decision"), title: body.title || "قرار إداري", body: body.body || body.description || "", category: body.category || "ADMINISTRATIVE", priority: body.priority || "MEDIUM", scope, targetEmployeeIds, requiresAcknowledgement: body.requiresAcknowledgement !== false && body.requiresAcknowledgement !== "false", status: body.status || "PUBLISHED", issuedByUserId: actor?.id || "system", issuedByEmployeeId: actor?.employeeId || "", issuedByName: issuerName, issuedByTitle: issuerTitle, issuerPrefix, publishedAt: now(), createdAt: now(), updatedAt: now() };
     db.adminDecisions.unshift(decision);
-    const recipients = decision.scope === "SELECTED" ? targetEmployeeIds : (db.employees || []).filter((employee) => !employee.isDeleted).map((employee) => employee.id);
-    notifyManyEmployees(db, recipients, "قرار إداري جديد يحتاج اطلاع", decision.title, "ACTION_REQUIRED");
+    const recipients = decision.scope === "SELECTED"
+      ? targetEmployeeIds
+      : decision.scope === "MANAGERS"
+        ? managerEmployeeIds(db)
+        : (db.employees || []).filter((employee) => !employee.isDeleted).map((employee) => employee.id);
+    notifyManyEmployees(db, recipients, "قرار إداري جديد يحتاج اطلاع", `${decision.issuerPrefix}: ${decision.title}`, "ACTION_REQUIRED");
     audit(db, "admin_decision.create", "admin_decision", decision.id, null, decision);
     saveDb(db);
     return ok(decision);
@@ -3736,6 +3755,27 @@ const localEndpoints = {
     cycle.lockedByUserId = currentUser(db)?.id || "system";
     audit(db, "lock", "kpi_cycle", cycle.id, before, cycle);
     notify(db, "تم إغلاق دورة KPI", cycle.name || cycle.id, "SUCCESS");
+    saveDb(db);
+    return ok({ cycle, windowInfo: kpiWindowInfo(db, cycle) });
+  },
+  setKpiCycleStatus: async (body = {}) => {
+    const db = loadDb();
+    if (!isFullAccessUser(db) && !hasLocalScope(db, "kpi:final-approve") && !hasLocalScope(db, "kpi:manage")) throw new Error("فتح أو إغلاق دورة KPI يحتاج السكرتير التنفيذي أو HR.");
+    const cycle = currentKpiCycle(db);
+    const before = clone(cycle);
+    const status = String(body.status || body.action || "OPEN").toUpperCase();
+    cycle.status = ["LOCKED", "CLOSED"].includes(status) ? "LOCKED" : "OPEN";
+    cycle.updatedAt = now();
+    if (cycle.status === "LOCKED") {
+      cycle.lockedAt = now();
+      cycle.lockedByUserId = currentUser(db)?.id || "system";
+    } else {
+      cycle.openedAt = now();
+      cycle.openedByUserId = currentUser(db)?.id || "system";
+      cycle.lockedAt = "";
+    }
+    audit(db, "status", "kpi_cycle", cycle.id, before, cycle);
+    notify(db, cycle.status === "OPEN" ? "تم فتح نموذج KPI" : "تم إغلاق نموذج KPI", cycle.name || cycle.id, "SUCCESS");
     saveDb(db);
     return ok({ cycle, windowInfo: kpiWindowInfo(db, cycle) });
   },

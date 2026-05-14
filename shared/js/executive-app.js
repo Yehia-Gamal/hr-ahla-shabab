@@ -9,6 +9,9 @@ const EMPLOYEE_PORTAL = "../employee/index.html#home";
 const ADMIN_PORTAL = "../operations-gate/?next=../admin/";
 const DEFAULT_LIVE_LOCATION_REASON = "متابعة تنفيذية مباشرة";
 const EXECUTIVE_REQUESTER_NAME = "الشيخ محمد يوسف";
+const EXECUTIVE_DECISION_ISSUER = "الشيخ محمد المدير التنفيذي لجمعية خواطر أحلى شباب";
+const HR_DECISION_ISSUER = "بلال الشاكر مدير إدارة الموارد البشرية HR";
+const SECRETARY_DECISION_ISSUER = "السكرتير التنفيذي";
 
 const state = {
   route: location.hash.replace("#", "") || "home",
@@ -112,7 +115,10 @@ function isExecutivePortalUser(user = state.user) {
   return permissions.has("*")
     || permissions.has("executive:mobile")
     || permissions.has("live-location:request")
+    || permissions.has("attendance:risk")
     || text.includes("executive")
+    || text.includes("hr")
+    || text.includes("موارد")
     || text.includes("تنفيذي")
     || text.includes("المدير التنفيذي")
     || text.includes("سكرتير");
@@ -124,6 +130,43 @@ function canOpenAdminPortal(user = state.user) {
   const keys = [role.id, role.key, role.slug, role.name].filter(Boolean).map((item) => String(item).toLowerCase());
   const adminRole = keys.some((key) => ["role-admin", "admin", "مدير النظام"].includes(key));
   return adminRole || permissions.has("*") || permissions.has("employees:view") || permissions.has("dashboard:view");
+}
+
+function roleText(user = state.user) {
+  const role = roleMeta(user);
+  return [role.id, role.key, role.slug, role.name, user?.roleId, user?.jobTitle, user?.employee?.jobTitle]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function isExecutiveSecretary(user = state.user) {
+  const text = roleText(user);
+  return text.includes("secretary") || text.includes("سكرتير") || text.includes("سكرتير تنفيذي") || text.includes("role-executive-secretary");
+}
+
+function isHrUser(user = state.user) {
+  const text = roleText(user);
+  return text.includes("hr") || text.includes("موارد") || text.includes("role-hr");
+}
+
+function isExecutiveDirector(user = state.user) {
+  const text = roleText(user);
+  return (text.includes("executive") || text.includes("تنفيذي") || text.includes("role-executive")) && !isExecutiveSecretary(user);
+}
+
+function canSeeOperationalRisk() {
+  return isExecutiveSecretary() || isHrUser();
+}
+
+function canManageKpiWindow() {
+  return isExecutiveSecretary() || isHrUser() || currentPermissions().has("*") || currentPermissions().has("kpi:manage");
+}
+
+function decisionIssuerLabel() {
+  if (isHrUser()) return HR_DECISION_ISSUER;
+  if (isExecutiveSecretary()) return SECRETARY_DECISION_ISSUER;
+  return EXECUTIVE_DECISION_ISSUER;
 }
 
 function normalizeGateIdentifier(value = "") {
@@ -417,6 +460,14 @@ async function loadExecutiveData(force = false) {
 function shell(content, title = "المتابعة التنفيذية", description = "") {
   const active = routeKey();
   const user = state.user || {};
+  const tabs = [
+    ["home", "الرئيسية"],
+    ["decisions", "قرارات"],
+    ["disputes", "لجنة الخلافات"],
+    ...(canSeeOperationalRisk() ? [["risk", "مخاطر البصمة"]] : []),
+    ...(canManageKpiWindow() ? [["kpi", "KPI"]] : []),
+    ["settings", "الإعدادات"],
+  ];
   app.innerHTML = `
     <div class="executive-shell">
       <header class="executive-topbar">
@@ -425,19 +476,10 @@ function shell(content, title = "المتابعة التنفيذية", descripti
           <div><strong>المتابعة التنفيذية</strong><span>Control View — أحلى شباب</span></div>
         </div>
         <nav class="executive-tabs" aria-label="قائمة المدير التنفيذي">
-          <button class="${active === "home" ? "is-active" : ""}" data-route="home">الرئيسية</button>
-          <button class="${active === "employees" ? "is-active" : ""}" data-route="employees">الموظفون</button>
-          <button class="${active === "presence" ? "is-active" : ""}" data-route="presence">خريطة الحضور</button>
-          <button class="${active === "risk" ? "is-active" : ""}" data-route="risk">مخاطر البصمة</button>
-          <button class="${active === "actions" ? "is-active" : ""}" data-route="actions">مطلوب قرار</button>
-          <button class="${active === "decisions" ? "is-active" : ""}" data-route="decisions">قرارات</button>
-          <button class="${active === "disputes" ? "is-active" : ""}" data-route="disputes">لجنة الخلافات</button>
+          ${tabs.map(([key, label]) => `<button class="${active === key ? "is-active" : ""}" data-route="${escapeHtml(key)}">${escapeHtml(label)}</button>`).join("")}
         </nav>
         <div class="executive-user">
           <span class="user-chip">${avatar(userAvatarSubject(), "tiny")}<span>${escapeHtml(user.name || user.fullName || "مستخدم")}</span></span>
-          <button class="button ghost" data-action="employee-portal">تطبيق الموظف</button>
-          ${canOpenAdminPortal() ? `<button class="button ghost" data-action="admin-portal">لوحة الأدمن</button>` : ""}
-          <button class="button danger" data-action="logout">خروج</button>
         </div>
       </header>
       <main class="executive-main">
@@ -452,17 +494,7 @@ function shell(content, title = "المتابعة التنفيذية", descripti
     </div>
   `;
   app.querySelectorAll("[data-route]").forEach((button) => button.addEventListener("click", () => setRoute(button.dataset.route)));
-  app.querySelector('[data-action="employee-portal"]')?.addEventListener("click", () => { window.location.href = EMPLOYEE_PORTAL; });
-  app.querySelector('[data-action="admin-portal"]')?.addEventListener("click", () => { window.location.href = ADMIN_PORTAL; });
-  app.querySelector('[data-action="logout"]')?.addEventListener("click", async () => {
-    const ok = await confirmAction({ title: "تسجيل الخروج", message: "هل تريد الخروج من المتابعة التنفيذية؟", confirmLabel: "خروج", danger: true });
-    if (!ok) return;
-    await endpoints.logout();
-    clearPersistentGateSession("executive");
-    state.user = null;
-    state.dataCache = null;
-    renderLogin();
-  });
+  bindSettingsActions();
 }
 
 function clearPersistentGateSession(target = "executive") {
@@ -537,17 +569,22 @@ function renderLogin() {
 
 async function renderHome() {
   const data = await loadExecutiveData();
+  const presence = await endpoints.executivePresenceDashboard().then(unwrap).catch(() => ({ rows: [], counts: {} }));
   const counts = summaryCounts(data);
   const employees = data.employees || [];
-  const needsAttention = employees.filter((employee) => ["ABSENT", "LATE"].includes(employeeStatus(employee)) || employee.today?.pendingLiveRequest).slice(0, 8);
-  const activeNow = employees.filter((employee) => ["PRESENT", "LATE"].includes(employeeStatus(employee))).slice(0, 8);
+  const presenceRows = presence.rows || [];
+  const located = presenceRows.filter((row) => row.lastLocation?.latitude && row.lastLocation?.longitude).slice(0, 16);
+  const missingLocation = presenceRows.filter((row) => !row.lastLocation?.latitude && ["PRESENT", "LATE", "CHECKED_OUT"].includes(row.status)).length;
+  const priorityEmployees = [...employees]
+    .sort((a, b) => employeePriorityScore(b) - employeePriorityScore(a))
+    .slice(0, 18);
   const readiness = counts.total ? Math.round(((counts.present + counts.checkedOut + counts.onLeave + counts.onMission) / counts.total) * 100) : 0;
   shell(`
     <section class="executive-hero panel">
       <div>
         <p class="panel-kicker">Executive Control View</p>
         <h2>نظرة واحدة تكفي لاتخاذ قرار اليوم</h2>
-        <p>تم فصل هذه الواجهة عن الأدمن: لا توجد إعدادات تقنية، لا تحديثات Database، ولا إدارة صلاحيات. فقط متابعة وقرارات.</p>
+        <p>كل ما يحتاجه المدير التنفيذي في الصفحة الرئيسية: الموظفون، خريطة الحضور، ومطلوب قرار.</p>
       </div>
       <div class="score-ring"><strong>${escapeHtml(readiness)}%</strong><span>جاهزية اليوم</span></div>
     </section>
@@ -559,37 +596,88 @@ async function renderHome() {
       ${metric("إجازات", counts.onLeave, "موافق عليها")}
       ${metric("مواقع معلقة", counts.pendingLiveLocations, "بانتظار الرد")}
     </section>
-    <section class="grid executive-focus-grid">
-      <article class="panel span-7">
-        <div class="panel-head"><div><h2>مطلوب متابعة الآن</h2><p>أشخاص يحتاجون قرار أو اتصال سريع.</p></div><button class="button ghost" data-route="actions">عرض الكل</button></div>
-        <div class="employee-card-grid compact-cards">
-          ${needsAttention.map((employee) => employeeCard(employee)).join("") || `<div class="empty">لا توجد عناصر عاجلة حاليًا.</div>`}
+
+    <section class="executive-home-layout">
+      <article class="panel executive-attendance-panel">
+        <div class="panel-head">
+          <div><h2>متابعة الحضور المباشرة</h2><p>الخريطة وحالة الحضور في نفس المكان بدون صفحة منفصلة.</p></div>
+          <button class="button ghost" data-refresh-home>تحديث</button>
+        </div>
+        <div class="attendance-map-summary">
+          <div class="live-map-board home-map">${located.map((row, index) => `<a class="map-pin risk-${escapeHtml(row.risk?.level || 'CLEAR')}" style="--x:${12 + (index * 19) % 74}%;--y:${16 + (index * 29) % 66}%" target="_blank" rel="noopener" href="${escapeHtml(row.mapUrl)}"><strong>${escapeHtml(row.employee?.fullName || row.employeeId)}</strong><span>${escapeHtml(statusLabel(row.status))}</span></a>`).join('') || '<div class="empty">لا توجد مواقع متاحة حتى الآن.</div>'}</div>
+          <div class="attendance-side">
+            ${metric("على الخريطة", located.length, "مواقع مرسلة")}
+            ${metric("حاضر / متأخر", counts.present + counts.late, "داخل اليوم")}
+            ${metric("بلا GPS", missingLocation, "يحتاج تحديث موقع")}
+            ${metric("غائب", counts.absent, "تواصل إداري")}
+          </div>
         </div>
       </article>
-      <article class="panel span-5">
-        <div class="panel-head"><div><h2>حاضرون الآن</h2><p>أول عينة من الموظفين المسجلين اليوم.</p></div><button class="button ghost" data-route="employees">الموظفون</button></div>
-        ${table(["الموظف", "الحالة", "آخر حركة"], activeNow.map((employee) => `<tr><td class="person-cell">${avatar(employee, "tiny")}<span>${escapeHtml(employee.fullName || "-")}</span></td><td>${badge(employeeStatus(employee))}</td><td>${escapeHtml(date(employee.today?.checkInAt || employee.today?.checkOutAt || employee.today?.latestLocation?.date))}</td></tr>`))}
+
+      <article class="panel executive-people-panel">
+        <div class="panel-head">
+          <div><h2>متابعة الموظفين</h2><p>كارت واحد لكل موظف يجمع الحالة، التفاصيل، المطلوب إداريًا، وطلب الموقع المباشر.</p></div>
+        </div>
+        <div class="executive-employee-unified-list">
+          ${priorityEmployees.map((employee) => employeeCard(employee)).join("") || `<div class="empty">لا توجد بيانات موظفين.</div>`}
+        </div>
       </article>
     </section>
   `, "الرئيسية التنفيذية", "مختصر متابعة يومي مناسب للموبايل وللقرارات السريعة.");
+  app.querySelector("[data-refresh-home]")?.addEventListener("click", async () => { state.dataCache = null; await renderHome(); });
   bindEmployeeCardActions();
+}
+
+function employeePriorityScore(employee = {}) {
+  const status = employeeStatus(employee);
+  let score = 0;
+  if (employee.today?.pendingLiveRequest) score += 80;
+  if (status === "ABSENT") score += 60;
+  if (status === "LATE") score += 45;
+  if (status === "ON_MISSION" || status === "ON_LEAVE") score += 20;
+  if (status === "PRESENT") score += 10;
+  return score;
+}
+
+function employeeAdminNeeds(employee = {}) {
+  const status = employeeStatus(employee);
+  const needs = [];
+  if (employee.today?.pendingLiveRequest) needs.push("طلب موقع لم يتم الرد عليه");
+  if (status === "ABSENT") needs.push("متابعة سبب الغياب");
+  if (status === "LATE") needs.push("مراجعة التأخير");
+  if (status === "ON_MISSION" || status === "MISSION") needs.push("متابعة المأمورية");
+  if (status === "ON_LEAVE" || status === "LEAVE") needs.push("إجازة مسجلة");
+  if (!needs.length) needs.push("لا توجد متابعة إدارية عاجلة");
+  return needs;
 }
 
 function employeeCard(employee) {
   const risk = employeeRisk(employee);
   const status = employeeStatus(employee);
+  const today = employee.today || {};
+  const lastAt = today.checkInAt || today.checkOutAt || today.latestLocation?.capturedAt || today.latestLocation?.date || "";
+  const needs = employeeAdminNeeds(employee);
   return `
-    <article class="mini-card executive-employee-card risk-${escapeHtml(risk.level)}">
-      <button class="avatar-button" data-view-employee="${escapeHtml(employee.id)}">${avatar(employee, "large")}</button>
-      <div class="employee-card-main">
-        <strong>${escapeHtml(employee.fullName || "-")}</strong>
-        <small>${escapeHtml(employee.jobTitle || "")}${employee.manager?.fullName ? ` — ${escapeHtml(employee.manager.fullName)}` : ""}</small>
-        <span class="risk-line">${escapeHtml(risk.label)}: ${escapeHtml(risk.text)}</span>
+    <article class="executive-employee-card unified-employee-card risk-${escapeHtml(risk.level)}">
+      <div class="employee-card-head">
+        <button class="avatar-button" data-view-employee="${escapeHtml(employee.id)}">${avatar(employee, "large")}</button>
+        <div class="employee-card-main">
+          <strong>${escapeHtml(employee.fullName || "-")}</strong>
+          <small>${escapeHtml(employee.jobTitle || "بدون مسمى")}${employee.manager?.fullName ? ` — المدير: ${escapeHtml(employee.manager.fullName)}` : ""}</small>
+          <div class="employee-status-row">${badge(status)}<span class="risk-line">${escapeHtml(risk.label)}: ${escapeHtml(risk.text)}</span></div>
+        </div>
+      </div>
+      <div class="employee-card-facts">
+        <span><strong>الحالة</strong>${escapeHtml(statusLabel(status))}</span>
+        <span><strong>آخر حركة</strong>${escapeHtml(date(lastAt))}</span>
+        <span><strong>المتابعة</strong>${escapeHtml(needs[0])}</span>
+      </div>
+      <div class="employee-needs-list">
+        ${needs.map((need) => `<span>${escapeHtml(need)}</span>`).join("")}
       </div>
       <div class="mini-card-actions">
-        ${badge(status)}
         <button class="button ghost" data-view-employee="${escapeHtml(employee.id)}">تفاصيل</button>
-        <button class="button primary" data-request-live="${escapeHtml(employee.id)}">طلب الموقع</button>
+        <button class="button primary live-location-cta" data-request-live="${escapeHtml(employee.id)}">إرسال طلب الموقع المباشر</button>
       </div>
     </article>
   `;
@@ -682,22 +770,73 @@ async function renderRiskCenter() {
 
 async function renderAdminDecisions() {
   const data = await endpoints.adminDecisions().then(unwrap);
+  const executiveData = await loadExecutiveData().catch(() => ({ employees: [] }));
   const rows = data.decisions || [];
+  const employees = executiveData.employees || [];
   shell(`
     <section class="grid executive-focus-grid admin-decisions-page">
-      <article class="panel span-12 accent-panel"><div class="panel-head"><div><h2>سجل القرارات الإدارية</h2><p>قرارات رسمية تحتاج تم الاطلاع وتوقيت قراءة من كل موظف.</p></div><button class="button primary" data-new-decision>قرار جديد</button></div></article>
-      <article class="panel span-12">${table(['القرار','الأولوية','النشر','الاطلاع','النص'], rows.map((row) => `<tr><td><strong>${escapeHtml(row.title)}</strong></td><td>${badge(row.priority)}</td><td>${date(row.publishedAt || row.createdAt)}</td><td>${escapeHtml((row.acknowledgements || []).length || (row.acknowledged ? 1 : 0))}</td><td>${escapeHtml(row.body || '')}</td></tr>`))}</article>
+      <article class="panel span-12 accent-panel">
+        <div class="panel-head"><div><h2>إصدار قرار إداري</h2><p>حدد جهة الاستلام: المديرين فقط، جميع الموظفين، أو موظف معين. سيظهر مصدر القرار للموظف بوضوح.</p></div></div>
+        <form class="executive-decision-form" id="decision-form">
+          <label>عنوان القرار<input name="title" required placeholder="مثال: تنظيم مواعيد الحضور" /></label>
+          <label>جهة الاستلام
+            <select name="scope">
+              <option value="MANAGERS">موجه إلى المديرين فقط</option>
+              <option value="ALL">موجه إلى جميع الموظفين</option>
+              <option value="SELECTED">موجه إلى موظف معين</option>
+            </select>
+          </label>
+          <label data-decision-employee>الموظف المحدد
+            <select name="targetEmployeeIds">
+              <option value="">اختر الموظف</option>
+              ${employees.map((employee) => `<option value="${escapeHtml(employee.id)}">${escapeHtml(employee.fullName || employee.id)}</option>`).join("")}
+            </select>
+          </label>
+          <label>الأولوية
+            <select name="priority">
+              <option value="HIGH">عالية</option>
+              <option value="MEDIUM">متوسطة</option>
+              <option value="LOW">منخفضة</option>
+            </select>
+          </label>
+          <label class="span-2">نص القرار<textarea name="body" rows="4" required placeholder="اكتب نص القرار الإداري كما سيظهر للمستلم"></textarea></label>
+          <div class="message compact span-2">سيصدر القرار باسم: <strong>${escapeHtml(decisionIssuerLabel())}</strong></div>
+          <div class="form-actions span-2"><button class="button primary" type="submit">نشر القرار</button></div>
+        </form>
+      </article>
+      <article class="panel span-12">${table(['القرار','المصدر','الموجه إلى','الأولوية','النشر','الاطلاع','النص'], rows.map((row) => `<tr><td><strong>${escapeHtml(row.title)}</strong></td><td>${escapeHtml(row.issuerPrefix || row.issuedByName || '-')}</td><td>${escapeHtml(scopeLabel(row.scope))}</td><td>${badge(row.priority)}</td><td>${date(row.publishedAt || row.createdAt)}</td><td>${escapeHtml((row.acknowledgements || []).length || (row.acknowledged ? 1 : 0))}</td><td>${escapeHtml(row.body || '')}</td></tr>`))}</article>
     </section>
   `, "القرارات الإدارية", "إصدار ومتابعة القرارات الرسمية.");
-  app.querySelector('[data-new-decision]')?.addEventListener('click', async () => {
-    const title = await askText({ title: 'قرار إداري جديد', message: 'اكتب عنوان القرار.', defaultValue: 'قرار إداري', confirmLabel: 'التالي' });
-    if (title === null) return;
-    const body = await askText({ title: 'نص القرار', message: 'اكتب نص القرار الذي سيصل للموظفين.', defaultValue: '', confirmLabel: 'نشر' });
-    if (body === null) return;
-    await endpoints.createAdminDecision({ title, body, priority: 'HIGH', scope: 'ALL' });
+  const form = app.querySelector("#decision-form");
+  const selectedEmployee = app.querySelector("[data-decision-employee]");
+  const scopeInput = form?.querySelector('[name="scope"]');
+  const syncScope = () => { if (selectedEmployee) selectedEmployee.style.display = scopeInput?.value === "SELECTED" ? "grid" : "none"; };
+  scopeInput?.addEventListener("change", syncScope);
+  syncScope();
+  form?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const values = readForm(event.currentTarget);
+    const targetEmployeeIds = values.scope === "SELECTED" && values.targetEmployeeIds ? [values.targetEmployeeIds] : [];
+    await endpoints.createAdminDecision({
+      ...values,
+      targetEmployeeIds,
+      issuedByName: decisionIssuerLabel(),
+      issuedByTitle: "",
+      issuerPrefix: `قرار إداري من ${decisionIssuerLabel()}`,
+    });
     setMessage('تم نشر القرار وإرسال إشعار للموظفين.', '');
     renderAdminDecisions();
   });
+}
+
+function scopeLabel(scope = "") {
+  return {
+    ALL: "جميع الموظفين",
+    EMPLOYEES: "جميع الموظفين",
+    MANAGERS: "المديرون فقط",
+    SELECTED: "موظف معين",
+    TEAM: "فريق محدد",
+  }[scope] || scope || "جميع الموظفين";
 }
 
 async function renderExecutiveDisputes() {
@@ -705,13 +844,33 @@ async function renderExecutiveDisputes() {
   const cases = Array.isArray(payload) ? payload : (payload.cases || []);
   const committee = payload.committee || {};
   const openCases = cases.filter((item) => !["CLOSED", "RESOLVED"].includes(String(item.status || "")));
+  const executiveOnly = isExecutiveDirector();
+  const canOperateCommittee = isExecutiveSecretary() || isHrUser() || currentPermissions().has("*") || currentPermissions().has("disputes:manage");
+  const canExecutiveAct = (item) => Boolean(item.escalatedToExecutive || item.executiveEscalationReason || String(item.status || "").toUpperCase() === "ESCALATED");
+  const disputeActions = (item) => {
+    if (executiveOnly && !canExecutiveAct(item)) return `<span class="status">بانتظار رفع السكرتير التنفيذي</span>`;
+    if (executiveOnly) return `
+      <button class="button small primary" data-exec-dispute-action="DECISION" data-id="${escapeHtml(item.id)}">تسجيل قرار</button>
+      <button class="button small danger" data-exec-dispute-action="CLOSED" data-id="${escapeHtml(item.id)}">غلق المشكلة</button>
+      <button class="button small ghost" data-exec-dispute-action="POSTPONED" data-id="${escapeHtml(item.id)}">تأجيل</button>
+      <button class="button small ghost" data-exec-dispute-action="CLARIFICATION" data-id="${escapeHtml(item.id)}">مطلوب توضيح</button>
+      <button class="button small ghost" data-exec-dispute-action="SCHEDULE" data-id="${escapeHtml(item.id)}">تنسيق موعد</button>
+    `;
+    return `
+      <button class="button small ghost" data-dispute-minute="${escapeHtml(item.id)}">رفع تقرير اللجنة</button>
+      <button class="button small ghost" data-dispute-postpone="${escapeHtml(item.id)}">تأجيل الجلسة</button>
+      <button class="button small ghost" data-dispute-close-session="${escapeHtml(item.id)}">إنهاء الجلسة</button>
+      <button class="button small primary" data-dispute-escalate="${escapeHtml(item.id)}">رفع للمدير التنفيذي</button>
+      ${canOperateCommittee ? `<button class="button small danger" data-dispute-resolve="${escapeHtml(item.id)}">تم الحل</button>` : ""}
+    `;
+  };
   shell(`
     <section class="grid executive-focus-grid">
       <article class="panel span-12 accent-panel">
         <div class="panel-head">
           <div>
             <h2>لجنة حل المشاكل والخلافات</h2>
-            <p>متابعة تنفيذية مباشرة لكل الشكاوى والخلافات الداخلية، مع حفظ القرار والتصعيد عند الحاجة.</p>
+            <p>${executiveOnly ? "لا تظهر إجراءات المدير التنفيذي إلا بعد رفع الحالة من السكرتير التنفيذي." : "رفع تقارير اللجنة، تأجيل الجلسات، إنهاؤها، أو رفعها للمدير التنفيذي."}</p>
           </div>
           <span class="role-chip">${escapeHtml(openCases.length)} حالة مفتوحة</span>
         </div>
@@ -725,11 +884,7 @@ async function renderExecutiveDisputes() {
             <td>${badge(item.status || "IN_REVIEW")}</td>
             <td>${badge(item.priority || "MEDIUM")}</td>
             <td>${escapeHtml(date(item.createdAt))}</td>
-            <td>
-              <button class="button small ghost" data-dispute-minute="${escapeHtml(item.id)}">محضر لجنة</button>
-              <button class="button small ghost" data-dispute-decision="${escapeHtml(item.id)}">تسجيل قرار</button>
-              <button class="button small primary" data-dispute-escalate="${escapeHtml(item.id)}">تصعيد</button>
-            </td>
+            <td><div class="compact-actions">${disputeActions(item)}</div></td>
           </tr>
         `))}
       </article>
@@ -749,11 +904,11 @@ async function renderExecutiveDisputes() {
       renderExecutiveDisputes();
     }
   }));
-  app.querySelectorAll("[data-dispute-decision]").forEach((button) => button.addEventListener("click", async () => {
-    const decision = await askText({ title: "تسجيل قرار اللجنة", message: "اكتب قرار اللجنة أو الإجراء المتخذ.", defaultValue: "تمت المراجعة وجاري التنفيذ.", confirmLabel: "حفظ القرار" });
+  app.querySelectorAll("[data-dispute-resolve]").forEach((button) => button.addEventListener("click", async () => {
+    const decision = await askText({ title: "إنهاء المشكلة", message: "اكتب قرار اللجنة أو الإجراء المتخذ.", defaultValue: "تم الحل واعتماد الإجراء.", confirmLabel: "حفظ القرار" });
     if (decision === null) return;
     try {
-      await endpoints.updateDispute(button.dataset.disputeDecision, { status: "RESOLVED", committeeDecision: decision, resolution: decision });
+      await endpoints.updateDispute(button.dataset.disputeResolve, { status: "RESOLVED", committeeDecision: decision, resolution: decision });
       setMessage("تم حفظ قرار لجنة حل المشاكل والخلافات.", "");
       renderExecutiveDisputes();
     } catch (error) {
@@ -761,8 +916,22 @@ async function renderExecutiveDisputes() {
       renderExecutiveDisputes();
     }
   }));
+  app.querySelectorAll("[data-dispute-postpone]").forEach((button) => button.addEventListener("click", async () => {
+    const note = await askText({ title: "تأجيل الجلسة", message: "اكتب سبب التأجيل والموعد المقترح.", defaultValue: "تم تأجيل الجلسة لحين استكمال المستندات.", confirmLabel: "حفظ التأجيل" });
+    if (note === null) return;
+    await endpoints.updateDispute(button.dataset.disputePostpone, { status: "COMMITTEE_REVIEW", sessionStatus: "POSTPONED", committeeDecision: note });
+    setMessage("تم تأجيل الجلسة.", "");
+    renderExecutiveDisputes();
+  }));
+  app.querySelectorAll("[data-dispute-close-session]").forEach((button) => button.addEventListener("click", async () => {
+    const note = await askText({ title: "إنهاء الجلسة", message: "اكتب ملخص إنهاء الجلسة.", defaultValue: "تم إنهاء الجلسة ورفع التوصيات.", confirmLabel: "حفظ" });
+    if (note === null) return;
+    await endpoints.updateDispute(button.dataset.disputeCloseSession, { status: "COMMITTEE_REVIEW", sessionStatus: "ENDED", committeeDecision: note });
+    setMessage("تم إنهاء الجلسة وحفظ الملخص.", "");
+    renderExecutiveDisputes();
+  }));
   app.querySelectorAll("[data-dispute-escalate]").forEach((button) => button.addEventListener("click", async () => {
-    const reason = await askText({ title: "تصعيد للمدير التنفيذي", message: "اكتب سبب التصعيد أو القرار المطلوب.", defaultValue: "تحتاج الحالة إلى قرار تنفيذي.", confirmLabel: "تصعيد الآن" });
+    const reason = await askText({ title: "رفع للمدير التنفيذي", message: "اكتب سبب الرفع أو القرار المطلوب.", defaultValue: "تحتاج الحالة إلى قرار تنفيذي.", confirmLabel: "رفع الآن" });
     if (reason === null) return;
     try {
       await endpoints.updateDispute(button.dataset.disputeEscalate, { status: "ESCALATED", escalatedToExecutive: true, executiveEscalationReason: reason });
@@ -772,6 +941,21 @@ async function renderExecutiveDisputes() {
       setMessage("", error.message || "تعذر التصعيد.");
       renderExecutiveDisputes();
     }
+  }));
+  app.querySelectorAll("[data-exec-dispute-action]").forEach((button) => button.addEventListener("click", async () => {
+    const action = button.dataset.execDisputeAction;
+    const labels = {
+      DECISION: ["تسجيل قرار تنفيذي", "اكتب القرار التنفيذي المطلوب.", "EXECUTIVE_DECIDED"],
+      CLOSED: ["غلق المشكلة", "اكتب سبب الغلق والقرار النهائي.", "CLOSED"],
+      POSTPONED: ["تأجيل", "اكتب سبب التأجيل والموعد المقترح.", "POSTPONED"],
+      CLARIFICATION: ["مطلوب توضيح", "اكتب التوضيح المطلوب ومن الجهة المطلوب منها.", "CLARIFICATION_REQUIRED"],
+      SCHEDULE: ["تنسيق موعد", "اكتب موعد أو تعليمات التنسيق مع الموظف.", "SCHEDULE_REQUIRED"],
+    }[action] || ["تحديث", "اكتب القرار.", "ESCALATED"];
+    const note = await askText({ title: labels[0], message: labels[1], defaultValue: "", confirmLabel: "حفظ" });
+    if (note === null) return;
+    await endpoints.updateDispute(button.dataset.id, { status: labels[2], executiveDecision: note, resolution: action === "CLOSED" ? note : "" });
+    setMessage("تم حفظ قرار المدير التنفيذي.", "");
+    renderExecutiveDisputes();
   }));
 }
 
@@ -844,12 +1028,131 @@ function bindEmployeeCardActions() {
   }));
 }
 
+async function renderKpiControls() {
+  if (!canManageKpiWindow()) {
+    shell(`<section class="panel"><h2>غير متاح</h2><p>فتح وإغلاق نموذج KPI مخصص للسكرتير التنفيذي وHR.</p></section>`, "KPI", "صلاحيات غير كافية.");
+    return;
+  }
+  const payload = await endpoints.kpi().then(unwrap).catch(() => ({ cycle: {}, windowInfo: {}, metrics: [] }));
+  const cycle = payload.cycle || {};
+  const windowInfo = payload.windowInfo || cycle.window || {};
+  shell(`
+    <section class="grid executive-focus-grid">
+      <article class="panel span-12 accent-panel">
+        <div class="panel-head">
+          <div><h2>فتح وإغلاق نموذج KPI</h2><p>صلاحية تشغيلية للسكرتير التنفيذي وHR لإدارة فترة تقييم الموظفين.</p></div>
+          ${badge(cycle.status || windowInfo.status || "OPEN")}
+        </div>
+        <div class="metric-grid">
+          ${metric("الدورة", cycle.name || cycle.id || "-", "الدورة الحالية")}
+          ${metric("حالة النافذة", windowInfo.label || cycle.status || "-", windowInfo.message || "")}
+          ${metric("آخر تحديث", date(cycle.updatedAt || cycle.lockedAt || cycle.openedAt), "توقيت النظام")}
+        </div>
+        <div class="toolbar executive-kpi-actions">
+          <button class="button primary" data-kpi-open>فتح نموذج التقييم</button>
+          <button class="button danger" data-kpi-close>إغلاق نموذج التقييم</button>
+          <button class="button ghost" data-kpi-remind>إرسال تذكير</button>
+        </div>
+      </article>
+      <article class="panel span-12">
+        <h3>ملخص التقدم</h3>
+        <div class="metric-grid">${(payload.progressMetrics || payload.metrics || []).map((item) => metric(item.label, item.value, item.helper)).join("") || metric("التقييمات", (payload.evaluations || []).length || 0, "كل السجلات")}</div>
+      </article>
+    </section>
+  `, "إدارة KPI", "فتح وإغلاق نموذج تقييم الموظفين.");
+  app.querySelector("[data-kpi-open]")?.addEventListener("click", async () => {
+    await endpoints.setKpiCycleStatus?.({ status: "OPEN" });
+    setMessage("تم فتح نموذج KPI للموظفين.", "");
+    renderKpiControls();
+  });
+  app.querySelector("[data-kpi-close]")?.addEventListener("click", async () => {
+    const ok = await confirmAction({ title: "إغلاق نموذج KPI", message: "سيتم قفل الدورة الحالية أمام التعديلات الجديدة.", confirmLabel: "إغلاق", danger: true });
+    if (!ok) return;
+    await (endpoints.setKpiCycleStatus ? endpoints.setKpiCycleStatus({ status: "LOCKED" }) : endpoints.closeKpiCycle());
+    setMessage("تم إغلاق نموذج KPI.", "");
+    renderKpiControls();
+  });
+  app.querySelector("[data-kpi-remind]")?.addEventListener("click", async () => {
+    await endpoints.sendKpiReminders?.();
+    setMessage("تم إرسال تذكيرات KPI حسب المرحلة الحالية.", "");
+    renderKpiControls();
+  });
+}
+
+async function renderSettings() {
+  const user = state.user || {};
+  const subject = userAvatarSubject(user);
+  shell(`
+    <section class="grid executive-focus-grid settings-page executive-settings-page">
+      <article class="panel span-12 accent-panel">
+        <div class="panel-head"><div><h2>إعدادات الحساب</h2><p>الصورة، البريد الإلكتروني، كلمة المرور، وتسجيل الخروج في مكان واحد.</p></div>${avatar(subject, "large")}</div>
+      </article>
+      <article class="panel span-6">
+        <h3>بيانات الحساب</h3>
+        <form id="profile-form" class="settings-form">
+          <label>رابط الصورة الشخصية<input name="avatarUrl" value="${escapeHtml(subject.avatarUrl || subject.photoUrl || "")}" placeholder="https://..." /></label>
+          <label>البريد الإلكتروني<input name="email" type="email" value="${escapeHtml(user.email || subject.email || "")}" autocomplete="email" /></label>
+          <label>رقم الهاتف<input name="phone" value="${escapeHtml(user.phone || subject.phone || "")}" autocomplete="tel" /></label>
+          <div class="form-actions"><button class="button primary" type="submit">حفظ البيانات</button></div>
+        </form>
+      </article>
+      <article class="panel span-6">
+        <h3>تغيير كلمة المرور</h3>
+        <form id="password-form" class="settings-form">
+          <label>كلمة المرور الحالية<input name="currentPassword" type="password" autocomplete="current-password" required /></label>
+          <label>كلمة المرور الجديدة<input name="newPassword" type="password" autocomplete="new-password" minlength="8" required /></label>
+          <label>تأكيد كلمة المرور<input name="confirmPassword" type="password" autocomplete="new-password" minlength="8" required /></label>
+          <div class="form-actions"><button class="button primary" type="submit">تغيير كلمة المرور</button></div>
+        </form>
+      </article>
+      <article class="panel span-12 logout-panel">
+        <div><h3>تسجيل الخروج</h3><p>ينهي جلسة المدير التنفيذي ويغلق فتح البوابة الحالية.</p></div>
+        <button class="button danger" data-action="logout">تسجيل الخروج</button>
+      </article>
+    </section>
+  `, "الإعدادات", "إدارة الحساب وتسجيل الخروج.");
+}
+
+function bindSettingsActions() {
+  app.querySelector("#profile-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      const values = readForm(event.currentTarget);
+      state.user = unwrap(await endpoints.updateMyContact(values));
+      setMessage("تم حفظ بيانات الحساب.", "");
+      renderSettings();
+    } catch (error) {
+      setMessage("", error.message || "تعذر حفظ بيانات الحساب.");
+      renderSettings();
+    }
+  });
+  app.querySelector("#password-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      await endpoints.changePassword(readForm(event.currentTarget));
+      setMessage("تم تغيير كلمة المرور.", "");
+      renderSettings();
+    } catch (error) {
+      setMessage("", error.message || "تعذر تغيير كلمة المرور.");
+      renderSettings();
+    }
+  });
+  app.querySelector('[data-action="logout"]')?.addEventListener("click", async () => {
+    const ok = await confirmAction({ title: "تسجيل الخروج", message: "هل تريد الخروج من المتابعة التنفيذية؟", confirmLabel: "خروج", danger: true });
+    if (!ok) return;
+    await endpoints.logout();
+    clearPersistentGateSession("executive");
+    state.user = null;
+    state.dataCache = null;
+    renderLogin();
+  });
+}
+
 async function renderNoPermission() {
   shell(`
     <section class="panel">
       <h2>هذا الحساب ليس حسابًا تنفيذيًا</h2>
       <p>هذه الواجهة مخصصة للمدير التنفيذي أو من يملك صلاحية المتابعة التنفيذية وطلب الموقع المباشر.</p>
-      <div class="toolbar"><button class="button ghost" data-action="employee-portal">فتح تطبيق الموظف</button>${canOpenAdminPortal() ? `<button class="button primary" data-action="admin-portal">فتح لوحة الأدمن</button>` : ""}</div>
     </section>
   `, "صلاحيات غير كافية", "تم منع فتح المتابعة التنفيذية لهذا الحساب.");
 }
@@ -866,10 +1169,12 @@ async function render() {
     if (key === "home") await renderHome();
     else if (key === "employees") await renderEmployees();
     else if (key === "presence") await renderPresenceMap();
-    else if (key === "risk") await renderRiskCenter();
+    else if (key === "risk" && canSeeOperationalRisk()) await renderRiskCenter();
     else if (key === "actions") await renderActions();
     else if (key === "decisions") await renderAdminDecisions();
     else if (key === "disputes") await renderExecutiveDisputes();
+    else if (key === "kpi" && canManageKpiWindow()) await renderKpiControls();
+    else if (key === "settings") await renderSettings();
     else if (key === "employee") {
       const id = routeParams().get("id") || "";
       if (!id) return setRoute("employees");
