@@ -3270,8 +3270,9 @@ const localEndpoints = {
     const mission = findById(db.missions, missionId);
     if (!mission) throw new Error("المأمورية غير موجودة.");
     const before = clone(mission);
-    mission.status = action === "complete" ? "COMPLETED" : action === "reject" ? "REJECTED" : "APPROVED";
+    mission.status = action === "complete" ? "COMPLETED" : action === "reject" ? "REJECTED" : action === "manager_approve" ? "PENDING_HR_REVIEW" : "APPROVED";
     mission.approvalStatus = mission.status.toLowerCase();
+    mission.workflowStatus = action === "manager_approve" ? "pending_hr_review" : (mission.workflowStatus || action);
     requestWorkflow(mission, action, currentUser(db)?.name || "النظام");
     audit(db, "workflow", "mission", missionId, before, mission);
     saveDb(db);
@@ -3303,7 +3304,8 @@ const localEndpoints = {
     const leave = findById(db.leaves, leaveId);
     if (!leave) throw new Error("طلب الإجازة غير موجود.");
     const before = clone(leave);
-    leave.status = action === "reject" ? "REJECTED" : "APPROVED";
+    leave.status = action === "reject" ? "REJECTED" : action === "manager_approve" ? "PENDING_HR_REVIEW" : "APPROVED";
+    leave.workflowStatus = action === "manager_approve" ? "pending_hr_review" : (leave.workflowStatus || action);
     requestWorkflow(leave, leave.status.toLowerCase(), currentUser(db)?.name || "النظام");
     audit(db, "workflow", "leave", leaveId, before, leave);
     saveDb(db);

@@ -2626,7 +2626,9 @@ async function renderTeam() {
 function renderManagerReviewList(items = [], kind = "leave") {
   return `<div class="employee-list">${items.map((item) => {
     const actualKind = kind === "escalated" ? item._kind : kind;
-    return `<div class="employee-list-item sap-request-item ${kind === "escalated" ? "is-escalated" : ""}"><div><strong>${escapeHtml(item.title || item.leaveType || item.destinationName || "طلب")}</strong><span>${escapeHtml(item.startDate || item.plannedStart || item.createdAt || "-")}</span><small>${escapeHtml(item.reason || item.notes || item.destinationName || "")}</small>${kind === "escalated" ? sapRequestFlow(item, actualKind) : ""}</div><div class="list-item-side"><button class="button primary small" data-request-kind="${escapeHtml(actualKind)}" data-manager-review="${kind}:${escapeHtml(item.id)}:approve">اعتماد</button><button class="button danger small" data-request-kind="${escapeHtml(actualKind)}" data-manager-review="${kind}:${escapeHtml(item.id)}:reject">رفض</button></div></div>`;
+    const title = item.title || item.leaveType?.name || item.leaveType || item.destinationName || "طلب";
+    const employeeName = item.employee?.fullName || item.employeeName || "";
+    return `<div class="employee-list-item sap-request-item ${kind === "escalated" ? "is-escalated" : ""}"><div><strong>${escapeHtml(title)}</strong>${employeeName ? `<span>${escapeHtml(employeeName)}</span>` : ""}<span>${escapeHtml(item.startDate || item.plannedStart || item.createdAt || "-")}</span><small>${escapeHtml(item.reason || item.notes || item.destinationName || "")}</small>${kind === "escalated" ? sapRequestFlow(item, actualKind) : ""}</div><div class="list-item-side">${badge(item.finalStatus || item.workflowStatus || item.status)}<button class="button primary small" data-request-kind="${escapeHtml(actualKind)}" data-manager-review="${kind}:${escapeHtml(item.id)}:approve">اعتماد</button><button class="button danger small" data-request-kind="${escapeHtml(actualKind)}" data-manager-review="${kind}:${escapeHtml(item.id)}:reject">رفض</button></div></div>`;
   }).join("")}</div>`;
 }
 
