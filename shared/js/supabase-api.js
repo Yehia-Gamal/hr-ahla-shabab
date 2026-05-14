@@ -139,6 +139,29 @@ function compact(value) {
   return Object.fromEntries(Object.entries(value || {}).filter(([, v]) => v !== undefined));
 }
 
+function normalizedRequestStatus(value = "") {
+  return String(value || "").trim().toUpperCase();
+}
+
+function isPendingRequestStatus(value = "") {
+  return [
+    "PENDING",
+    "PENDING_MANAGER_REVIEW",
+    "MANAGER_REVIEW",
+    "SUBMITTED",
+    "IN_REVIEW",
+    "PENDING_HR_REVIEW",
+  ].includes(normalizedRequestStatus(value));
+}
+
+function isApprovedRequestStatus(value = "") {
+  return ["APPROVED", "COMPLETED", "PENDING_HR_REVIEW", "HR_REVIEWED"].includes(normalizedRequestStatus(value));
+}
+
+function isRejectedRequestStatus(value = "") {
+  return ["REJECTED", "REJECTED_CONFIRMED", "CANCELLED"].includes(normalizedRequestStatus(value));
+}
+
 async function ignoreSupabaseError(operation) {
   try { await operation; } catch {}
 }
@@ -2357,8 +2380,8 @@ export const supabaseEndpoints = {
     ].sort((a, b) => new Date(b.createdSort || b.createdAt || 0) - new Date(a.createdSort || a.createdAt || 0));
     if (filters.status) rows = rows.filter((item) => item.status === filters.status);
     if (filters.kind) rows = rows.filter((item) => item.kind === filters.kind);
-    const pending = rows.filter((item) => item.status === "PENDING");
-    const summary = { total: rows.length, pending: pending.length, approved: rows.filter((item) => ["APPROVED", "COMPLETED"].includes(item.status)).length, rejected: rows.filter((item) => item.status === "REJECTED").length, stale: pending.filter((item) => (Date.now() - new Date(item.createdSort || item.createdAt || Date.now()).getTime()) > 48 * 60 * 60 * 1000).length };
+    const pending = rows.filter((item) => isPendingRequestStatus(item.status));
+    const summary = { total: rows.length, pending: pending.length, approved: rows.filter((item) => isApprovedRequestStatus(item.status)).length, rejected: rows.filter((item) => isRejectedRequestStatus(item.status)).length, stale: pending.filter((item) => (Date.now() - new Date(item.createdSort || item.createdAt || Date.now()).getTime()) > 48 * 60 * 60 * 1000).length };
     return { rows, summary };
   },
   bulkRequestAction: async (body = {}) => {
@@ -2822,7 +2845,7 @@ export const supabaseEndpoints = {
     const employeeId = user?.employeeId || user?.employee?.id || "";
     const payload = await supabaseEndpoints.requestCenter({});
     const rows = (payload.rows || []).filter((item) => item.employeeId === employeeId);
-    return { pending: rows.filter((item) => item.status === "PENDING").length, approved: rows.filter((item) => ["APPROVED", "COMPLETED"].includes(item.status)).length, rejected: rows.filter((item) => item.status === "REJECTED").length, latest: rows.slice(0, 6) };
+    return { pending: rows.filter((item) => isPendingRequestStatus(item.status)).length, approved: rows.filter((item) => isApprovedRequestStatus(item.status)).length, rejected: rows.filter((item) => isRejectedRequestStatus(item.status)).length, latest: rows.slice(0, 6) };
   },
   acknowledgeNotification: async (id) => {
     const client = await sb();
@@ -3633,8 +3656,8 @@ Object.assign(supabaseEndpoints, {
     ]);
     const team = (employees || []).filter((e) => e.managerId === employeeId || e.managerEmployeeId === employeeId || e.directManagerId === employeeId || e.manager_id === employeeId || e.manager_employee_id === employeeId);
     const ids = new Set(team.map((e) => e.id));
-    const pendingLeaves = (leaves || []).filter((r) => ids.has(r.employeeId || r.employee_id) && ['PENDING','MANAGER_REVIEW','SUBMITTED'].includes(String(r.status || '').toUpperCase()));
-    const pendingMissions = (missions || []).filter((r) => ids.has(r.employeeId || r.employee_id) && ['PENDING','MANAGER_REVIEW','SUBMITTED'].includes(String(r.status || '').toUpperCase()));
+    const pendingLeaves = (leaves || []).filter((r) => ids.has(r.employeeId || r.employee_id) && isPendingRequestStatus(r.status));
+    const pendingMissions = (missions || []).filter((r) => ids.has(r.employeeId || r.employee_id) && isPendingRequestStatus(r.status));
     const kpiPending = (kpiRows || []).filter((r) => ids.has(r.employeeId || r.employee_id) && ['SELF_SUBMITTED','EMPLOYEE_SUBMITTED'].includes(String(r.status || '').toUpperCase())).map((r) => ({ ...r, employee: (employees || []).find((e) => e.id === (r.employeeId || r.employee_id)) || null }));
     const unread = (notifications || []).filter((n) => !n.isRead && !n.is_read).slice(0, 20);
     return { manager: user?.employee || null, team, pendingLeaves, pendingMissions, kpiPending, notifications: unread, totals: { team: team.length, pendingLeaves: pendingLeaves.length, pendingMissions: pendingMissions.length, kpiPending: kpiPending.length }, generatedAt: now() };

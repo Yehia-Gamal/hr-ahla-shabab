@@ -22,6 +22,7 @@ const state = {
   loginPassword: "",
   lastLoginFailed: false,
   dataCache: null,
+  homeRefreshTimer: null,
 };
 
 const bundledEmployeePhotos = Object.freeze({});
@@ -258,6 +259,23 @@ function badge(value) {
 function mapUrl(latitude, longitude) {
   if (!latitude || !longitude) return "";
   return `https://www.google.com/maps?q=${encodeURIComponent(`${latitude},${longitude}`)}`;
+}
+
+function normalizePhoneForLink(value = "") {
+  const digits = englishDigits(value).replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("0020")) return digits.slice(2);
+  if (digits.startsWith("20")) return digits;
+  if (digits.startsWith("0")) return `20${digits.slice(1)}`;
+  if (digits.length === 10 && digits.startsWith("1")) return `20${digits}`;
+  return digits;
+}
+
+function whatsappUrl(phone, name = "") {
+  const digits = normalizePhoneForLink(phone);
+  if (!digits) return "";
+  const text = `السلام عليكم ${name || ""}`.trim();
+  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
 }
 
 function formatMeters(value) {
@@ -568,16 +586,40 @@ function renderLogin() {
 }
 
 async function renderHome() {
-  const data = await loadExecutiveData();
-  const presence = await endpoints.executivePresenceDashboard().then(unwrap).catch(() => ({ rows: [], counts: {} }));
+  const params = routeParams();
+  const search = String(params.get("q") || "").trim().toLowerCase();
+  const statusFilter = String(params.get("status") || "").trim();
+  const group = String(params.get("group") || "all").trim();
+  const sortMode = String(params.get("sort") || "priority").trim();
+  const [data, presence, disputesPayload, kpiPayload] = await Promise.all([
+    loadExecutiveData(),
+    endpoints.executivePresenceDashboard().then(unwrap).catch(() => ({ rows: [], counts: {} })),
+    endpoints.disputes().then(unwrap).catch(() => ({ cases: [] })),
+    endpoints.kpi().then(unwrap).catch(() => ({ evaluations: [], pendingEmployees: [], progressMetrics: [] })),
+  ]);
   const counts = summaryCounts(data);
   const employees = data.employees || [];
   const presenceRows = presence.rows || [];
   const located = presenceRows.filter((row) => row.lastLocation?.latitude && row.lastLocation?.longitude).slice(0, 16);
   const missingLocation = presenceRows.filter((row) => !row.lastLocation?.latitude && ["PRESENT", "LATE", "CHECKED_OUT"].includes(row.status)).length;
-  const priorityEmployees = [...employees]
-    .sort((a, b) => employeePriorityScore(b) - employeePriorityScore(a))
-    .slice(0, 18);
+  const disputeCases = Array.isArray(disputesPayload) ? disputesPayload : (disputesPayload.cases || []);
+  const escalatedDisputes = disputeCases.filter((item) => item.escalatedToExecutive || String(item.status || "").toUpperCase() === "ESCALATED");
+  const openDisputes = disputeCases.filter((item) => !["CLOSED", "RESOLVED", "REJECTED", "CANCELLED"].includes(String(item.status || "").toUpperCase()));
+  const kpiWaitingExecutive = (kpiPayload.evaluations || []).filter((item) => ["SECRETARY_REVIEWED", "HR_REVIEWED"].includes(String(item.status || "").toUpperCase()));
+  const decisionCount = employees.filter((employee) => employee.today?.pendingLiveRequest || ["ABSENT", "LATE"].includes(employeeStatus(employee))).length + escalatedDisputes.length + kpiWaitingExecutive.length;
+  const groupCounts = {
+    all: employees.length,
+    attention: employees.filter((employee) => employeeGroup(employee) === "attention").length,
+    present: employees.filter((employee) => employeeGroup(employee) === "present").length,
+    away: employees.filter((employee) => employeeGroup(employee) === "away").length,
+  };
+  const filteredEmployees = employees.filter((employee) => {
+    const text = [employee.fullName, employee.phone, employee.email, employee.jobTitle, employee.manager?.fullName].join(" ").toLowerCase();
+    return (!search || text.includes(search))
+      && (!statusFilter || employeeStatus(employee) === statusFilter)
+      && (group === "all" || employeeGroup(employee) === group);
+  });
+  const priorityEmployees = sortEmployeesForExecutive(filteredEmployees, sortMode);
   const readiness = counts.total ? Math.round(((counts.present + counts.checkedOut + counts.onLeave + counts.onMission) / counts.total) * 100) : 0;
   shell(`
     <section class="executive-hero panel">
@@ -595,6 +637,13 @@ async function renderHome() {
       ${metric("غائب", counts.absent, "أولوية تواصل")}
       ${metric("إجازات", counts.onLeave, "موافق عليها")}
       ${metric("مواقع معلقة", counts.pendingLiveLocations, "بانتظار الرد")}
+    </section>
+
+    <section class="executive-decision-strip">
+      ${metric("مطلوب قرار", decisionCount, "غياب/تأخير/KPI/خلافات")}
+      ${metric("طلبات موقع معلقة", counts.pendingLiveLocations, "بانتظار رد الموظف")}
+      ${metric("خلافات مرفوعة", escalatedDisputes.length, `${openDisputes.length} مفتوحة`)}
+      ${metric("KPI ينتظر اعتماد", kpiWaitingExecutive.length, "مراجعة نهائية")}
     </section>
 
     <section class="executive-home-layout">
@@ -617,6 +666,38 @@ async function renderHome() {
       <article class="panel executive-people-panel">
         <div class="panel-head">
           <div><h2>متابعة الموظفين</h2><p>كارت واحد لكل موظف يجمع الحالة، التفاصيل، المطلوب إداريًا، وطلب الموقع المباشر.</p></div>
+          <span class="role-chip">${escapeHtml(priorityEmployees.length)} / ${escapeHtml(employees.length)}</span>
+        </div>
+        <form class="executive-people-controls" id="home-people-filter">
+          <input name="q" placeholder="بحث بالاسم أو الهاتف أو المسمى" value="${escapeHtml(search)}" />
+          <select name="status">
+            <option value="">كل الحالات</option>
+            ${[["PRESENT", "حاضر"], ["LATE", "متأخر"], ["ABSENT", "غائب"], ["ON_LEAVE", "إجازة"], ["ON_MISSION", "مأمورية"], ["CHECKED_OUT", "انصرف"]].map(([value, label]) => `<option value="${escapeHtml(value)}" ${statusFilter === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+          </select>
+          <select name="sort">
+            ${[
+              ["priority", "الأولوية"],
+              ["recent", "الأحدث حركة"],
+              ["manager", "حسب المدير"],
+              ["name", "الاسم"],
+            ].map(([value, label]) => `<option value="${escapeHtml(value)}" ${sortMode === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+          </select>
+          <button class="button ghost" type="submit">تطبيق</button>
+        </form>
+        <div class="executive-segment-tabs" aria-label="فلترة الموظفين">
+          ${[
+            ["all", "الكل", groupCounts.all],
+            ["attention", "يحتاج متابعة", groupCounts.attention],
+            ["present", "حاضرون", groupCounts.present],
+            ["away", "إجازات/مأموريات", groupCounts.away],
+          ].map(([key, label, count]) => `<button class="${group === key ? "is-active" : ""}" data-home-group="${escapeHtml(key)}">${escapeHtml(label)} <span>${escapeHtml(count)}</span></button>`).join("")}
+        </div>
+        <div class="executive-bulk-toolbar">
+          <button class="button ghost" type="button" data-bulk-live="selected">طلب موقع للمحدد</button>
+          <button class="button ghost" type="button" data-bulk-live="attention">طلب موقع لمن يحتاج متابعة</button>
+          <button class="button ghost" type="button" data-bulk-live="filtered">طلب موقع للمعروض</button>
+          <button class="button primary" type="button" data-export-today-report>تصدير تقرير اليوم PDF</button>
+          <span class="executive-updated-at">آخر تحديث: ${escapeHtml(date(new Date().toISOString()))}</span>
         </div>
         <div class="executive-employee-unified-list">
           ${priorityEmployees.map((employee) => employeeCard(employee)).join("") || `<div class="empty">لا توجد بيانات موظفين.</div>`}
@@ -625,7 +706,60 @@ async function renderHome() {
     </section>
   `, "الرئيسية التنفيذية", "مختصر متابعة يومي مناسب للموبايل وللقرارات السريعة.");
   app.querySelector("[data-refresh-home]")?.addEventListener("click", async () => { state.dataCache = null; await renderHome(); });
+  app.querySelector("#home-people-filter")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const values = readForm(event.currentTarget);
+    setRoute("home", { ...Object.fromEntries(params), ...values, group });
+  });
+  app.querySelectorAll("[data-home-group]").forEach((button) => button.addEventListener("click", () => {
+    setRoute("home", { q: search, status: statusFilter, sort: sortMode, group: button.dataset.homeGroup || "all" });
+  }));
+  app.querySelector("[data-export-today-report]")?.addEventListener("click", () => {
+    printExecutiveTodayReport({ counts, employees, decisionCount, missingLocation });
+  });
+  app.querySelectorAll("[data-bulk-live]").forEach((button) => button.addEventListener("click", async () => {
+    const mode = button.dataset.bulkLive;
+    const selectedIds = new Set(Array.from(app.querySelectorAll("[data-select-employee]:checked")).map((input) => input.value));
+    const targets = mode === "selected"
+      ? priorityEmployees.filter((employee) => selectedIds.has(String(employee.id)))
+      : mode === "attention"
+        ? priorityEmployees.filter(employeeNeedsExecutiveLocation)
+        : priorityEmployees;
+    if (!targets.length) {
+      setMessage("", "لا يوجد موظفون مطابقون لهذا الإجراء.");
+      renderHome();
+      return;
+    }
+    const ok = await confirmAction({
+      title: "إرسال طلب موقع جماعي",
+      message: `سيتم إرسال طلب الموقع المباشر إلى ${targets.length} موظف/موظفين.`,
+      confirmLabel: "إرسال",
+    });
+    if (!ok) return;
+    button.disabled = true;
+    button.textContent = "جاري الإرسال...";
+    const results = await Promise.allSettled(targets.map((employee) => endpoints.requestLiveLocation(employee.id, { reason: DEFAULT_LIVE_LOCATION_REASON, requestedByName: EXECUTIVE_REQUESTER_NAME })));
+    const sent = results.filter((item) => item.status === "fulfilled").length;
+    state.dataCache = null;
+    setMessage(`تم إرسال طلب الموقع إلى ${sent} من ${targets.length} موظف.`, sent === targets.length ? "" : "تعذر إرسال بعض الطلبات.");
+    renderHome();
+  }));
+  clearTimeout(state.homeRefreshTimer);
+  state.homeRefreshTimer = setTimeout(() => {
+    if (routeKey() === "home") {
+      state.dataCache = null;
+      renderHome();
+    }
+  }, 60000);
   bindEmployeeCardActions();
+}
+
+function employeeGroup(employee = {}) {
+  const status = employeeStatus(employee);
+  if (employee.today?.pendingLiveRequest || ["ABSENT", "LATE"].includes(status)) return "attention";
+  if (["PRESENT", "CHECKED_OUT"].includes(status)) return "present";
+  if (["ON_LEAVE", "LEAVE", "ON_MISSION", "MISSION"].includes(status)) return "away";
+  return "all";
 }
 
 function employeePriorityScore(employee = {}) {
@@ -637,6 +771,69 @@ function employeePriorityScore(employee = {}) {
   if (status === "ON_MISSION" || status === "ON_LEAVE") score += 20;
   if (status === "PRESENT") score += 10;
   return score;
+}
+
+function employeeLastActivityTime(employee = {}) {
+  const today = employee.today || {};
+  const value = today.checkOutAt || today.checkInAt || today.latestLocation?.capturedAt || today.latestLocation?.date || employee.updatedAt || employee.createdAt || "";
+  const time = value ? new Date(value).getTime() : 0;
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function sortEmployeesForExecutive(employees = [], sortMode = "priority") {
+  const rows = [...employees];
+  if (sortMode === "recent") return rows.sort((a, b) => employeeLastActivityTime(b) - employeeLastActivityTime(a));
+  if (sortMode === "manager") {
+    return rows.sort((a, b) => String(a.manager?.fullName || "").localeCompare(String(b.manager?.fullName || ""), "ar") || String(a.fullName || "").localeCompare(String(b.fullName || ""), "ar"));
+  }
+  if (sortMode === "name") return rows.sort((a, b) => String(a.fullName || "").localeCompare(String(b.fullName || ""), "ar"));
+  return rows.sort((a, b) => employeePriorityScore(b) - employeePriorityScore(a) || String(a.fullName || "").localeCompare(String(b.fullName || ""), "ar"));
+}
+
+function employeeNeedsExecutiveLocation(employee = {}) {
+  const status = employeeStatus(employee);
+  const loc = employee.today?.latestLocation || {};
+  return Boolean(employee.today?.pendingLiveRequest || !loc.latitude || !loc.longitude || ["ABSENT", "LATE"].includes(status));
+}
+
+function printExecutiveTodayReport({ counts = {}, employees = [], decisionCount = 0, missingLocation = 0 } = {}) {
+  const attention = employees.filter(employeeNeedsExecutiveLocation);
+  const generatedAt = date(new Date().toISOString());
+  const rows = employees.map((employee) => {
+    const status = employeeStatus(employee);
+    const needs = employeeAdminNeeds(employee).join("، ");
+    return `<tr><td>${escapeHtml(employee.fullName || "-")}</td><td>${escapeHtml(statusLabel(status))}</td><td>${escapeHtml(employee.jobTitle || "-")}</td><td>${escapeHtml(employee.manager?.fullName || "-")}</td><td>${escapeHtml(needs)}</td></tr>`;
+  }).join("");
+  const report = window.open("", "_blank", "noopener,noreferrer");
+  if (!report) {
+    setMessage("", "تعذر فتح نافذة التقرير. اسمح بالنوافذ المنبثقة ثم حاول مرة أخرى.");
+    return;
+  }
+  report.document.write(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>تقرير المدير التنفيذي اليوم</title><style>
+    body{font-family:Arial,Tahoma,sans-serif;margin:24px;color:#0f172a}
+    h1{margin:0 0 6px;font-size:24px} p{margin:0 0 18px;color:#475569}
+    .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0}
+    .metric{border:1px solid #dbe4ef;border-radius:10px;padding:10px}
+    .metric strong{display:block;font-size:22px;color:#0369a1}
+    table{width:100%;border-collapse:collapse;margin-top:16px;font-size:12px}
+    th,td{border:1px solid #dbe4ef;padding:8px;text-align:right;vertical-align:top}
+    th{background:#f1f5f9}
+    @media print{button{display:none}body{margin:10mm}}
+  </style></head><body>
+    <button onclick="window.print()">طباعة / حفظ PDF</button>
+    <h1>تقرير المدير التنفيذي اليوم</h1>
+    <p>تم الإنشاء: ${escapeHtml(generatedAt)}</p>
+    <section class="metrics">
+      <div class="metric"><span>إجمالي الموظفين</span><strong>${escapeHtml(counts.total || employees.length)}</strong></div>
+      <div class="metric"><span>حاضر الآن</span><strong>${escapeHtml(counts.present || 0)}</strong></div>
+      <div class="metric"><span>مطلوب قرار</span><strong>${escapeHtml(decisionCount)}</strong></div>
+      <div class="metric"><span>بلا GPS</span><strong>${escapeHtml(missingLocation)}</strong></div>
+    </section>
+    <p>الحالات التي تحتاج متابعة أو موقع مباشر: ${escapeHtml(attention.length)}</p>
+    <table><thead><tr><th>الموظف</th><th>الحالة</th><th>المسمى</th><th>المدير</th><th>المتابعة المطلوبة</th></tr></thead><tbody>${rows || `<tr><td colspan="5">لا توجد بيانات</td></tr>`}</tbody></table>
+  </body></html>`);
+  report.document.close();
+  report.focus();
 }
 
 function employeeAdminNeeds(employee = {}) {
@@ -656,9 +853,12 @@ function employeeCard(employee) {
   const status = employeeStatus(employee);
   const today = employee.today || {};
   const lastAt = today.checkInAt || today.checkOutAt || today.latestLocation?.capturedAt || today.latestLocation?.date || "";
+  const loc = today.latestLocation || {};
+  const locationLabel = loc.addressLabel || loc.locationLabel || loc.placeLabel || (loc.latitude && loc.longitude ? "موقع محفوظ" : "لا يوجد موقع");
   const needs = employeeAdminNeeds(employee);
+  const whatsapp = employee.phone ? whatsappUrl(employee.phone, employee.fullName) : "";
   return `
-    <article class="executive-employee-card unified-employee-card risk-${escapeHtml(risk.level)}">
+    <article class="executive-employee-card unified-employee-card risk-${escapeHtml(risk.level)} status-${escapeHtml(status)}">
       <div class="employee-card-head">
         <button class="avatar-button" data-view-employee="${escapeHtml(employee.id)}">${avatar(employee, "large")}</button>
         <div class="employee-card-main">
@@ -670,13 +870,16 @@ function employeeCard(employee) {
       <div class="employee-card-facts">
         <span><strong>الحالة</strong>${escapeHtml(statusLabel(status))}</span>
         <span><strong>آخر حركة</strong>${escapeHtml(date(lastAt))}</span>
-        <span><strong>المتابعة</strong>${escapeHtml(needs[0])}</span>
+        <span><strong>آخر موقع</strong>${escapeHtml(locationLabel)}</span>
       </div>
       <div class="employee-needs-list">
         ${needs.map((need) => `<span>${escapeHtml(need)}</span>`).join("")}
       </div>
       <div class="mini-card-actions">
+        ${employee.phone ? `<a class="button ghost icon-action call-button" aria-label="اتصال" title="اتصال" href="tel:${escapeHtml(employee.phone)}"><span aria-hidden="true">☎</span></a>` : ""}
+        ${whatsapp ? `<a class="button ghost icon-action whatsapp-button" aria-label="واتساب" title="واتساب" target="_blank" rel="noopener" href="${escapeHtml(whatsapp)}"><span aria-hidden="true">W</span></a>` : ""}
         <button class="button ghost" data-view-employee="${escapeHtml(employee.id)}">تفاصيل</button>
+        <label class="employee-select"><input type="checkbox" data-select-employee value="${escapeHtml(employee.id)}" /> تحديد للإجراء الجماعي</label>
         <button class="button primary live-location-cta" data-request-live="${escapeHtml(employee.id)}">إرسال طلب الموقع المباشر</button>
       </div>
     </article>
@@ -965,6 +1168,9 @@ async function renderEmployeeDetail(employeeId) {
   const employee = detail.employee || {};
   const today = detail.today || {};
   const loc = today.latestLocation || {};
+  const status = today.status || employeeStatus({ ...employee, today });
+  const risk = employeeRisk({ ...employee, today });
+  const whatsapp = employee.phone ? whatsappUrl(employee.phone, employee.fullName) : "";
   const latestLiveRequest = [...(detail.liveRequests || [])].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0] || null;
   const pendingLiveRequest = (detail.liveRequests || []).find((row) => String(row.status || "").toUpperCase() === "PENDING");
   const latestResponse = latestLiveRequest ? liveResponseForRequest(detail, latestLiveRequest) : null;
@@ -979,22 +1185,31 @@ async function renderEmployeeDetail(employeeId) {
         ? `<div class="message warning">آخر طلب موقع تم رفضه من الموظف${latestLiveRequest.responseNote ? `: ${escapeHtml(latestLiveRequest.responseNote)}` : ""}.</div>`
         : `<div class="message warning">لا يوجد موقع GPS محفوظ أو رد مباشر من الموظف حتى الآن.</div>`;
   shell(`
-    <section class="grid executive-detail-grid">
-      <article class="panel span-12 employee-detail-hero">
+    <section class="grid executive-detail-grid executive-employee-detail-page">
+      <article class="panel span-12 employee-detail-hero executive-detail-hero-card">
         <div class="panel-head">
           <div class="person-cell large">${avatar(employee, "large")}<span><strong>${escapeHtml(employee.fullName || "-")}</strong><small>${escapeHtml(employee.jobTitle || "")}${employee.manager?.fullName ? ` — ${escapeHtml(employee.manager.fullName)}` : ""}</small></span></div>
-          <div class="toolbar"><button class="button ghost" data-route="employees">رجوع للقائمة</button><button class="button primary" data-request-live="${escapeHtml(employee.id || employeeId)}">طلب الموقع المباشر</button></div>
+          <div class="toolbar detail-icon-toolbar">
+            ${employee.phone ? `<a class="button ghost icon-action call-button" aria-label="اتصال" title="اتصال" href="tel:${escapeHtml(employee.phone)}"><span aria-hidden="true">☎</span></a>` : ""}
+            ${whatsapp ? `<a class="button ghost icon-action whatsapp-button" aria-label="واتساب" title="واتساب" target="_blank" rel="noopener" href="${escapeHtml(whatsapp)}"><span aria-hidden="true">W</span></a>` : ""}
+            <button class="button ghost" data-route="home">رجوع</button>
+            <button class="button primary" data-request-live="${escapeHtml(employee.id || employeeId)}">طلب الموقع المباشر</button>
+          </div>
         </div>
-        <div class="metric-grid">
-          ${metric("حالة اليوم", statusLabel(today.status), dateOnly(today.day))}
+        <div class="executive-detail-status-row">
+          ${badge(status)}
+          <span>${escapeHtml(risk.label)}: ${escapeHtml(risk.text)}</span>
+        </div>
+        <div class="metric-grid executive-detail-metrics">
+          ${metric("حالة اليوم", statusLabel(status), dateOnly(today.day))}
           ${metric("الحضور", date(today.checkInAt), "أول بصمة")}
           ${metric("الانصراف", date(today.checkOutAt), "آخر بصمة")}
           ${metric("آخر موقع", loc.latitude && loc.longitude ? (latestPlace || "موقع محفوظ") : "لا يوجد", date(loc.capturedAt || loc.respondedAt || loc.date))}
         </div>
         ${locationMessage}
       </article>
-      <article class="panel span-6"><h3>آخر حركات الحضور</h3>${table(["النوع", "الوقت", "الحالة", "ملاحظات"], (detail.attendance || []).slice(0, 12).map((row) => `<tr><td>${escapeHtml(statusLabel(row.type || row.action))}</td><td>${escapeHtml(date(row.eventAt || row.createdAt))}</td><td>${badge(row.geofenceStatus || row.status || "")}</td><td>${escapeHtml(row.notes || row.source || "")}</td></tr>`))}</article>
-      <article class="panel span-6"><h3>الإجازات والمأموريات</h3>${table(["النوع", "الفترة", "الحالة"], [...(detail.leaves || []).map((row) => [row.leaveType?.name || row.leaveType || "إجازة", `${row.startDate || "-"} → ${row.endDate || "-"}`, row.status]), ...(detail.missions || []).map((row) => [row.destinationName || row.title || "مأمورية", `${row.plannedStart || "-"} → ${row.plannedEnd || "-"}`, row.status])].slice(0, 12).map((row) => `<tr><td>${escapeHtml(row[0])}</td><td>${escapeHtml(row[1])}</td><td>${badge(row[2])}</td></tr>`))}</article>
+      <article class="panel span-6 executive-detail-section"><div class="panel-head"><div><h3>آخر حركات الحضور</h3><p>أحدث البصمات والحالة الجغرافية.</p></div></div>${attendanceHistoryCards(detail.attendance || [])}</article>
+      <article class="panel span-6 executive-detail-section"><div class="panel-head"><div><h3>الإجازات والمأموريات</h3><p>طلبات الموظف وحالتها في مسار الاعتماد.</p></div></div>${employeeRequestCards(detail.leaves || [], detail.missions || [])}</article>
       <article class="panel span-12"><h3>طلبات الموقع المباشر</h3>${table(["الوقت", "الحالة", "السبب", "الرد"], (detail.liveRequests || []).map((row) => {
         const response = liveResponseForRequest(detail, row);
         const responseText = response?.latitude && response?.longitude
@@ -1026,6 +1241,50 @@ function bindEmployeeCardActions() {
       button.textContent = originalText;
     }
   }));
+}
+
+function employeeRequestCards(leaves = [], missions = []) {
+  const rows = [
+    ...leaves.map((row) => ({
+      kind: "إجازة",
+      title: row.leaveType?.name || row.leaveType || row.type || "إجازة",
+      period: `${row.startDate || "-"} إلى ${row.endDate || "-"}`,
+      status: row.finalStatus || row.workflowStatus || row.status || "PENDING",
+      note: row.reason || row.managerDecision || row.hrDecision || "",
+      at: row.createdAt || row.startDate || "",
+    })),
+    ...missions.map((row) => ({
+      kind: "مأمورية",
+      title: row.title || row.destinationName || row.destination || "مأمورية",
+      period: `${row.plannedStart || row.startDate || "-"} إلى ${row.plannedEnd || row.endDate || "-"}`,
+      status: row.finalStatus || row.workflowStatus || row.status || "PENDING",
+      note: row.notes || row.reason || row.destinationName || row.destination || "",
+      at: row.createdAt || row.plannedStart || "",
+    })),
+  ].sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0));
+  if (!rows.length) return `<div class="empty executive-empty-soft">لا توجد إجازات أو مأموريات مسجلة لهذا الموظف.</div>`;
+  return `<div class="executive-request-card-list">${rows.slice(0, 12).map((row) => `
+    <article class="executive-request-card">
+      <div>
+        <span class="request-kind">${escapeHtml(row.kind)}</span>
+        <strong>${escapeHtml(row.title)}</strong>
+        <small>${escapeHtml(row.period)}</small>
+        ${row.note ? `<p>${escapeHtml(row.note)}</p>` : ""}
+      </div>
+      ${badge(row.status)}
+    </article>
+  `).join("")}</div>`;
+}
+
+function attendanceHistoryCards(rows = []) {
+  if (!rows.length) return `<div class="empty executive-empty-soft">لا توجد حركات حضور محفوظة.</div>`;
+  return `<div class="executive-history-list">${rows.slice(0, 8).map((row) => `
+    <article class="executive-history-card">
+      <div><span>${escapeHtml(statusLabel(row.type || row.action))}</span><strong>${escapeHtml(date(row.eventAt || row.createdAt))}</strong></div>
+      ${badge(row.geofenceStatus || row.status || "")}
+      <small>${escapeHtml(row.notes || row.source || "-")}</small>
+    </article>
+  `).join("")}</div>`;
 }
 
 async function renderKpiControls() {

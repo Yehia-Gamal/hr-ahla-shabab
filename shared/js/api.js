@@ -564,6 +564,29 @@ function scopedRowsByEmployee(db, rows = []) {
   return rows.filter((row) => !row.employeeId || ids.has(row.employeeId));
 }
 
+function normalizedRequestStatus(value = "") {
+  return String(value || "").trim().toUpperCase();
+}
+
+function isPendingRequestStatus(value = "") {
+  return [
+    "PENDING",
+    "PENDING_MANAGER_REVIEW",
+    "MANAGER_REVIEW",
+    "SUBMITTED",
+    "IN_REVIEW",
+    "PENDING_HR_REVIEW",
+  ].includes(normalizedRequestStatus(value));
+}
+
+function isApprovedRequestStatus(value = "") {
+  return ["APPROVED", "COMPLETED", "PENDING_HR_REVIEW", "HR_REVIEWED"].includes(normalizedRequestStatus(value));
+}
+
+function isRejectedRequestStatus(value = "") {
+  return ["REJECTED", "REJECTED_CONFIRMED", "CANCELLED"].includes(normalizedRequestStatus(value));
+}
+
 function distanceMeters(a, b) {
   if (![a?.latitude, a?.longitude, b?.latitude, b?.longitude].every((value) => Number.isFinite(Number(value)))) return null;
   const toRad = (value) => (Number(value) * Math.PI) / 180;
@@ -1690,7 +1713,7 @@ function employeeArchiveLocal(db, employeeId) {
   const locations = [...(db.locations || []), ...(db.liveLocationResponses || [])].filter((item) => item.employeeId === employeeId).sort(byNew);
   const kpi = (db.kpiEvaluations || []).filter((item) => item.employeeId === employeeId).sort(byNew);
   const auditRows = (db.auditLogs || []).filter((log) => JSON.stringify(log).includes(employeeId)).slice(0, 100);
-  const summary = { attendanceEvents: events.length, absences: daily.filter((row) => ["ABSENT", "ABSENT_TEMP"].includes(row.status || row.smartStatus)).length, lateMinutes: daily.reduce((sum, row) => sum + Number(row.lateMinutes || 0), 0), openTasks: tasks.filter((task) => !["DONE", "CLOSED", "CANCELLED"].includes(task.status)).length, openRequests: [...leaves, ...missions, ...disputes].filter((item) => ["PENDING", "IN_REVIEW", "OPEN"].includes(item.status)).length };
+  const summary = { attendanceEvents: events.length, absences: daily.filter((row) => ["ABSENT", "ABSENT_TEMP"].includes(row.status || row.smartStatus)).length, lateMinutes: daily.reduce((sum, row) => sum + Number(row.lateMinutes || 0), 0), openTasks: tasks.filter((task) => !["DONE", "CLOSED", "CANCELLED"].includes(task.status)).length, openRequests: [...leaves, ...missions, ...disputes].filter((item) => isPendingRequestStatus(item.status) || ["OPEN"].includes(normalizedRequestStatus(item.status))).length };
   audit(db, "employee_archive.view", "employee", employeeId, null, { viewer: currentUser(db)?.id || "system" });
   return { employee: enrichEmployee(db, employee), summary, events, daily, leaves, missions, tasks, documents, disputes, locations, kpi, auditRows };
 }
@@ -1722,9 +1745,9 @@ function workflowItems(db) {
 
 function workflowSummary(db) {
   const rows = workflowItems(db);
-  const pending = rows.filter((item) => item.status === "PENDING");
-  const approved = rows.filter((item) => item.status === "APPROVED" || item.status === "COMPLETED");
-  const rejected = rows.filter((item) => item.status === "REJECTED" || item.status === "REJECTED_CONFIRMED");
+  const pending = rows.filter((item) => isPendingRequestStatus(item.status));
+  const approved = rows.filter((item) => isApprovedRequestStatus(item.status));
+  const rejected = rows.filter((item) => isRejectedRequestStatus(item.status));
   const stale = pending.filter((item) => (Date.now() - new Date(item.createdSort || item.createdAt || item.requestedAt || Date.now()).getTime()) > 48 * 60 * 60 * 1000);
   return {
     total: rows.length,
@@ -1761,9 +1784,9 @@ function systemReadiness(db) {
 function employeeRequestSummary(db, employeeId) {
   const mine = workflowItems(db).filter((item) => !employeeId || item.employeeId === employeeId);
   return {
-    pending: mine.filter((item) => item.status === "PENDING").length,
-    approved: mine.filter((item) => item.status === "APPROVED" || item.status === "COMPLETED").length,
-    rejected: mine.filter((item) => item.status === "REJECTED").length,
+    pending: mine.filter((item) => isPendingRequestStatus(item.status)).length,
+    approved: mine.filter((item) => isApprovedRequestStatus(item.status)).length,
+    rejected: mine.filter((item) => isRejectedRequestStatus(item.status)).length,
     latest: mine.slice(0, 6),
   };
 }
@@ -3338,7 +3361,7 @@ const localEndpoints = {
   requestCenter: async (filters = {}) => {
     const db = loadDb();
     let rows = workflowItems(db);
-    if (filters.status) rows = rows.filter((item) => item.status === filters.status);
+    if (filters.status) rows = rows.filter((item) => filters.status === "PENDING" ? isPendingRequestStatus(item.status) : item.status === filters.status);
     if (filters.kind) rows = rows.filter((item) => item.kind === filters.kind);
     return ok({ rows, summary: workflowSummary(db) });
   },
@@ -3351,7 +3374,7 @@ const localEndpoints = {
       const [kind, id] = String(token).split(":");
       const collection = kind === "leave" ? db.leaves : kind === "mission" ? db.missions : kind === "exception" ? db.exceptions : kind === "location" ? db.locationRequests : null;
       const item = collection ? findById(collection, id) : null;
-      if (!item || item.status !== "PENDING" || !canSeeEmployee(db, item.employeeId)) continue;
+      if (!item || !isPendingRequestStatus(item.status) || !canSeeEmployee(db, item.employeeId)) continue;
       const before = clone(item);
       item.status = action === "reject" ? "REJECTED" : "APPROVED";
       if (kind === "mission") item.approvalStatus = item.status.toLowerCase();
@@ -4252,9 +4275,9 @@ const localEndpoints = {
       .filter((employee) => !employee.isDeleted && (full || teamIds.has(employee.id) || employee.managerEmployeeId === user?.employeeId))
       .map((employee) => {
         const event = todayMap.get(employee.id);
-        const pendingItems = (db.leaves || []).filter((item) => item.employeeId === employee.id && item.status === "PENDING").length
-          + (db.missions || []).filter((item) => item.employeeId === employee.id && item.status === "PENDING").length
-          + (db.exceptions || []).filter((item) => item.employeeId === employee.id && item.status === "PENDING").length;
+        const pendingItems = (db.leaves || []).filter((item) => item.employeeId === employee.id && isPendingRequestStatus(item.status)).length
+          + (db.missions || []).filter((item) => item.employeeId === employee.id && isPendingRequestStatus(item.status)).length
+          + (db.exceptions || []).filter((item) => item.employeeId === employee.id && isPendingRequestStatus(item.status)).length;
         return { ...enrichEmployee(db, employee), todayStatus: event?.status || event?.type || "ABSENT", lastEventAt: event?.eventAt || "", pendingItems };
       });
     const present = team.filter((item) => ["PRESENT", "LATE", "CHECK_IN"].includes(item.todayStatus)).length;
@@ -4848,8 +4871,8 @@ Object.assign(localEndpoints, {
     const db = loadDb(); const user = currentUser(db); const employeeId = user?.employeeId || user?.employee?.id || '';
     const team = (db.employees || []).filter((e) => e.managerId === employeeId || e.managerEmployeeId === employeeId || e.directManagerId === employeeId);
     const ids = new Set(team.map((e) => e.id));
-    const pendingLeaves = (db.leaveRequests || db.leaves || []).filter((r) => ids.has(r.employeeId) && ['PENDING','MANAGER_REVIEW','SUBMITTED'].includes(String(r.status || '').toUpperCase()));
-    const pendingMissions = (db.missions || []).filter((r) => ids.has(r.employeeId) && ['PENDING','MANAGER_REVIEW','SUBMITTED'].includes(String(r.status || '').toUpperCase()));
+    const pendingLeaves = (db.leaveRequests || db.leaves || []).filter((r) => ids.has(r.employeeId) && isPendingRequestStatus(r.status));
+    const pendingMissions = (db.missions || []).filter((r) => ids.has(r.employeeId) && isPendingRequestStatus(r.status));
     const kpiPending = (db.kpiEvaluations || []).filter((r) => ids.has(r.employeeId) && ['SELF_SUBMITTED','EMPLOYEE_SUBMITTED'].includes(String(r.status || '').toUpperCase())).map((r) => ({ ...r, employee: enrichEmployee(db, findById(db.employees, r.employeeId)), manager: enrichEmployee(db, findById(db.employees, r.managerEmployeeId || employeeId)) }));
     const notifications = (db.notifications || []).filter((n) => !n.isRead).slice(0, 20);
     return ok({ manager: user?.employee || null, team, pendingLeaves, pendingMissions, kpiPending, notifications, totals: { team: team.length, pendingLeaves: pendingLeaves.length, pendingMissions: pendingMissions.length, kpiPending: kpiPending.length }, generatedAt: now() });
